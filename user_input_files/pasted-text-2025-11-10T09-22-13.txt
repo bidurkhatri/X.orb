@@ -1,0 +1,302 @@
+Do This Exactly (Convert MiniMax OS → SylOS)
+Global Rules
+
+Replace all user-facing and internal identifiers of the current OS to SylOS.
+
+Do not reference external domains or legacy project branding anywhere in UI or metadata.
+
+Keep all current working features, but rename/retheme to SylOS and add the modules defined below.
+
+Prioritise desktop + mobile PWA smoothness; ensure gasless UX for reward claims.
+
+Produce all outputs atomically: code, configuration, assets, tests, and build.
+
+1) Rebrand & Product Identity
+1.1 Names & Metadata
+
+App name: SylOS
+
+Short name: SylOS
+
+Description: “A blockchain-backed operating system with Proof of Productivity (PoP) and zero-gas user experience.”
+
+Replace strings: find MiniMax/mini max/minimax and replace with SylOS (except in migration docs).
+
+Update PWA manifest (name, short_name, theme_color, background_color, icons).
+
+Update HTML <title> and favicon.
+
+1.2 Visual Theme
+
+Provide light/dark themes; keep Windows-style elegance.
+
+New wallpaper set: assets/wallpapers/sylos-01.jpg, sylos-02.jpg.
+
+Accent color tokens: --sylos-accent-600, --sylos-accent-400 (blue-violet family).
+
+Replace taskbar/start menu logo with assets/brand/sylos-logo.svg.
+
+2) OS Shell & Apps (keep + add)
+Keep (renamed to SylOS style)
+
+Desktop, Taskbar, Start Menu, Window Manager
+
+File Manager, Notepad, Image Viewer, Paint, Calculator, Clock, Settings, Recycle Bin, Browser
+
+Add (new top-level apps/tiles)
+
+Wallet (EVM + Solana connect, read balances)
+
+PoP Dashboard (Proof of Productivity)
+
+dApp Launcher (curated links; Web3 injection toggle)
+
+Update Start menu categories:
+
+“Work”: Notepad, File Manager, Image Viewer, Paint
+
+“Web”: Browser, dApp Launcher
+
+“System”: Settings, Wallet, PoP Dashboard, Recycle Bin
+
+3) Wallet & Web3 Layer (gasless path)
+3.1 EVM (Polygon) Client
+
+Integrate EVM wallet connector (wagmi + built-in signer).
+
+Add Paymaster/meta-tx client (sponsored tx) for gasless calls.
+
+Display: address (short), network (Polygon), wSYLOS test balance.
+
+3.2 Solana Client (read-only in MVP)
+
+Lightweight Solana wallet connect to show SYLOS balance (read).
+
+3.3 Security
+
+Only sign user actions deliberately (no background signing).
+
+Add per-session spend cap for sponsored transactions (client-side guard).
+
+4) Proof of Productivity (PoP)
+4.1 Client Tracker
+
+Add PoP module that records focus sessions:
+
+Start/Stop focus
+
+Active entropy (keystroke/mouse heuristics)
+
+Idle timeout (60s → pause timer)
+
+Session JSON: {address, deviceId, sessionId, startedAt, durationSec, activeEntropy, appId[]}
+
+Locally sign each session with EVM signer; store in IndexedDB.
+
+UI (PoP Dashboard):
+
+Today: active minutes, sessions, entropy score
+
+Week estimate: projected wSYLOS
+
+Claim button (disabled until weekly root is published)
+
+Privacy toggle: show/hide detailed logs locally
+
+4.2 Aggregation & Snapshot (server task)
+
+Implement a small backend (/aggregator) that:
+
+Accepts signed session batches (rate-limited)
+
+Verifies signatures
+
+Computes per-address daily score
+
+Builds weekly Merkle tree: {address → amount}
+
+Uploads JSON snapshot to IPFS; return CID
+
+Outputs: periodId, merkleRoot, ipfsCid
+
+4.3 On-chain Publication & Claim
+
+Deploy contracts on Polygon testnet:
+
+PoPDistributor: setRoot(periodId, merkleRoot, ipfsCid)
+
+PoPClaim: claim(periodId, amount, proof) → transfer wSYLOS
+
+Gasless claim via Paymaster: user clicks “Claim”, you sponsor.
+
+In PoP Dashboard: show periodId, claimable amount, ipfsCid link.
+
+5) Token & Bridge (MVP posture)
+
+Deploy wSYLOS (ERC-20) on Polygon testnet (mintable by admin).
+
+For MVP, no live bridge; mint wSYLOS for distribution pool.
+
+Encapsulate bridge code behind feature.bridge=false flag for future enablement.
+
+6) File Integrity & IPFS
+
+Add “Save to IPFS” in File Manager and Notepad/Print modal:
+
+Compute SHA-256 hash of content.
+
+Upload to IPFS (configurable pinning provider).
+
+Store {path, cid, hash, timestamp} in virtual file metadata.
+
+File Properties dialog: show CID, Hash, and “Copy” buttons.
+
+7) Settings & Permissions
+
+Settings → Web3:
+
+Toggle “Enable gasless claims”
+
+View Paymaster sponsor status (OK/Paused)
+
+Settings → Privacy:
+
+Toggle PoP tracking (ON by default with consent)
+
+“Export my PoP logs” (local JSON)
+
+“Delete my PoP logs” (wipe IndexedDB)
+
+8) Mobile Readiness (PWA)
+
+Enable Service Worker: cache shell, icons, app JS, fonts, critical views.
+
+Touch gestures:
+
+Drag windows with one finger
+
+Two-finger to resize (or corner handles sized for touch)
+
+Swipe down to minimize
+
+Layout breakpoints for 360–480 px widths; ensure 44px touch targets.
+
+Reduce initial JS by lazy-loading non-core apps.
+
+9) Security & Abuse Controls
+
+PoP client: random human-presence ping (subtle), disable if not answered.
+
+Device fingerprint hash (non-PII) to deter multisession farms.
+
+Rate limits:
+
+Max session length per block (e.g., 60 min)
+
+Max sessions/day
+
+One claim per periodId
+
+Contracts:
+
+PoPDistributor.setRoot restricted to admin/DAO multisig
+
+Pausable pattern on PoPClaim
+
+Emit events for auditing
+
+10) Configuration & Flags
+
+Create sylos.config.ts with:
+
+export const sylos = {
+  brand: 'SylOS',
+  feature: {
+    pop: true,
+    gaslessClaims: true,
+    bridge: false
+  },
+  chains: {
+    polygon: { chainId: 80002 /* testnet */, rpcUrl: '...'},
+    solana: { cluster: 'devnet', rpcUrl: '...'}
+  },
+  tokens: {
+    wSYLOS: { address: '0x...', decimals: 18 }
+  },
+  contracts: {
+    distributor: '0x...',
+    claim: '0x...'
+  },
+  ipfs: {
+    endpoint: '.../api',
+    apiKey: 'env:IPFS_API_KEY'
+  },
+  paymaster: {
+    endpoint: '...',
+    apiKey: 'env:PAYMASTER_KEY',
+    dailySponsorLimitUSD: 50
+  }
+}
+
+
+All credentials pulled from env vars; no secrets in repo.
+
+11) CI/CD & Build
+
+Keep Vite build; ensure output is tree-shaken and code-split.
+
+Run accessibility and lighthouse checks; target TTI < 2s on broadband.
+
+Generate a PWA build with updated manifest & service worker.
+
+12) QA Checklist (agent must self-verify)
+
+All branding = SylOS; no stray legacy strings.
+
+Desktop: windows open/minimize/resize smoothly.
+
+Mobile: touch interactions work; no layout overflows.
+
+Wallet connects on Polygon testnet; address displayed.
+
+PoP tracker logs sessions; idle pause works.
+
+Aggregator produces weekly Merkle + IPFS snapshot.
+
+Distributor root set; Claim succeeds gaslessly; wSYLOS received.
+
+File Manager “Save to IPFS” produces CID and hash.
+
+Settings toggles persist; privacy export/delete works.
+
+Recycle Bin restore/delete still functional.
+
+13) Deliverables (must be produced)
+
+Updated codebase with SylOS branding and modules.
+
+sylos.config.ts + .env.example with required keys.
+
+Contracts (solidity) + deployment scripts + addresses JSON.
+
+Aggregator service (Node) with README (run, env, endpoints).
+
+Test data: sample IPFS CIDs and a demo Merkle snapshot.
+
+SylOS User Guide (MD): onboarding, PoP, claiming, privacy.
+
+SylOS Admin Guide (MD): how to set weekly root, rotate paymaster keys, adjust limits.
+
+14) Acceptance Criteria (hard gates)
+
+🟢 Gasless claim succeeds on Polygon testnet for at least one demo account.
+
+🟢 PoP Dashboard shows at least one verified session and a claimable amount after snapshot.
+
+🟢 “Save to IPFS” returns a CID and the File Properties panel displays the hash.
+
+🟢 Mobile PWA installs and launches; windows usable with touch.
+
+🟢 No visible remnants of the legacy brand in UI, metadata, or assets.
+
+When all items above are satisfied, the system IS SylOS. Execute now.

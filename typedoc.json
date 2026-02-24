@@ -1,0 +1,48 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": ["src", "app"],
+  "entryPointStrategy": "resolve",
+  "out": "docs",
+  "plugin": ["typedoc-plugin-markdown"],
+  "readme": "none",
+  "hideGenerator": true,
+  "hideBreadcrumbs": true,
+  "hidePageTitle": true,
+  "categorizeByGroup": true,
+  "categoryOrder": [
+    "Getting Started",
+    "Core",
+    "Components",
+    "Hooks",
+    "Utils",
+    "Types",
+    "Advanced",
+    "*"
+  ],
+  "defaultCategory": "Components",
+  "includeVersion": true,
+  "excludeExternals": true,
+  "excludePrivate": true,
+  "excludeProtected": true,
+  "excludeInternal": true,
+  "searchCategoryBoosts": {
+    "Getting Started": 10,
+    "Core": 8,
+    "Components": 6,
+    "Hooks": 4,
+    "Utils": 2
+  },
+  "tsconfig": "./tsconfig.json",
+  "name": "SylOS Code Quality Documentation",
+  "gitRemote": "https://github.com/sylos/sylos-code-quality",
+  "pretty": true,
+  "cleanOutputDir": true,
+  "exclude": [
+    "**/*.test.{ts,tsx,js,jsx}",
+    "**/*.spec.{ts,tsx,js,jsx}",
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/build/**",
+    "**/coverage/**"
+  ]
+}

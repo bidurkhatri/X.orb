@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JavaScript Event Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 40px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            margin: 0;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: rgba(255,255,255,0.1);
+            padding: 40px;
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+        }
+        .test-button {
+            background: #ff4757;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 10px;
+            cursor: pointer;
+            margin: 10px;
+            transition: all 0.3s;
+        }
+        .test-button:hover {
+            background: #ff3742;
+            transform: scale(1.05);
+        }
+        .test-result {
+            margin: 10px 0;
+            padding: 15px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 10px;
+            font-weight: bold;
+        }
+        .success { background: rgba(0,255,0,0.3); }
+        .failure { background: rgba(255,0,0,0.3); }
+        .info { background: rgba(0,0,255,0.3); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 JavaScript Event Handler Test</h1>
+        <p>This tests if basic JavaScript event handlers work in this environment.</p>
+        
+        <h2>Test 1: Simple Button Click</h2>
+        <button class="test-button" onclick="testSimpleClick()">Test Simple Click</button>
+        <div id="simple-result" class="test-result">Waiting for click...</div>
+        
+        <h2>Test 2: AddEventListener</h2>
+        <button class="test-button" id="listener-button">Test AddEventListener</button>
+        <div id="listener-result" class="test-result">Waiting for click...</div>
+        
+        <h2>Test 3: React-Style Handler</h2>
+        <button class="test-button" id="react-button">Test React Handler</button>
+        <div id="react-result" class="test-result">Waiting for click...</div>
+        
+        <h2>Test 4: Console Log Test</h2>
+        <button class="test-button" onclick="testConsoleLog()">Test Console Output</button>
+        <div id="console-result" class="test-result">Check browser console</div>
+        
+        <div id="results-summary"></div>
+    </div>
+
+    <script>
+        // Test results tracking
+        let testResults = {
+            simpleClick: false,
+            listenerClick: false,
+            reactHandler: false,
+            consoleLog: false
+        };
+
+        // Test 1: Simple onclick attribute
+        function testSimpleClick() {
+            testResults.simpleClick = true;
+            console.log('[TEST] Simple onclick fired!');
+            document.getElementById('simple-result').innerHTML = 
+                '<span class="success">✅ SUCCESS: Simple onclick works!</span>';
+            updateResults();
+        }
+
+        // Test 2: AddEventListener
+        document.getElementById('listener-button').addEventListener('click', function() {
+            testResults.listenerClick = true;
+            console.log('[TEST] AddEventListener fired!');
+            document.getElementById('listener-result').innerHTML = 
+                '<span class="success">✅ SUCCESS: AddEventListener works!</span>';
+            updateResults();
+        });
+
+        // Test 3: React-style arrow function
+        document.getElementById('react-button').addEventListener('click', () => {
+            testResults.reactHandler = true;
+            console.log('[TEST] React-style arrow function fired!');
+            document.getElementById('react-result').innerHTML = 
+                '<span class="success">✅ SUCCESS: React-style handler works!</span>';
+            updateResults();
+        });
+
+        // Test 4: Console log test
+        function testConsoleLog() {
+            testResults.consoleLog = true;
+            console.log('[TEST] Console.log test - if you see this, console works!');
+            console.warn('[TEST] Console.warn also working');
+            console.error('[TEST] Console.error test');
+            document.getElementById('console-result').innerHTML = 
+                '<span class="success">✅ SUCCESS: Console logging works! Check browser console.</span>';
+            updateResults();
+        }
+
+        // Update results summary
+        function updateResults() {
+            const passed = Object.values(testResults).filter(result => result).length;
+            const total = Object.keys(testResults).length;
+            
+            document.getElementById('results-summary').innerHTML = `
+                <h2>Results Summary</h2>
+                <div class="test-result ${passed === total ? 'success' : 'failure'}">
+                    <strong>Tests Passed: ${passed}/${total}</strong><br>
+                    Simple Click: ${testResults.simpleClick ? '✅' : '❌'}<br>
+                    AddEventListener: ${testResults.listenerClick ? '✅' : '❌'}<br>
+                    React Handler: ${testResults.reactHandler ? '✅' : '❌'}<br>
+                    Console Log: ${testResults.consoleLog ? '✅' : '❌'}
+                </div>
+            `;
+        }
+
+        // Initial page load test
+        console.log('[TEST] JavaScript loaded and executing!');
+        updateResults();
+    </script>
+</body>
+</html>

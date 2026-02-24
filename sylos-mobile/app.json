@@ -1,0 +1,75 @@
+{
+  "expo": {
+    "name": "SylOS Mobile",
+    "slug": "sylos-mobile",
+    "version": "1.0.0",
+    "scheme": "sylos",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#6366f1"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.sylos.mobile",
+      "buildNumber": "1",
+      "infoPlist": {
+        "NSFaceIDUsageDescription": "Use Face ID for secure authentication and biometric wallet access.",
+        "NSBiometricUsageDescription": "SylOS uses biometric authentication to secure your blockchain wallet and productivity data.",
+        "NSCameraUsageDescription": "SylOS uses camera access for QR code scanning to enable quick wallet connections and transactions.",
+        "NSLocationUsageDescription": "SylOS may use location data to enhance Proof of Productivity tracking with regional context.",
+        "NSLocalNetworkUsageDescription": "SylOS requires local network access to connect with blockchain networks and decentralized services."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#6366f1"
+      },
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": false,
+      "package": "com.sylos.mobile",
+      "versionCode": 1,
+      "permissions": [
+        "android.permission.USE_FINGERPRINT",
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.CAMERA",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_WIFI_STATE",
+        "android.permission.INTERNET"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-secure-store",
+      "expo-local-authentication",
+      "expo-camera",
+      "expo-document-picker",
+      "expo-sqlite",
+      "expo-linking",
+      "expo-constants",
+      "expo-device",
+      "expo-haptics",
+      "expo-file-system",
+      "expo-barcode-scanner",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "deploymentTarget": "15.1"
+          },
+          "android": {
+            "compileSdkVersion": 35,
+            "targetSdkVersion": 35
+          }
+        }
+      ]
+    ]
+  }
+}

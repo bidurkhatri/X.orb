@@ -1,0 +1,238 @@
+# SylOS MVP Plan (v1.0)
+
+## 🎯 Objective
+
+Build a **browser-based and mobile-compatible OS prototype** that demonstrates:
+
+1. The **Proof of Productivity (PoP)** reward cycle (activity → claim → token).
+2. Gasless UX via **Polygon + Paymaster**.
+3. Bridge-ready setup for Solana SYLOS (mocked in MVP).
+4. Core productivity apps with persistent storage.
+5. Smooth, responsive user experience replicating an OS desktop.
+
+---
+
+## 🧩 MVP Scope Overview
+
+| Layer                  | Goal                      | MVP Feature                       |
+| ---------------------- | ------------------------- | --------------------------------- |
+| **User Layer**         | Browser-based OS shell    | Desktop UI, 3 essential apps      |
+| **Productivity Layer** | Track user activity       | PoP tracker + daily focus timer   |
+| **Reward Layer**       | Claiming and mock rewards | Weekly reward via Polygon testnet |
+| **Blockchain Layer**   | Integrate Polygon         | Smart contract + meta-tx sponsor  |
+| **Storage Layer**      | Save user data            | LocalStorage + IPFS mock          |
+| **Bridge Layer**       | Prepare Solana link       | Mock token bridge only            |
+| **Security Layer**     | Anti-abuse & fingerprint  | Local-only verification           |
+| **Business Layer**     | Test economy              | Reward dashboard with stats       |
+
+---
+
+## 🪄 1. Core MVP Features
+
+### 1.1 OS Environment
+
+✅ Browser desktop shell:
+
+* Wallpaper, taskbar, start menu.
+* Three built-in apps:
+
+  * **Notepad** (editable + local save)
+  * **File Manager** (basic CRUD)
+  * **PoP Dashboard** (activity + reward logs)
+
+### 1.2 Proof of Productivity (PoP)
+
+✅ MVP Tracker:
+
+* Start/Stop focus timer
+* Active time measurement via mouse/keyboard entropy
+* Idle timeout at 60s inactivity
+* Local session log storage
+
+✅ Aggregation Flow:
+
+1. Generate daily summary (active minutes, sessions)
+2. Hash with SHA256 locally
+3. Upload hash to IPFS mock endpoint
+4. Weekly aggregation → mock Merkle tree
+5. Contract update → Polygon testnet distributor
+
+✅ Weekly Claim:
+
+* User submits claim via gasless transaction
+* Rewards paid in mock **wSYLOS** token
+
+---
+
+## 🔗 2. Blockchain Setup
+
+| Component            | Description                   |
+| -------------------- | ----------------------------- |
+| **Network**          | Polygon Amoy (testnet)        |
+| **Token**            | Mock `wSYLOS` ERC-20          |
+| **Contracts**        | `PoPDistributor`, `PoPClaim`  |
+| **Meta-Transaction** | Paymaster (Biconomy / Gelato) |
+| **Storage**          | IPFS via Pinata/Web3.Storage  |
+
+### Blockchain Diagram
+
+```mermaid
+graph TD
+A[User Productivity Logs] --> B[PoP Aggregator]
+B --> C[IPFS Snapshot]
+C --> D[Polygon Testnet Contract]
+D --> E[wSYLOS Rewards]
+E --> F[User Claim (Gasless)]
+```
+
+---
+
+## 🧱 3. Tech Stack
+
+| Layer          | Tech                    | Purpose                    |
+| -------------- | ----------------------- | -------------------------- |
+| **Frontend**   | React + Vite + Tailwind | OS shell and UI            |
+| **State Mgmt** | React Context           | Track windows & PoP states |
+| **Backend**    | Node.js + Express       | Aggregation & mock IPFS    |
+| **Database**   | IndexedDB               | Offline data storage       |
+| **Blockchain** | Solidity + Hardhat      | Reward contracts           |
+| **Wallet**     | Wagmi + RainbowKit      | Gasless connect            |
+| **Gasless**    | Biconomy/Gelato         | Sponsored transactions     |
+
+---
+
+## 🧠 4. Smart Contract Logic
+
+### PoPDistributor.sol
+
+* `setRoot(period, merkleRoot, uri)`
+* `getRoot(period)`
+
+### PoPClaim.sol
+
+* `claim(period, amount, proof)` verifies user + transfers token
+
+### wSYLOS.sol
+
+* Minted supply: 1,000,000 test tokens
+* ERC20 compliant
+
+---
+
+## 🔐 5. Security
+
+* Idle detection & anti-bot monitoring
+* Device fingerprint hash (local)
+* Rate-limited claiming (1x/week)
+* Admin-only functions for root updates
+
+---
+
+## 📊 6. MVP UI Layout
+
+### Desktop Environment
+
+```
++----------------------------------------------------------+
+| Wallpaper | Taskbar | Start | Wallet | PoP | Clock |
+|----------------------------------------------------------|
+| +----------------+   +----------------+  +------------+  |
+| |   Notepad     |   | File Manager   |  | PoP Stats  |  |
+| |   (Editable)  |   | Files & Folders|  | Daily Logs |  |
+| +----------------+   +----------------+  +------------+  |
++----------------------------------------------------------+
+```
+
+### PoP Dashboard
+
+```
++-------------------------------------+
+| Productivity Summary                |
+|-------------------------------------|
+| Active Time: 2h 35m                 |
+| Focus Sessions: 3                   |
+| Weekly SYLOS Earned: 12.5           |
+|-------------------------------------|
+| [Claim Tokens] (Gasless)            |
++-------------------------------------+
+```
+
+---
+
+## 🧩 7. MVP Deliverables
+
+| Category      | Deliverable     | Completion Criteria        |
+| ------------- | --------------- | -------------------------- |
+| **OS Shell**  | Browser OS      | Taskbar, 3 apps            |
+| **Wallet**    | EVM wallet      | Connect + claim            |
+| **Backend**   | Aggregator      | IPFS uploads work          |
+| **Contracts** | Polygon testnet | Distributor + Claim active |
+| **Dashboard** | PoP tracker     | Weekly claim view          |
+| **Docs**      | MVP setup       | Deployed & documented      |
+
+---
+
+## 🧪 8. Success Metrics
+
+| Metric              | Goal              |
+| ------------------- | ----------------- |
+| Users               | ≥100 beta testers |
+| Claim Success       | ≥95%              |
+| Avg gas (sponsored) | <$0.01            |
+| Load time           | <2s               |
+| Crash rate          | <1%               |
+| Daily sessions      | ≥500 logs         |
+
+---
+
+## 🗺️ 9. MVP Roadmap
+
+```mermaid
+gantt
+    title SylOS MVP Roadmap
+    section Phase 1
+    OS Shell UI + PoP Tracker :a1, 2025-11-10, 10d
+    section Phase 2
+    Wallet + Gasless Setup :a2, after a1, 7d
+    section Phase 3
+    Smart Contracts + Backend :a3, after a2, 10d
+    section Phase 4
+    Testing + Beta :a4, after a3, 7d
+    section Phase 5
+    Public MVP Launch :a5, after a4, 5d
+```
+
+---
+
+## 🔄 10. Summary Checklist
+
+| Module        | Status          |
+| ------------- | --------------- |
+| OS Shell      | ✅ Planned       |
+| Wallet        | ✅ Planned       |
+| PoP Tracker   | ✅ Planned       |
+| Contracts     | ✅ Drafted       |
+| Backend       | ✅ Minimal Setup |
+| IPFS          | ✅ Mock Ready    |
+| Bridge        | ⏸️ Post-MVP     |
+| DAO           | ⏸️ Post-MVP     |
+| Security      | ⏸️ Basic Only   |
+| Mobile Native | ⏸️ Future       |
+
+---
+
+## ✅ MVP Goal
+
+Deliver a **publicly testable OS** where:
+
+* Users can **work**, **track productivity**, and **claim tokens** gaslessly.
+* PoP cycle and Polygon reward flow function fully.
+* Foundation for Solana bridge and DAO governance ready for next phase.
+
+---
+
+## 📘 Revision Log
+
+| Version | Date       | Changes                                    |
+| ------- | ---------- | ------------------------------------------ |
+| 1.0     | 2025-11-10 | Initial MVP plan with diagrams and roadmap |

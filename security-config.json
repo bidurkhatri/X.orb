@@ -1,0 +1,77 @@
+{
+  "version": "1.0.0",
+  "name": "sylos-security-config",
+  "description": "Security configuration for SylOS Blockchain OS",
+  "security": {
+    "audit": {
+      "level": "moderate",
+      "production": true,
+      "devDependencies": false
+    },
+    "sca": {
+      "autoUpdate": true,
+      "updateAllDependencies": false,
+      "allowedUpgrades": ["patch", "minor", "major"],
+      "ignoredVulnerabilities": [],
+      "report": {
+        "format": "json",
+        "output": "reports/security-sca.json"
+      }
+    },
+    "licenses": {
+      "allowed": [
+        "MIT",
+        "Apache-2.0",
+        "BSD-2-Clause",
+        "BSD-3-Clause",
+        "ISC",
+        "Unlicense",
+        "MPL-2.0",
+        "CC0-1.0"
+      ],
+      "report": {
+        "format": "json",
+        "output": "reports/licenses.json"
+      }
+    },
+    "snyk": {
+      "testDependencies": true,
+      "monitorProject": true,
+      "policyPath": ".snyk",
+      "reportFormat": "json"
+    }
+  },
+  "vulnerabilityManagement": {
+    "autoFix": {
+      "enabled": true,
+      "types": ["security"],
+      "dryRun": false,
+      "commitMessage": "fix: security vulnerability fix"
+    },
+    "reporting": {
+      "formats": ["json", "html", "xml"],
+      "outputDir": "reports/security"
+    }
+  },
+  "scanning": {
+    "owasp": {
+      "enabled": true,
+      "format": "json",
+      "output": "reports/owasp-scan.json"
+    },
+    "bandit": {
+      "enabled": true,
+      "target": ["src", "app", "scripts"],
+      "severity": "medium",
+      "report": {
+        "format": "json",
+        "output": "reports/bandit-scan.json"
+      }
+    }
+  },
+  "ci": {
+    "failOnVulnerability": "moderate",
+    "stopOnHighRisk": true,
+    "enableAutoRemediation": false
+  }
+}

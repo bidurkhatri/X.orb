@@ -1,0 +1,72 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SylOS Code Quality Report</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 40px; }
+        .header { text-align: center; margin-bottom: 40px; }
+        .summary { background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0; }
+        .check { padding: 15px; margin: 10px 0; border-radius: 5px; border-left: 4px solid; }
+        .passed { background: #d4edda; border-color: #28a745; }
+        .failed { background: #f8d7da; border-color: #dc3545; }
+        .duration { color: #6c757d; font-size: 0.9em; }
+        .recommendations { background: #fff3cd; padding: 20px; border-radius: 8px; margin: 20px 0; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🔍 SylOS Code Quality Report</h1>
+        <p><strong>Generated:</strong> 2025-11-10T12:45:16.540Z</p>
+        <p><strong>Duration:</strong> 2.41 seconds</p>
+    </div>
+    
+    <div class="summary">
+        <h2>📊 Summary</h2>
+        <p><strong>Total Checks:</strong> 3</p>
+        <p><strong>Passed:</strong> 0</p>
+        <p><strong>Failed:</strong> 3</p>
+        <p><strong>Success Rate:</strong> 0.0%</p>
+    </div>
+    
+    <div class="checks">
+        <h2>🔍 Check Results</h2>
+        
+            <div class="check failed">
+                <h3>❌ TypeScript Type Check</h3>
+                <p class="duration">Duration: 1659ms</p>
+                <p><strong>Error:</strong> sh: 1: tsc: Permission denied
+</p>
+            </div>
+        
+            <div class="check failed">
+                <h3>❌ Prettier Format</h3>
+                <p class="duration">Duration: 1660ms</p>
+                <p><strong>Error:</strong> sh: 1: prettier: Permission denied
+</p>
+            </div>
+        
+            <div class="check failed">
+                <h3>❌ ESLint</h3>
+                <p class="duration">Duration: 2411ms</p>
+                <p><strong>Error:</strong> 
+Oops! Something went wrong! :(
+
+ESLint: 6.4.0.
+
+ESLint couldn't find a configuration file. To set up a configuration file for this project, please run:
+
+    eslint --init
+
+ESLint looked for configuration files in /workspace and its ancestors. If it found none, it then looked in your home directory.
+
+If you think you already have a configuration file or if you need more help, please stop by the ESLint chat room: https://gitter.im/eslint/eslint
+
+</p>
+            </div>
+        
+    </div>
+    
+    
+</body>
+</html>

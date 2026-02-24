@@ -1,0 +1,92 @@
+name: SylOS Production Deployment
+
+on:
+  push:
+    branches:
+      - main
+      - production
+
+jobs:
+  lint-and-test:
+    name: Lint & Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18.x'
+          cache: 'npm'
+
+      - name: Install Frontend Dependencies
+        working-directory: ./sylos-blockchain-os
+        run: npm ci
+
+      - name: Lint Frontend
+        working-directory: ./sylos-blockchain-os
+        run: npm run lint
+
+      - name: Run Vite Tests
+        working-directory: ./sylos-blockchain-os
+        run: npm run test
+
+      - name: Install Smart Contract Dependencies
+        working-directory: ./smart-contracts
+        run: npm ci
+
+      - name: Compile Smart Contracts
+        working-directory: ./smart-contracts
+        run: npx hardhat compile
+
+      - name: Run Hardhat Tests
+        working-directory: ./smart-contracts
+        run: npx hardhat test
+
+  contract-deployment:
+    name: Deploy Contracts to Polygon
+    needs: lint-and-test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18.x'
+
+      - name: Deploy Scripts
+        working-directory: ./smart-contracts
+        run: |
+          npm ci
+          npx hardhat run scripts/deploy.ts --network polygon
+        env:
+          POLYGON_PRIVATE_KEY: ${{ secrets.POLYGON_PRIVATE_KEY }}
+          POLYGON_RPC_URL: ${{ secrets.POLYGON_RPC_URL }}
+
+  frontend-build-and-push:
+    name: Build & Push Frontend Docker Image
+    needs: lint-and-test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Login to Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@v3
+        with:
+          context: ./sylos-blockchain-os
+          push: true
+          tags: ghcr.io/${{ github.repository }}/sylos-web:latest
+          build-args: |
+            NEXT_PUBLIC_SUPABASE_URL=${{ secrets.SUPABASE_URL }}
+            NEXT_PUBLIC_POLYGON_RPC=${{ secrets.POLYGON_RPC_URL }}
