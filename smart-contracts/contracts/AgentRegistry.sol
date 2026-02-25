@@ -52,6 +52,7 @@ contract AgentRegistry is AccessControl, ReentrancyGuard, Pausable {
         address sessionWallet;      // agent's sub-wallet address
         uint256 totalActions;
         uint256 lastActiveAt;
+        string identityCID;         // IPFS CID of full citizen identity profile
     }
 
     // --- Storage ---
@@ -92,6 +93,7 @@ contract AgentRegistry is AccessControl, ReentrancyGuard, Pausable {
     event AgentSlashed(bytes32 indexed agentId, uint256 amount);
     event AgentReputationUpdated(bytes32 indexed agentId, uint256 newScore);
     event AgentActionRecorded(bytes32 indexed agentId, uint256 totalActions);
+    event AgentIdentityUpdated(bytes32 indexed agentId, string identityCID);
     event ConfigUpdated(string param, uint256 value);
 
     // --- Errors ---
@@ -169,7 +171,8 @@ contract AgentRegistry is AccessControl, ReentrancyGuard, Pausable {
             reputationScore: 5000, // Start at RELIABLE tier midpoint
             sessionWallet: _sessionWallet,
             totalActions: 0,
-            lastActiveAt: block.timestamp
+            lastActiveAt: block.timestamp,
+            identityCID: ""  // Set after profile creation via updateIdentity()
         });
 
         agentExists[agentId] = true;
@@ -378,6 +381,25 @@ contract AgentRegistry is AccessControl, ReentrancyGuard, Pausable {
 
     function getTotalAgents() external view returns (uint256) {
         return allAgentIds.length;
+    }
+
+    /**
+     * @notice Update the off-chain identity profile CID. Only sponsor or operator.
+     * @param _agentId The agent to update
+     * @param _identityCID IPFS CID of the full citizen identity profile JSON
+     */
+    function updateIdentity(bytes32 _agentId, string calldata _identityCID) external {
+        AgentRecord storage agent = _getAgent(_agentId);
+        if (msg.sender != agent.sponsor && !hasRole(OPERATOR_ROLE, msg.sender)) {
+            revert NotSponsorOrAdmin();
+        }
+        agent.identityCID = _identityCID;
+        emit AgentIdentityUpdated(_agentId, _identityCID);
+    }
+
+    function getIdentityCID(bytes32 _agentId) external view returns (string memory) {
+        if (!agentExists[_agentId]) revert AgentNotFound();
+        return agents[_agentId].identityCID;
     }
 
     function getReputationTier(bytes32 _agentId) external view returns (string memory) {

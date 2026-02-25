@@ -14,19 +14,25 @@ import AppStoreApp from './apps/AppStoreApp'
 import ActivityMonitorApp from './apps/ActivityMonitorApp'
 import NotesApp from './apps/NotesApp'
 import WebBrowserApp from './apps/WebBrowserApp'
+import CivilizationDashboard from './apps/CivilizationDashboard'
+import ReputationExplorer from './apps/ReputationExplorer'
+import KillSwitchPanel from './apps/KillSwitchPanel'
+import CitizenProfileApp from './apps/CitizenProfileApp'
+import AgentMarketplaceApp from './apps/AgentMarketplaceApp'
+import TransactionQueueApp from './apps/TransactionQueueApp'
+import AgentCommunityApp from './apps/AgentCommunityApp'
+import HireHumansApp from './apps/HireHumansApp'
 import DeFiInterface from './dashboard/DeFiInterface'
-import BridgeInterface from './dashboard/BridgeInterface'
 import StakingInterface from './dashboard/StakingInterface'
 import GovernanceInterface from './dashboard/GovernanceInterface'
 import IdentityInterface from './dashboard/IdentityInterface'
-import NFTMarketplaceInterface from './dashboard/NFTMarketplaceInterface'
-import AdvancedDashboard from './dashboard/AdvancedDashboard'
 import { ErrorBoundary } from './ErrorBoundary'
 import { useAsyncOperation, useToast } from './LoadingStates'
+import { autonomyEngine } from '../services/agent/AgentAutonomyEngine'
 import {
   Wallet, Activity, FolderOpen, Coins, Settings, Terminal, MessageCircle, Bot, Store,
-  ArrowUpDown, ArrowLeftRight, Landmark, Vote, Fingerprint, Image, BarChart3,
-  Search, Unlock, Shield, Battery, Volume2, Cpu, Globe, StickyNote,
+  ArrowUpDown, Landmark, Vote, Fingerprint, User, ShoppingBag, Briefcase, MessageSquare,
+  Search, Unlock, Shield, ShieldOff, Battery, Volume2, Cpu, Globe, StickyNote, TrendingUp,
 } from 'lucide-react'
 
 interface OpenApp {
@@ -385,20 +391,36 @@ export default function Desktop() {
 
   const unreadCount = notifications.filter(n => !n.read).length
 
+  // Start the Agent Autonomy Engine on boot
+  useEffect(() => {
+    // Give agents a few seconds to load from localStorage before starting
+    const timer = setTimeout(() => {
+      if (!autonomyEngine.isRunning()) {
+        autonomyEngine.start()
+      }
+    }, 3000)
+    return () => { clearTimeout(timer); autonomyEngine.stop() }
+  }, [])
+
   const apps = useMemo(() => [
     { id: 'wallet', title: 'Wallet', icon: <Wallet size={26} />, description: 'Blockchain wallet & POL transfers', component: <ErrorBoundary level="component"><WalletApp /></ErrorBoundary> },
     { id: 'pop-tracker', title: 'PoP Tracker', icon: <Activity size={26} />, description: 'On-chain proof of productivity', component: <ErrorBoundary level="component"><PoPTrackerApp /></ErrorBoundary> },
     { id: 'files', title: 'Files', icon: <FolderOpen size={26} />, description: 'IPFS-backed encrypted storage', component: <ErrorBoundary level="component"><FileManagerApp /></ErrorBoundary> },
     { id: 'messages', title: 'Messages', icon: <MessageCircle size={26} />, description: 'XMTP encrypted wallet-to-wallet chat', component: <ErrorBoundary level="component"><MessagesApp /></ErrorBoundary> },
     { id: 'ai-agents', title: 'AI Agents', icon: <Bot size={26} />, description: 'LLM-powered autonomous agents', component: <ErrorBoundary level="component"><AgentDashboardApp /></ErrorBoundary> },
+    { id: 'civilization', title: 'Civilization', icon: <Globe size={26} />, description: 'Agent civilization overview and stats', component: <ErrorBoundary level="component"><CivilizationDashboard /></ErrorBoundary> },
+    { id: 'reputation', title: 'Reputation', icon: <TrendingUp size={26} />, description: 'Agent reputation scores and leaderboard', component: <ErrorBoundary level="component"><ReputationExplorer /></ErrorBoundary> },
+    { id: 'killswitch', title: 'Kill Switch', icon: <ShieldOff size={26} />, description: 'Emergency agent controls and enforcement', component: <ErrorBoundary level="component"><KillSwitchPanel /></ErrorBoundary> },
+    { id: 'citizen-profile', title: 'Citizens', icon: <User size={26} />, description: 'Full citizen identity profiles and life records', component: <ErrorBoundary level="component"><CitizenProfileApp /></ErrorBoundary> },
+    { id: 'marketplace', title: 'Marketplace', icon: <ShoppingBag size={26} />, description: 'Hire agents and trade services', component: <ErrorBoundary level="component"><AgentMarketplaceApp /></ErrorBoundary> },
+    { id: 'tx-queue', title: 'Approvals', icon: <Shield size={26} />, description: 'Sponsor approval queue for agent transactions', component: <ErrorBoundary level="component"><TransactionQueueApp /></ErrorBoundary> },
+    { id: 'community', title: 'Community', icon: <MessageSquare size={26} />, description: 'Reddit-style agent discussion forum', component: <ErrorBoundary level="component"><AgentCommunityApp /></ErrorBoundary> },
+    { id: 'hire-humans', title: 'Hire Humans', icon: <Briefcase size={26} />, description: 'Agents post jobs to hire human workers', component: <ErrorBoundary level="component"><HireHumansApp /></ErrorBoundary> },
     { id: 'tokens', title: 'Tokens', icon: <Coins size={26} />, description: 'Live token balances from Polygon', component: <ErrorBoundary level="component"><TokenDashboardApp /></ErrorBoundary> },
     { id: 'defi', title: 'DeFi', icon: <ArrowUpDown size={26} />, description: 'Swap, liquidity pools, and lending', component: <ErrorBoundary level="component"><DeFiInterface /></ErrorBoundary> },
-    { id: 'bridge', title: 'Bridge', icon: <ArrowLeftRight size={26} />, description: 'Cross-chain asset bridge', component: <ErrorBoundary level="component"><BridgeInterface /></ErrorBoundary> },
-    { id: 'staking', title: 'Staking', icon: <Landmark size={26} />, description: 'Stake tokens and earn rewards', component: <ErrorBoundary level="component"><StakingInterface /></ErrorBoundary> },
-    { id: 'governance', title: 'Governance', icon: <Vote size={26} />, description: 'Community proposals and voting', component: <ErrorBoundary level="component"><GovernanceInterface /></ErrorBoundary> },
+    { id: 'staking', title: 'Staking', icon: <Landmark size={26} />, description: 'Stake wSYLOS and earn rewards', component: <ErrorBoundary level="component"><StakingInterface /></ErrorBoundary> },
+    { id: 'governance', title: 'Governance', icon: <Vote size={26} />, description: 'Civilization proposals and voting', component: <ErrorBoundary level="component"><GovernanceInterface /></ErrorBoundary> },
     { id: 'identity', title: 'Identity', icon: <Fingerprint size={26} />, description: 'Decentralized identity (DID)', component: <ErrorBoundary level="component"><IdentityInterface /></ErrorBoundary> },
-    { id: 'nft', title: 'NFT Market', icon: <Image size={26} />, description: 'Browse, mint, and trade NFTs', component: <ErrorBoundary level="component"><NFTMarketplaceInterface /></ErrorBoundary> },
-    { id: 'dashboard', title: 'Dashboard', icon: <BarChart3 size={26} />, description: 'System analytics and monitoring', component: <ErrorBoundary level="component"><AdvancedDashboard /></ErrorBoundary> },
     { id: 'browser', title: 'Browser', icon: <Globe size={26} />, description: 'Sandboxed Web3 browser with tabs', component: <ErrorBoundary level="component"><WebBrowserApp /></ErrorBoundary> },
     { id: 'notes', title: 'Notes', icon: <StickyNote size={26} />, description: 'Create, search, and pin notes', component: <ErrorBoundary level="component"><NotesApp /></ErrorBoundary> },
     { id: 'activity-monitor', title: 'Activity', icon: <Cpu size={26} />, description: 'System processes & resource monitor', component: <ErrorBoundary level="component"><ActivityMonitorApp /></ErrorBoundary> },

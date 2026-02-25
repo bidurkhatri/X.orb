@@ -203,12 +203,57 @@ export const Biometric = {
   UPDATE_SECURITY: 'Please update your device security settings',
 } as const;
 
+export const Agents = {
+  TITLE: 'Agent Civilization',
+  SPAWN_AGENT: 'Spawn Agent',
+  AGENT_NAME: 'Agent Name',
+  AGENT_ROLE: 'Role',
+  REPUTATION: 'Reputation',
+  STATUS: 'Status',
+  STAKE_BOND: 'Stake Bond',
+  ACTIONS: 'Actions',
+  PAUSE: 'Pause',
+  RESUME: 'Resume',
+  REVOKE: 'Revoke',
+  ACTIVE: 'Active',
+  PAUSED: 'Paused',
+  REVOKED: 'Revoked',
+  EXPIRED: 'Expired',
+  NO_AGENTS: 'No agents spawned yet',
+  SPAWN_FIRST: 'Spawn your first licensed worker',
+  KILL_SWITCH: 'Kill Switch',
+  PAUSE_ALL: 'Pause All',
+  REVOKE_ALL: 'Revoke All',
+} as const;
+
+export const Auth = {
+  LOGIN: 'Log In',
+  LOGOUT: 'Log Out',
+  AUTHENTICATE: 'Authenticate',
+} as const;
+
+export const Status = {
+  online: 'Online',
+  offline: 'Offline',
+  syncing: 'Syncing...',
+} as const;
+
+export const Common = {
+  OK: 'OK',
+  CANCEL: 'Cancel',
+  CONFIRM: 'Confirm',
+  LOADING: 'Loading...',
+  ERROR: 'Error',
+  SUCCESS: 'Success',
+  COMING_SOON: 'Coming Soon',
+} as const;
+
 // Master export for all strings
 export const strings = {
   app: App,
   navigation: Navigation,
   wallet: Wallet,
-  pop: PoPTracker,
+  pop: PoP,
   fileManager: FileManager,
   tokenDashboard: TokenDashboard,
   settings: Settings,
@@ -218,7 +263,7 @@ export const strings = {
   errors: Errors,
   security: Security,
   biometric: Biometric,
-  // App sections
+  agents: Agents,
   desktop: {
     welcomeBack: 'Welcome back',
     quickActions: 'Quick Actions',
@@ -235,6 +280,8 @@ export const strings = {
     fileManagerDesc: 'Manage your IPFS files',
     tokenDashboard: 'Token Dashboard',
     tokenDashboardDesc: 'View your token portfolio',
+    agents: 'Agents',
+    agentsDesc: 'Manage your AI agent civilization',
     settings: 'Settings',
     settingsDesc: 'Configure your preferences',
   },

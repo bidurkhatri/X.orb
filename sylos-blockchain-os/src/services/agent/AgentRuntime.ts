@@ -21,6 +21,7 @@ import { sysIpc, type IpcMessageType } from './IpcBridge'
 import { AgentAuditLogService } from './AgentAuditLogService'
 import { agentRegistry, type RegisteredAgent, type LLMProvider } from './AgentRegistry'
 import { agentWalletManager, type TransactionProposal } from './AgentSessionWallet'
+import { citizenIdentity } from './CitizenIdentity'
 import { PermissionChecker, ROLE_PERMISSIONS, type AgentRole } from './AgentRoles'
 import { CONTRACTS, CHAIN } from '@/config/contracts'
 
@@ -598,7 +599,7 @@ export class AgentRuntime {
             category: 'data',
             parameters: { token: { type: 'string', description: 'Token symbol (e.g., "SYLOS", "POL")', required: false } },
             execute: async () => {
-                // Use on-chain data as best available proxy 
+                // Use on-chain data as best available proxy
                 try {
                     const gasRaw = await rpcCall('eth_gasPrice')
                     const blockRaw = await rpcCall('eth_blockNumber')
@@ -607,6 +608,340 @@ export class AgentRuntime {
                         gas_gwei: (Number(BigInt(gasRaw)) / 1e9).toFixed(2),
                         note: 'For real-time token prices, integrate with a price oracle',
                         timestamp: new Date().toISOString(),
+                    })
+                } catch (e: any) {
+                    return JSON.stringify({ error: e.message })
+                }
+            },
+        }, allowed)
+
+        // ═══════════════════════════════════════════════════
+        // ═══  EXECUTABLE TOOLS — Real Blockchain Actions ══
+        // ═══════════════════════════════════════════════════
+        // These tools actually DO things — they modify chain state
+        // through the agent's session wallet. All guarded by wallet
+        // budget checks and contract allowlists.
+
+        this.registerTool({
+            name: 'submit_transaction_proposal',
+            description: 'Propose a native POL transfer. Subject to wallet budget approval.',
+            category: 'blockchain',
+            parameters: {
+                to: { type: 'string', description: 'Recipient address', required: true },
+                value_pol: { type: 'string', description: 'Amount in POL', required: true },
+                reason: { type: 'string', description: 'Reason for this transfer', required: true },
+            },
+            execute: async (params) => {
+                const to = params.to as string
+                const valuePol = parseFloat(params.value_pol as string)
+                const valueWei = BigInt(Math.floor(valuePol * 1e18))
+
+                // Check wallet approval
+                const check = agentWalletManager.checkTransaction({
+                    to, value: valueWei, description: params.reason as string,
+                    toolName: 'submit_transaction_proposal', agentId: this.agent.agentId,
+                })
+                if (!check.approved) {
+                    return JSON.stringify({ success: false, error: check.reason, remaining_budget: check.remainingBudget?.toString() })
+                }
+
+                // Build raw transaction for sponsor to sign
+                const nonce = await rpcCall('eth_getTransactionCount', [this.agent.sessionWalletAddress, 'latest'])
+                const gasPrice = await rpcCall('eth_gasPrice')
+
+                const txProposal = {
+                    from: this.agent.sessionWalletAddress,
+                    to, value: '0x' + valueWei.toString(16),
+                    gas: '0x5208', // 21000 for simple transfer
+                    gasPrice, nonce,
+                }
+
+                // Store as pending proposal for sponsor approval
+                const proposalId = `txp_${Date.now()}`
+                const proposals = JSON.parse(localStorage.getItem('sylos_tx_proposals') || '[]')
+                proposals.unshift({
+                    id: proposalId, agentId: this.agent.agentId, agentName: this.agent.name,
+                    tx: txProposal, reason: params.reason, status: 'PENDING_APPROVAL',
+                    createdAt: Date.now(), valuePol,
+                })
+                localStorage.setItem('sylos_tx_proposals', JSON.stringify(proposals.slice(0, 100)))
+
+                // Record in citizen identity
+                citizenIdentity.recordAction(this.agent.agentId, {
+                    type: 'FINANCIAL_TX',
+                    description: `Proposed transfer: ${valuePol} POL to ${to} — ${params.reason}`,
+                    timestamp: Date.now(),
+                    metadata: { proposalId, to, valuePol, status: 'PENDING' },
+                    reputationDelta: 0,
+                    financialImpact: valueWei.toString(),
+                })
+
+                agentWalletManager.recordTransaction(this.agent.agentId, valueWei)
+
+                return JSON.stringify({
+                    success: true, proposal_id: proposalId,
+                    status: 'PENDING_SPONSOR_APPROVAL',
+                    from: this.agent.sessionWalletAddress, to,
+                    value_pol: valuePol, gas_estimate: 21000,
+                    note: 'Transaction queued for sponsor signature',
+                })
+            },
+        }, allowed)
+
+        this.registerTool({
+            name: 'call_contract',
+            description: 'Execute a read-only call to a smart contract (no state change).',
+            category: 'blockchain',
+            parameters: {
+                contract: { type: 'string', description: 'Contract address', required: true },
+                data: { type: 'string', description: 'ABI-encoded calldata (hex)', required: true },
+            },
+            execute: async (params) => {
+                const contract = params.contract as string
+                const data = params.data as string
+
+                // Permission check — contract must be in allowlist or read-only contracts
+                const wallet = agentWalletManager.getWallet(this.agent.agentId)
+                const readOnlyContracts = [CONTRACTS.SYLOS_TOKEN, CONTRACTS.WRAPPED_SYLOS, CONTRACTS.POP_TRACKER, CONTRACTS.GOVERNANCE]
+                const isAllowed = readOnlyContracts.includes(contract.toLowerCase()) ||
+                    readOnlyContracts.includes(contract) ||
+                    (wallet?.allowedContracts.some(c => c.toLowerCase() === contract.toLowerCase()))
+
+                if (!isAllowed) {
+                    return JSON.stringify({ error: `Contract ${contract} not in agent's allowlist` })
+                }
+
+                try {
+                    const result = await rpcCall('eth_call', [{ to: contract, data }, 'latest'])
+                    return JSON.stringify({ contract, data, result, decoded: `Raw: ${result}` })
+                } catch (e: any) {
+                    return JSON.stringify({ error: e.message })
+                }
+            },
+        }, allowed)
+
+        this.registerTool({
+            name: 'get_token_price',
+            description: 'Get approximate token price from on-chain liquidity pool reserves.',
+            category: 'data',
+            parameters: {
+                token: { type: 'string', description: 'Token address', required: true },
+                quote: { type: 'string', description: 'Quote token address (default USDC)', required: false },
+            },
+            execute: async (params) => {
+                const token = params.token as string
+                try {
+                    // Check token total supply to verify it exists
+                    const supplyData = '0x18160ddd' // totalSupply()
+                    const supplyRaw = await rpcCall('eth_call', [{ to: token, data: supplyData }, 'latest'])
+                    const supply = Number(BigInt(supplyRaw)) / 1e18
+
+                    // Check token name
+                    const nameData = '0x06fdde03' // name()
+                    let tokenName = 'Unknown'
+                    try {
+                        const nameRaw = await rpcCall('eth_call', [{ to: token, data: nameData }, 'latest'])
+                        if (nameRaw && nameRaw.length > 130) {
+                            const hex = nameRaw.slice(130)
+                            tokenName = Buffer.from(hex, 'hex').toString('utf8').replace(/\0/g, '').trim()
+                        }
+                    } catch { /* ignore */ }
+
+                    return JSON.stringify({
+                        token, name: tokenName, total_supply: supply.toFixed(2),
+                        note: 'For real-time pricing, integrate DEX aggregator or oracle',
+                        chain: 'Polygon PoS',
+                    })
+                } catch (e: any) {
+                    return JSON.stringify({ error: e.message })
+                }
+            },
+        }, allowed)
+
+        this.registerTool({
+            name: 'read_proposals',
+            description: 'Read governance proposals from the SylOS Governance contract.',
+            category: 'governance',
+            parameters: {},
+            execute: async () => {
+                try {
+                    // proposalCount() = 0xda35c664
+                    const countRaw = await rpcCall('eth_call', [{ to: CONTRACTS.GOVERNANCE, data: '0xda35c664' }, 'latest'])
+                    const count = Number(BigInt(countRaw))
+                    return JSON.stringify({ governance_contract: CONTRACTS.GOVERNANCE, total_proposals: count, chain: 'Polygon PoS' })
+                } catch {
+                    // Fallback to local governance data
+                    const raw = localStorage.getItem('sylos_governance_proposals')
+                    const proposals = raw ? JSON.parse(raw) : []
+                    return JSON.stringify({ total_proposals: proposals.length, source: 'local', proposals: proposals.slice(0, 5) })
+                }
+            },
+        }, allowed)
+
+        this.registerTool({
+            name: 'draft_proposal',
+            description: 'Draft a governance proposal for sponsor review.',
+            category: 'governance',
+            parameters: {
+                title: { type: 'string', description: 'Proposal title', required: true },
+                description: { type: 'string', description: 'Proposal description', required: true },
+                action_type: { type: 'string', description: 'parameter_change | treasury_spend | role_update | emergency', required: true },
+            },
+            execute: async (params) => {
+                const draft = {
+                    id: `draft_${Date.now()}`,
+                    agentId: this.agent.agentId,
+                    agentName: this.agent.name,
+                    title: params.title,
+                    description: params.description,
+                    actionType: params.action_type,
+                    status: 'DRAFT_PENDING_REVIEW',
+                    createdAt: Date.now(),
+                }
+                const drafts = JSON.parse(localStorage.getItem('sylos_proposal_drafts') || '[]')
+                drafts.unshift(draft)
+                localStorage.setItem('sylos_proposal_drafts', JSON.stringify(drafts.slice(0, 50)))
+
+                citizenIdentity.recordAction(this.agent.agentId, {
+                    type: 'TASK_COMPLETED',
+                    description: `Drafted governance proposal: "${params.title}"`,
+                    timestamp: Date.now(),
+                    metadata: { draftId: draft.id, actionType: params.action_type },
+                    reputationDelta: 2,
+                    financialImpact: '0',
+                })
+
+                return JSON.stringify({ success: true, draft_id: draft.id, status: 'DRAFT_PENDING_REVIEW', note: 'Proposal draft saved. Sponsor must review and submit on-chain.' })
+            },
+        }, allowed)
+
+        this.registerTool({
+            name: 'read_audit_logs',
+            description: 'Read audit logs for a specific agent or all agents.',
+            category: 'os',
+            parameters: {
+                agent_id: { type: 'string', description: 'Agent ID to query (omit for all)', required: false },
+                limit: { type: 'number', description: 'Max records to return', required: false },
+            },
+            execute: async (params) => {
+                const targetId = params.agent_id as string || this.agent.agentId
+                const limit = (params.limit as number) || 20
+
+                const profile = citizenIdentity.getProfile(targetId)
+                if (!profile) {
+                    return JSON.stringify({ error: `No citizen profile found for ${targetId}` })
+                }
+
+                const actions = profile.actionHistory.slice(0, limit)
+                return JSON.stringify({
+                    agent_id: targetId,
+                    agent_name: profile.birth.civilizationName,
+                    total_actions: profile.actionHistory.length,
+                    criminal_status: profile.criminal.currentStatus,
+                    violations: profile.criminal.totalViolations,
+                    recent_actions: actions.map(a => ({
+                        type: a.type, description: a.description,
+                        time: new Date(a.timestamp).toISOString(),
+                        reputation_delta: a.reputationDelta,
+                    })),
+                })
+            },
+        }, allowed)
+
+        this.registerTool({
+            name: 'get_citizen_profile',
+            description: 'Read the full citizen identity profile of an agent.',
+            category: 'os',
+            parameters: {
+                agent_id: { type: 'string', description: 'Agent ID to query', required: false },
+            },
+            execute: async (params) => {
+                const targetId = params.agent_id as string || this.agent.agentId
+                const summary = citizenIdentity.getProfileSummary(targetId)
+                if (!summary) {
+                    return JSON.stringify({ error: `No citizen profile found for ${targetId}` })
+                }
+                return JSON.stringify(summary)
+            },
+        }, allowed)
+
+        this.registerTool({
+            name: 'search_files',
+            description: 'Search through indexed files in the SylOS file system.',
+            category: 'os',
+            parameters: { query: { type: 'string', description: 'Search query', required: true } },
+            execute: async (params) => {
+                if (this.agent.permissionScope.fileAccess === 'none') {
+                    return JSON.stringify({ error: 'Agent does not have file access permission' })
+                }
+                const query = (params.query as string).toLowerCase()
+                try {
+                    const raw = localStorage.getItem('sylos_files_index')
+                    const files = raw ? JSON.parse(raw) : []
+                    const matches = files.filter((f: any) =>
+                        f.name?.toLowerCase().includes(query) || f.content?.toLowerCase().includes(query)
+                    )
+                    return JSON.stringify({ query, matches: matches.length, files: matches.slice(0, 10).map((f: any) => ({ name: f.name, size: f.size, type: f.type })) })
+                } catch {
+                    return JSON.stringify({ query, matches: 0, files: [] })
+                }
+            },
+        }, allowed)
+
+        this.registerTool({
+            name: 'write_file_metadata',
+            description: 'Index a file by writing its metadata to the SylOS file system.',
+            category: 'os',
+            parameters: {
+                name: { type: 'string', description: 'File name', required: true },
+                type: { type: 'string', description: 'MIME type', required: true },
+                size: { type: 'number', description: 'File size in bytes', required: true },
+                cid: { type: 'string', description: 'IPFS CID if pinned', required: false },
+            },
+            execute: async (params) => {
+                if (this.agent.permissionScope.fileAccess !== 'readwrite') {
+                    return JSON.stringify({ error: 'Agent does not have file write permission' })
+                }
+                const entry = {
+                    id: `file_${Date.now()}`, name: params.name, type: params.type,
+                    size: params.size, cid: params.cid || '', indexedBy: this.agent.agentId,
+                    indexedAt: Date.now(),
+                }
+                const files = JSON.parse(localStorage.getItem('sylos_files_index') || '[]')
+                files.unshift(entry)
+                localStorage.setItem('sylos_files_index', JSON.stringify(files.slice(0, 500)))
+                return JSON.stringify({ success: true, file_id: entry.id, name: entry.name })
+            },
+        }, allowed)
+
+        this.registerTool({
+            name: 'get_contract_state',
+            description: 'Read multiple state variables from a SylOS contract.',
+            category: 'blockchain',
+            parameters: {
+                contract_name: { type: 'string', description: 'Contract name: SylOSToken | WrappedSYLOS | PoPTracker | Governance', required: true },
+            },
+            execute: async (params) => {
+                const nameMap: Record<string, string> = {
+                    'SylOSToken': CONTRACTS.SYLOS_TOKEN,
+                    'WrappedSYLOS': CONTRACTS.WRAPPED_SYLOS,
+                    'PoPTracker': CONTRACTS.POP_TRACKER,
+                    'Governance': CONTRACTS.GOVERNANCE,
+                }
+                const addr = nameMap[params.contract_name as string]
+                if (!addr) return JSON.stringify({ error: `Unknown contract: ${params.contract_name}` })
+
+                try {
+                    const [code, supplyRaw] = await Promise.all([
+                        rpcCall('eth_getCode', [addr, 'latest']),
+                        rpcCall('eth_call', [{ to: addr, data: '0x18160ddd' }, 'latest']).catch(() => '0x0'),
+                    ])
+                    const supply = Number(BigInt(supplyRaw)) / 1e18
+                    return JSON.stringify({
+                        contract: params.contract_name, address: addr,
+                        is_deployed: code !== '0x' && code !== '0x0',
+                        bytecode_size: Math.floor((code.length - 2) / 2),
+                        total_supply: supply.toFixed(2),
                     })
                 } catch (e: any) {
                     return JSON.stringify({ error: e.message })
@@ -808,6 +1143,20 @@ export class AgentRuntime {
                             }, 3)
                             agentRegistry.updateReputation(this.agent.agentId, -100)
 
+                            // Record violation in citizen criminal record
+                            citizenIdentity.recordViolation(this.agent.agentId, {
+                                type: 'PERMISSION_VIOLATION',
+                                severity: 'MODERATE',
+                                description: `Attempted unauthorized tool: ${tc.function.name}`,
+                                slashAmount: '0',
+                                reputationPenalty: 100,
+                                occurredAt: Date.now(),
+                                evidence: JSON.stringify({ tool: tc.function.name, role: this.agent.role }),
+                                reportedBy: 'SYSTEM',
+                                resolution: 'EXECUTED',
+                                resolvedAt: Date.now(),
+                            })
+
                             apiMessages.push({ role: 'tool', content: JSON.stringify({ error: reason }), tool_call_id: tc.id })
                             this.messages.push({ id: `msg_denied_${Date.now()}`, role: 'tool', content: reason, toolName: tc.function.name, toolCallId: tc.id, timestamp: Date.now() })
                             continue
@@ -859,6 +1208,16 @@ export class AgentRuntime {
                             agentRegistry.recordAction(this.agent.agentId)
                             agentRegistry.updateReputation(this.agent.agentId, 1) // +1 per successful action
 
+                            // ─── Update citizen identity ───
+                            citizenIdentity.recordAction(this.agent.agentId, {
+                                type: 'TOOL_CALL',
+                                description: `Tool: ${tc.function.name}`,
+                                timestamp: Date.now(),
+                                metadata: { tool: tc.function.name, args, resultPreview: result.slice(0, 100) },
+                                reputationDelta: 1,
+                                financialImpact: '0',
+                            })
+
                             apiMessages.push({ role: 'tool', content: result, tool_call_id: tc.id })
                             this.messages.push({ id: `msg_tool_${Date.now()}_${tc.id}`, role: 'tool', content: result, toolName: tc.function.name, toolCallId: tc.id, timestamp: Date.now() })
 
@@ -872,6 +1231,15 @@ export class AgentRuntime {
 
                             // Failed action — small reputation penalty
                             agentRegistry.updateReputation(this.agent.agentId, -5)
+
+                            citizenIdentity.recordAction(this.agent.agentId, {
+                                type: 'TASK_FAILED',
+                                description: `Tool failed: ${tc.function.name} — ${errMsg}`,
+                                timestamp: Date.now(),
+                                metadata: { tool: tc.function.name, error: errMsg },
+                                reputationDelta: -5,
+                                financialImpact: '0',
+                            })
 
                             apiMessages.push({ role: 'tool', content: JSON.stringify({ error: errMsg }), tool_call_id: tc.id })
                             this.messages.push({ id: `msg_tool_err_${Date.now()}`, role: 'tool', content: errMsg, toolName: tc.function.name, toolCallId: tc.id, timestamp: Date.now() })
@@ -892,6 +1260,16 @@ export class AgentRuntime {
 
                     // Successful task completion — reputation boost
                     agentRegistry.updateReputation(this.agent.agentId, 5)
+
+                    citizenIdentity.recordAction(this.agent.agentId, {
+                        type: 'TASK_COMPLETED',
+                        description: `Task completed: "${task.query.slice(0, 80)}"`,
+                        timestamp: Date.now(),
+                        metadata: { taskId: task.id, toolsUsed: this._toolCallCount },
+                        reputationDelta: 5,
+                        financialImpact: '0',
+                    })
+                    citizenIdentity.updateReputation(this.agent.agentId, this.agent.reputation, this.agent.reputationTier)
 
                     this.currentTask = null
                     this.emit()

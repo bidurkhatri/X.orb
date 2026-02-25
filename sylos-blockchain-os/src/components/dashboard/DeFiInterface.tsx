@@ -68,14 +68,14 @@ export default function DeFiInterface() {
     return () => clearInterval(interval)
   }, [])
 
-  // Real pool data from on-chain (approximated from known Polygon pools)
+  // QuickSwap V3 pools on Polygon — pool addresses are real, stats require subgraph query
   const pools: PoolData[] = [
-    { pair: 'POL / USDC', tvl: '$12.4M', apr: '8.2%', volume24h: '$3.1M', live: true },
-    { pair: 'WETH / USDC', tvl: '$45.6M', apr: '5.1%', volume24h: '$18.2M', live: true },
-    { pair: 'USDC / DAI', tvl: '$8.9M', apr: '2.4%', volume24h: '$5.8M', live: true },
-    { pair: 'POL / WETH', tvl: '$6.2M', apr: '12.7%', volume24h: '$1.4M', live: true },
-    { pair: 'WBTC / WETH', tvl: '$15.3M', apr: '3.8%', volume24h: '$7.2M', live: true },
-    { pair: 'USDT / USDC', tvl: '$22.1M', apr: '1.9%', volume24h: '$14.5M', live: true },
+    { pair: 'POL / USDC', tvl: '—', apr: '—', volume24h: '—', live: false },
+    { pair: 'WETH / USDC', tvl: '—', apr: '—', volume24h: '—', live: false },
+    { pair: 'USDC / DAI', tvl: '—', apr: '—', volume24h: '—', live: false },
+    { pair: 'POL / WETH', tvl: '—', apr: '—', volume24h: '—', live: false },
+    { pair: 'WBTC / WETH', tvl: '—', apr: '—', volume24h: '—', live: false },
+    { pair: 'USDT / USDC', tvl: '—', apr: '—', volume24h: '—', live: false },
   ]
 
   const swapTokens = () => {
