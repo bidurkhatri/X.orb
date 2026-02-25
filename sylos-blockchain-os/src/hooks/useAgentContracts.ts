@@ -359,4 +359,5 @@ export function useSlashingEngine() {
 // ─── Re-exports for convenience ─────────────────────────
 
 export { getReputationTier, getReputationColor, ROLE_META }
+export { citizenIdentity } from '@/services/agent/CitizenIdentity'
 export type { AgentRole, ReputationTier }

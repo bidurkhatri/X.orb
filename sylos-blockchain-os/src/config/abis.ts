@@ -9,12 +9,15 @@
 
 export const AGENT_REGISTRY_ABI = [
   // Read
-  { inputs: [{ name: '_agentId', type: 'bytes32' }], name: 'getAgent', outputs: [{ components: [{ name: 'agentId', type: 'bytes32' }, { name: 'sponsor', type: 'address' }, { name: 'name', type: 'string' }, { name: 'role', type: 'uint8' }, { name: 'stakeBond', type: 'uint256' }, { name: 'slashedAmount', type: 'uint256' }, { name: 'permissionHash', type: 'bytes32' }, { name: 'status', type: 'uint8' }, { name: 'spawnedAt', type: 'uint256' }, { name: 'expiresAt', type: 'uint256' }, { name: 'reputationScore', type: 'uint256' }, { name: 'sessionWallet', type: 'address' }, { name: 'totalActions', type: 'uint256' }, { name: 'lastActiveAt', type: 'uint256' }], name: '', type: 'tuple' }], stateMutability: 'view', type: 'function' },
+  { inputs: [{ name: '_agentId', type: 'bytes32' }], name: 'getAgent', outputs: [{ components: [{ name: 'agentId', type: 'bytes32' }, { name: 'sponsor', type: 'address' }, { name: 'name', type: 'string' }, { name: 'role', type: 'uint8' }, { name: 'stakeBond', type: 'uint256' }, { name: 'slashedAmount', type: 'uint256' }, { name: 'permissionHash', type: 'bytes32' }, { name: 'status', type: 'uint8' }, { name: 'spawnedAt', type: 'uint256' }, { name: 'expiresAt', type: 'uint256' }, { name: 'reputationScore', type: 'uint256' }, { name: 'sessionWallet', type: 'address' }, { name: 'totalActions', type: 'uint256' }, { name: 'lastActiveAt', type: 'uint256' }, { name: 'identityCID', type: 'string' }], name: '', type: 'tuple' }], stateMutability: 'view', type: 'function' },
   { inputs: [{ name: '_agentId', type: 'bytes32' }], name: 'isActive', outputs: [{ type: 'bool' }], stateMutability: 'view', type: 'function' },
   { inputs: [{ name: '_sponsor', type: 'address' }], name: 'getSponsorAgents', outputs: [{ type: 'bytes32[]' }], stateMutability: 'view', type: 'function' },
   { inputs: [{ name: '_sponsor', type: 'address' }], name: 'getSponsorActiveCount', outputs: [{ type: 'uint256' }], stateMutability: 'view', type: 'function' },
   { inputs: [], name: 'getTotalAgents', outputs: [{ type: 'uint256' }], stateMutability: 'view', type: 'function' },
   { inputs: [{ name: '_agentId', type: 'bytes32' }], name: 'getReputationTier', outputs: [{ type: 'string' }], stateMutability: 'view', type: 'function' },
+  { inputs: [{ name: '_agentId', type: 'bytes32' }], name: 'getIdentityCID', outputs: [{ type: 'string' }], stateMutability: 'view', type: 'function' },
+  // Write — Identity
+  { inputs: [{ name: '_agentId', type: 'bytes32' }, { name: '_identityCID', type: 'string' }], name: 'updateIdentity', outputs: [], stateMutability: 'nonpayable', type: 'function' },
   { inputs: [], name: 'minStakeBond', outputs: [{ type: 'uint256' }], stateMutability: 'view', type: 'function' },
   { inputs: [], name: 'maxAgentsPerSponsor', outputs: [{ type: 'uint256' }], stateMutability: 'view', type: 'function' },
   // Write
@@ -31,6 +34,7 @@ export const AGENT_REGISTRY_ABI = [
   { anonymous: false, inputs: [{ indexed: true, name: 'agentId', type: 'bytes32' }, { indexed: true, name: 'by', type: 'address' }, { indexed: false, name: 'stakeReturned', type: 'uint256' }], name: 'AgentRevoked', type: 'event' },
   { anonymous: false, inputs: [{ indexed: true, name: 'agentId', type: 'bytes32' }, { indexed: false, name: 'amount', type: 'uint256' }], name: 'AgentSlashed', type: 'event' },
   { anonymous: false, inputs: [{ indexed: true, name: 'agentId', type: 'bytes32' }, { indexed: false, name: 'newScore', type: 'uint256' }], name: 'AgentReputationUpdated', type: 'event' },
+  { anonymous: false, inputs: [{ indexed: true, name: 'agentId', type: 'bytes32' }, { indexed: false, name: 'identityCID', type: 'string' }], name: 'AgentIdentityUpdated', type: 'event' },
 ] as const
 
 // ─── ReputationScore ──────────────────────────────────────────

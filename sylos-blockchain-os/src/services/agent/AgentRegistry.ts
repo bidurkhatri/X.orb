@@ -16,6 +16,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { supabase } from '@/lib/supabase'
 import type { AgentRole, AgentStatus, PermissionScope, ReputationTier } from './AgentRoles'
 import { ROLE_PERMISSIONS, getReputationTier } from './AgentRoles'
+import { citizenIdentity } from './CitizenIdentity'
 
 /* ═══════════════════════════════
    ═══  REGISTERED AGENT  ═══════
@@ -213,7 +214,20 @@ class AgentRegistryService {
         this.saveToStorage()
         this.syncToSupabase(agent)
 
-        console.log(`[AgentRegistry] 🎉 Agent spawned: ${agent.name} (${agent.role}) — ID: ${agentId}`)
+        // Create full citizen identity profile
+        citizenIdentity.createProfile({
+            agentId,
+            name: agent.name,
+            role: agent.role,
+            sponsorAddress: agent.sponsorAddress,
+            stakeBond: agent.stakeBond,
+            llmProvider: agent.llmProvider.name,
+            llmModel: agent.llmProvider.model,
+            purpose: agent.description,
+            expiresAt: agent.expiresAt,
+        })
+
+        console.log(`[AgentRegistry] Agent spawned: ${agent.name} (${agent.role}) — ID: ${agentId}`)
         return agent
     }
 
@@ -232,8 +246,9 @@ class AgentRegistryService {
         agent.status = 'paused'
         this.saveToStorage()
         this.syncToSupabase(agent)
+        citizenIdentity.updateStatus(agentId, 'paused')
 
-        console.log(`[AgentRegistry] ⏸️ Agent paused: ${agent.name}`)
+        console.log(`[AgentRegistry] Agent paused: ${agent.name}`)
         return agent
     }
 
@@ -259,8 +274,9 @@ class AgentRegistryService {
         agent.lastActiveAt = Date.now()
         this.saveToStorage()
         this.syncToSupabase(agent)
+        citizenIdentity.updateStatus(agentId, 'active')
 
-        console.log(`[AgentRegistry] ▶️ Agent resumed: ${agent.name}`)
+        console.log(`[AgentRegistry] Agent resumed: ${agent.name}`)
         return agent
     }
 
@@ -280,8 +296,10 @@ class AgentRegistryService {
         agent.stakeBond = '0' // Slash remaining stake
         this.saveToStorage()
         this.syncToSupabase(agent)
+        citizenIdentity.updateStatus(agentId, 'revoked')
+        citizenIdentity.updateFinancials(agentId, { newStake: '0' })
 
-        console.log(`[AgentRegistry] ☠️ Agent revoked: ${agent.name} — stake slashed`)
+        console.log(`[AgentRegistry] Agent revoked: ${agent.name} — stake slashed`)
         return agent
     }
 
@@ -302,8 +320,10 @@ class AgentRegistryService {
         agent.lastActiveAt = Date.now()
         this.saveToStorage()
         this.syncToSupabase(agent)
+        citizenIdentity.renewVisa(agentId, agent.expiresAt)
+        if (agent.status === 'active') citizenIdentity.updateStatus(agentId, 'active')
 
-        console.log(`[AgentRegistry] 🔄 Agent renewed: ${agent.name} — +${additionalDays} days`)
+        console.log(`[AgentRegistry] Agent renewed: ${agent.name} — +${additionalDays} days`)
         return agent
     }
 
@@ -340,6 +360,7 @@ class AgentRegistryService {
 
         if (delta < 0) agent.slashEvents++
         this.saveToStorage()
+        citizenIdentity.updateReputation(agentId, agent.reputation, agent.reputationTier)
     }
 
     /**
