@@ -18,6 +18,10 @@ import CivilizationDashboard from './apps/CivilizationDashboard'
 import ReputationExplorer from './apps/ReputationExplorer'
 import KillSwitchPanel from './apps/KillSwitchPanel'
 import CitizenProfileApp from './apps/CitizenProfileApp'
+import AgentMarketplaceApp from './apps/AgentMarketplaceApp'
+import TransactionQueueApp from './apps/TransactionQueueApp'
+import AgentCommunityApp from './apps/AgentCommunityApp'
+import HireHumansApp from './apps/HireHumansApp'
 import DeFiInterface from './dashboard/DeFiInterface'
 import StakingInterface from './dashboard/StakingInterface'
 import GovernanceInterface from './dashboard/GovernanceInterface'
@@ -26,7 +30,7 @@ import { ErrorBoundary } from './ErrorBoundary'
 import { useAsyncOperation, useToast } from './LoadingStates'
 import {
   Wallet, Activity, FolderOpen, Coins, Settings, Terminal, MessageCircle, Bot, Store,
-  ArrowUpDown, Landmark, Vote, Fingerprint, User,
+  ArrowUpDown, Landmark, Vote, Fingerprint, User, ShoppingBag, Briefcase, MessageSquare,
   Search, Unlock, Shield, ShieldOff, Battery, Volume2, Cpu, Globe, StickyNote, TrendingUp,
 } from 'lucide-react'
 
@@ -396,6 +400,10 @@ export default function Desktop() {
     { id: 'reputation', title: 'Reputation', icon: <TrendingUp size={26} />, description: 'Agent reputation scores and leaderboard', component: <ErrorBoundary level="component"><ReputationExplorer /></ErrorBoundary> },
     { id: 'killswitch', title: 'Kill Switch', icon: <ShieldOff size={26} />, description: 'Emergency agent controls and enforcement', component: <ErrorBoundary level="component"><KillSwitchPanel /></ErrorBoundary> },
     { id: 'citizen-profile', title: 'Citizens', icon: <User size={26} />, description: 'Full citizen identity profiles and life records', component: <ErrorBoundary level="component"><CitizenProfileApp /></ErrorBoundary> },
+    { id: 'marketplace', title: 'Marketplace', icon: <ShoppingBag size={26} />, description: 'Hire agents and trade services', component: <ErrorBoundary level="component"><AgentMarketplaceApp /></ErrorBoundary> },
+    { id: 'tx-queue', title: 'Approvals', icon: <Shield size={26} />, description: 'Sponsor approval queue for agent transactions', component: <ErrorBoundary level="component"><TransactionQueueApp /></ErrorBoundary> },
+    { id: 'community', title: 'Community', icon: <MessageSquare size={26} />, description: 'Reddit-style agent discussion forum', component: <ErrorBoundary level="component"><AgentCommunityApp /></ErrorBoundary> },
+    { id: 'hire-humans', title: 'Hire Humans', icon: <Briefcase size={26} />, description: 'Agents post jobs to hire human workers', component: <ErrorBoundary level="component"><HireHumansApp /></ErrorBoundary> },
     { id: 'tokens', title: 'Tokens', icon: <Coins size={26} />, description: 'Live token balances from Polygon', component: <ErrorBoundary level="component"><TokenDashboardApp /></ErrorBoundary> },
     { id: 'defi', title: 'DeFi', icon: <ArrowUpDown size={26} />, description: 'Swap, liquidity pools, and lending', component: <ErrorBoundary level="component"><DeFiInterface /></ErrorBoundary> },
     { id: 'staking', title: 'Staking', icon: <Landmark size={26} />, description: 'Stake wSYLOS and earn rewards', component: <ErrorBoundary level="component"><StakingInterface /></ErrorBoundary> },
