@@ -3,6 +3,7 @@ import Taskbar from './Taskbar'
 import AppWindow from './AppWindow'
 import DesktopIcon from './DesktopIcon'
 import NotificationCenter, { useNotifications } from './NotificationCenter'
+import { ToastProvider, useToastSystem } from './ui'
 import WalletApp from './apps/WalletApp'
 import PoPTrackerApp from './apps/PoPTrackerApp'
 import FileManagerApp from './apps/FileManagerApp'
@@ -27,12 +28,12 @@ import StakingInterface from './dashboard/StakingInterface'
 import GovernanceInterface from './dashboard/GovernanceInterface'
 import IdentityInterface from './dashboard/IdentityInterface'
 import { ErrorBoundary } from './ErrorBoundary'
-import { useAsyncOperation, useToast } from './LoadingStates'
 import { autonomyEngine } from '../services/agent/AgentAutonomyEngine'
 import {
   Wallet, Activity, FolderOpen, Coins, Settings, Terminal, MessageCircle, Bot, Store,
   ArrowUpDown, Landmark, Vote, Fingerprint, User, ShoppingBag, Briefcase, MessageSquare,
   Search, Unlock, Shield, ShieldOff, Battery, Volume2, Cpu, Globe, StickyNote, TrendingUp,
+  ChevronDown, ChevronRight, LayoutGrid,
 } from 'lucide-react'
 
 interface OpenApp {
@@ -42,6 +43,26 @@ interface OpenApp {
   component: React.ReactNode
   minimized: boolean
 }
+
+interface AppDef {
+  id: string
+  title: string
+  icon: React.ReactNode
+  description: string
+  component: React.ReactNode
+  category: string
+}
+
+/* ─── App Categories ─── */
+const CATEGORIES = [
+  { id: 'favorites', label: 'Favorites', icon: '★' },
+  { id: 'agents', label: 'Agent City', icon: '🤖' },
+  { id: 'finance', label: 'Finance', icon: '💰' },
+  { id: 'social', label: 'Social', icon: '💬' },
+  { id: 'system', label: 'System', icon: '⚙' },
+] as const
+
+const DEFAULT_FAVORITES = ['wallet', 'ai-agents', 'community', 'tokens', 'terminal', 'settings']
 
 /* ──── Functional Terminal ──── */
 function TerminalApp() {
@@ -73,13 +94,13 @@ function TerminalApp() {
     else if (c === 'whoami') out.push('  Guest (connect wallet for identity)')
     else if (c === 'network') out.push('', '  Chain   Polygon PoS', '  ID      137', '  RPC     polygon-rpc.com', '  Block   ~2s finality', '')
     else if (c === 'agents') out.push('  SylBot AI agent available. Open AI Agents app to interact.')
-    else if (c === 'version') out.push('', '  SylOS     v1.0.0-alpha', '  Kernel    React 18 · Vite 5', '  Provider  wagmi + RainbowKit', '  AI        OpenAI-compatible', '  Apps      20 integrated', '')
+    else if (c === 'version') out.push('', '  SylOS     v1.0.0-alpha', '  Kernel    React 18 · Vite 5', '  Provider  wagmi + RainbowKit', '  AI        OpenAI-compatible', '  Apps      24 integrated', '')
     else if (c === 'date') out.push(`  ${new Date().toLocaleString()}`)
     else if (c === 'uptime') { const m = Math.floor(performance.now() / 60000); out.push(`  Session: ${Math.floor(m / 60)}h ${m % 60}m`) }
     else if (c.startsWith('echo ')) out.push(`  ${input.slice(5)}`)
     else if (c === 'ls') out.push('  Documents/', '  Downloads/', '  Desktop/', '  Notes/', '  .config/', '  .agents/', '  .browser/')
     else if (c === 'contracts') out.push('', '  SylOSToken       0xF201...8DE3', '  WrappedSYLOS     0xcec2...1728', '  PoPTracker       0x67eb...6510', '  SylOSGovernance  0xcc85...Ff76', '  Paymaster        0xAe14...1583', '')
-    else if (c === 'neofetch') out.push('', '  ╔══════════════════════════╗', '  ║     SylOS v1.0.0-alpha   ║', '  ╚══════════════════════════╝', '  OS:       SylOS Blockchain OS', '  Kernel:   React 18 + Vite 5', '  Chain:    Polygon PoS (137)', '  Shell:    SylOS Terminal', '  CPU:      WebAssembly SIMD', '  Memory:   Browser Sandbox', '  Display:  CSS Compositor', '  AI:       SylBot (LLM Agent)', '  Apps:     20 integrated', '')
+    else if (c === 'neofetch') out.push('', '  ╔══════════════════════════╗', '  ║     SylOS v1.0.0-alpha   ║', '  ╚══════════════════════════╝', '  OS:       SylOS Blockchain OS', '  Kernel:   React 18 + Vite 5', '  Chain:    Polygon PoS (137)', '  Shell:    SylOS Terminal', '  CPU:      WebAssembly SIMD', '  Memory:   Browser Sandbox', '  Display:  CSS Compositor', '  AI:       SylBot (LLM Agent)', '  Apps:     24 integrated', '')
     else if (c === 'gas') {
       out.push('  Fetching...')
       fetch(import.meta.env['VITE_POLYGON_RPC'] || 'https://polygon-rpc.com', {
@@ -116,8 +137,9 @@ function TerminalApp() {
 }
 
 /* ──── Spotlight Search (Ctrl+K) ──── */
-function SpotlightSearch({ apps, onOpen, onClose }: { apps: any[]; onOpen: (app: any) => void; onClose: () => void }) {
+function SpotlightSearch({ apps, onOpen, onClose }: { apps: AppDef[]; onOpen: (app: AppDef) => void; onClose: () => void }) {
   const [query, setQuery] = useState('')
+  const [selectedIdx, setSelectedIdx] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
   const ref = useRef<HTMLDivElement>(null)
 
@@ -130,36 +152,43 @@ function SpotlightSearch({ apps, onOpen, onClose }: { apps: any[]; onOpen: (app:
 
   const results = query.trim() ? apps.filter(a =>
     a.title.toLowerCase().includes(query.toLowerCase()) ||
-    a.description?.toLowerCase().includes(query.toLowerCase())
+    a.description?.toLowerCase().includes(query.toLowerCase()) ||
+    a.category?.toLowerCase().includes(query.toLowerCase())
   ) : apps.slice(0, 8)
 
+  // Reset index when results change
+  useEffect(() => { setSelectedIdx(0) }, [query])
+
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 200, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: '15vh', background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(12px)' }}>
-      <div ref={ref} style={{ width: '520px', borderRadius: '18px', overflow: 'hidden', background: 'rgba(15,19,40,0.98)', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 24px 80px rgba(0,0,0,0.6), 0 0 60px rgba(99,102,241,0.08)' }}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 200, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: '14vh', background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(16px)' }}>
+      <div ref={ref} style={{ width: '520px', borderRadius: '18px', overflow: 'hidden', background: 'rgba(15,19,40,0.98)', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 24px 80px rgba(0,0,0,0.6), 0 0 60px rgba(99,102,241,0.08)', animation: 'windowOpen 0.2s cubic-bezier(0.16, 1, 0.3, 1)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
           <Search size={18} color="rgba(255,255,255,0.3)" />
           <input ref={inputRef} value={query} onChange={e => setQuery(e.target.value)} placeholder="Search apps, actions, commands..." onKeyDown={e => {
             if (e.key === 'Escape') onClose()
-            if (e.key === 'Enter' && results.length > 0) { onOpen(results[0]); onClose() }
+            if (e.key === 'Enter' && results.length > 0 && results[selectedIdx]) { onOpen(results[selectedIdx]); onClose() }
+            if (e.key === 'ArrowDown') { e.preventDefault(); setSelectedIdx(i => Math.min(i + 1, results.length - 1)) }
+            if (e.key === 'ArrowUp') { e.preventDefault(); setSelectedIdx(i => Math.max(i - 1, 0)) }
           }} style={{ flex: 1, background: 'none', border: 'none', outline: 'none', color: '#e2e8f0', fontSize: '15px', fontFamily: "'Inter', system-ui, sans-serif", caretColor: '#818cf8' }} />
           <kbd style={{ padding: '2px 8px', borderRadius: '6px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.3)', fontSize: '10px', fontFamily: 'inherit' }}>ESC</kbd>
         </div>
         <div style={{ maxHeight: '360px', overflowY: 'auto', padding: '8px' }}>
           {!query.trim() && <div style={{ padding: '4px 12px 8px', fontSize: '10px', fontWeight: 600, color: 'rgba(255,255,255,0.25)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Quick Launch</div>}
-          {results.map(app => (
+          {results.map((app, i) => (
             <button key={app.id} onClick={() => { onOpen(app); onClose() }} style={{
               width: '100%', display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 12px', borderRadius: '10px',
-              border: 'none', cursor: 'pointer', background: 'transparent', textAlign: 'left', fontFamily: "'Inter', system-ui, sans-serif", transition: 'background 0.1s',
+              border: 'none', cursor: 'pointer',
+              background: i === selectedIdx ? 'rgba(99,102,241,0.12)' : 'transparent',
+              textAlign: 'left', fontFamily: "'Inter', system-ui, sans-serif", transition: 'background 0.1s',
             }}
-              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.06)')}
-              onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+              onMouseEnter={() => setSelectedIdx(i)}
             >
-              <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'linear-gradient(135deg, rgba(99,102,241,0.15), rgba(139,92,246,0.12))', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#818cf8', flexShrink: 0 }}>{app.icon}</div>
+              <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: i === selectedIdx ? 'linear-gradient(135deg, rgba(99,102,241,0.2), rgba(139,92,246,0.15))' : 'linear-gradient(135deg, rgba(99,102,241,0.1), rgba(139,92,246,0.08))', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#818cf8', flexShrink: 0 }}>{app.icon}</div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: '13px', fontWeight: 600, color: '#fff' }}>{app.title}</div>
                 <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{app.description}</div>
               </div>
-              <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.15)' }}>⏎</span>
+              <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.15)', padding: '2px 6px', borderRadius: '4px', background: 'rgba(255,255,255,0.03)' }}>{app.category}</span>
             </button>
           ))}
           {results.length === 0 && <div style={{ padding: '20px', textAlign: 'center', fontSize: '13px', color: 'rgba(255,255,255,0.2)' }}>No results for "{query}"</div>}
@@ -175,22 +204,32 @@ function SpotlightSearch({ apps, onOpen, onClose }: { apps: any[]; onOpen: (app:
 /* ──── Cinematic Lock Screen ──── */
 function LockScreenOverlay({ onUnlock }: { onUnlock: () => void }) {
   const [time, setTime] = useState(new Date())
+  const [unlocking, setUnlocking] = useState(false)
+
   useEffect(() => { const i = setInterval(() => setTime(new Date()), 1000); return () => clearInterval(i) }, [])
   useEffect(() => {
-    const h = (e: KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') onUnlock() }
+    const h = (e: KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') handleUnlock() }
     document.addEventListener('keydown', h)
     return () => document.removeEventListener('keydown', h)
-  }, [onUnlock])
+  }, [])
+
+  const handleUnlock = () => {
+    setUnlocking(true)
+    setTimeout(onUnlock, 400)
+  }
 
   const hour = time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
   const date = time.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })
 
   return (
-    <div onClick={onUnlock} style={{
+    <div onClick={handleUnlock} style={{
       position: 'fixed', inset: 0, zIndex: 300, cursor: 'pointer',
       background: 'linear-gradient(160deg, #030510 0%, #070c24 15%, #0a0f30 30%, #120a35 50%, #0d0828 70%, #060918 100%)',
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
       fontFamily: "'Inter', system-ui, sans-serif", userSelect: 'none', overflow: 'hidden',
+      opacity: unlocking ? 0 : 1,
+      transform: unlocking ? 'scale(1.05)' : 'scale(1)',
+      transition: 'opacity 0.4s ease, transform 0.4s ease',
     }}>
       {/* Animated background orbs */}
       <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none' }}>
@@ -263,6 +302,11 @@ function ContextMenu({ x, y, onClose, onAction }: { x: number; y: number; onClos
     return () => document.removeEventListener('mousedown', h)
   }, [onClose])
 
+  // Clamp menu position to viewport
+  const menuW = 200, menuH = 340
+  const clampedX = Math.min(x, window.innerWidth - menuW - 8)
+  const clampedY = Math.min(y, window.innerHeight - menuH - 8)
+
   const items = [
     { label: 'Refresh Desktop', action: 'refresh', sep: false },
     { label: 'Open Terminal', action: 'terminal', sep: false },
@@ -277,7 +321,7 @@ function ContextMenu({ x, y, onClose, onAction }: { x: number; y: number; onClos
   ]
 
   return (
-    <div ref={ref} style={{ position: 'fixed', top: y, left: x, zIndex: 100, width: '200px', background: 'rgba(12,15,35,0.97)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', padding: '4px', backdropFilter: 'blur(20px)', boxShadow: '0 12px 40px rgba(0,0,0,0.5)' }}>
+    <div ref={ref} style={{ position: 'fixed', top: clampedY, left: clampedX, zIndex: 100, width: `${menuW}px`, background: 'rgba(12,15,35,0.97)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', padding: '4px', backdropFilter: 'blur(20px)', boxShadow: '0 12px 40px rgba(0,0,0,0.5)', animation: 'fadeIn 0.12s ease' }}>
       {items.map((item, i) => (
         <div key={i}>
           {item.sep && <div style={{ height: '1px', background: 'rgba(255,255,255,0.06)', margin: '4px 8px' }} />}
@@ -313,7 +357,7 @@ function WallpaperPicker({ onSelect, onClose }: { onSelect: (id: string) => void
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(8px)' }}>
-      <div ref={ref} style={{ width: '480px', borderRadius: '18px', overflow: 'hidden', background: 'rgba(15,19,40,0.98)', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 24px 80px rgba(0,0,0,0.6)' }}>
+      <div ref={ref} style={{ width: '480px', borderRadius: '18px', overflow: 'hidden', background: 'rgba(15,19,40,0.98)', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 24px 80px rgba(0,0,0,0.6)', animation: 'windowOpen 0.2s cubic-bezier(0.16, 1, 0.3, 1)' }}>
         <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span style={{ fontSize: '14px', fontWeight: 700, color: '#fff' }}>Desktop Wallpaper</span>
           <kbd onClick={onClose} style={{ padding: '2px 8px', borderRadius: '6px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.3)', fontSize: '10px', cursor: 'pointer' }}>ESC</kbd>
@@ -322,10 +366,13 @@ function WallpaperPicker({ onSelect, onClose }: { onSelect: (id: string) => void
           {WALLPAPERS.map(w => (
             <button key={w.id} onClick={() => { onSelect(w.id); onClose() }} style={{
               height: '80px', borderRadius: '10px', border: current === w.id ? '2px solid #818cf8' : '2px solid rgba(255,255,255,0.06)',
-              background: w.gradient, cursor: 'pointer', position: 'relative', overflow: 'hidden',
-            }}>
+              background: w.gradient, cursor: 'pointer', position: 'relative', overflow: 'hidden', transition: 'border-color 0.2s',
+            }}
+              onMouseEnter={e => { if (current !== w.id) e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)' }}
+              onMouseLeave={e => { if (current !== w.id) e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)' }}
+            >
               <span style={{ position: 'absolute', bottom: '6px', left: '8px', fontSize: '9px', fontWeight: 600, color: 'rgba(255,255,255,0.6)', textShadow: '0 1px 4px rgba(0,0,0,0.5)' }}>{w.name}</span>
-              {current === w.id && <span style={{ position: 'absolute', top: '6px', right: '6px', width: '8px', height: '8px', borderRadius: '50%', background: '#818cf8' }} />}
+              {current === w.id && <span style={{ position: 'absolute', top: '6px', right: '6px', width: '8px', height: '8px', borderRadius: '50%', background: '#818cf8', boxShadow: '0 0 6px rgba(129,140,248,0.5)' }} />}
             </button>
           ))}
         </div>
@@ -350,12 +397,13 @@ function ShortcutsOverlay({ onClose }: { onClose: () => void }) {
     { keys: 'Escape', desc: 'Close overlay / dismiss' },
     { keys: 'Right-click', desc: 'Desktop context menu' },
     { keys: 'Double-click', desc: 'Maximize / restore window' },
+    { keys: 'Drag to edge', desc: 'Snap window left/right/max' },
     { keys: 'Enter', desc: 'Unlock from lock screen' },
   ]
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(8px)' }}>
-      <div ref={ref} style={{ width: '380px', borderRadius: '18px', overflow: 'hidden', background: 'rgba(15,19,40,0.98)', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 24px 80px rgba(0,0,0,0.6)' }}>
+      <div ref={ref} style={{ width: '380px', borderRadius: '18px', overflow: 'hidden', background: 'rgba(15,19,40,0.98)', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 24px 80px rgba(0,0,0,0.6)', animation: 'windowOpen 0.2s cubic-bezier(0.16, 1, 0.3, 1)' }}>
         <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
           <span style={{ fontSize: '14px', fontWeight: 700, color: '#fff' }}>Keyboard Shortcuts</span>
         </div>
@@ -372,10 +420,48 @@ function ShortcutsOverlay({ onClose }: { onClose: () => void }) {
   )
 }
 
+/* ──── Category Header ──── */
+function CategorySection({ label, icon, collapsed, onToggle, children }: {
+  label: string; icon: string; collapsed: boolean; onToggle: () => void; children: React.ReactNode
+}) {
+  return (
+    <div style={{ marginBottom: collapsed ? '4px' : '12px' }}>
+      <button onClick={onToggle} style={{
+        display: 'flex', alignItems: 'center', gap: '8px',
+        padding: '6px 12px', marginBottom: collapsed ? 0 : '8px',
+        borderRadius: '10px', border: 'none', cursor: 'pointer',
+        background: 'rgba(255,255,255,0.03)',
+        color: 'rgba(255,255,255,0.5)',
+        fontSize: '11px', fontWeight: 700,
+        fontFamily: "'Inter', system-ui, sans-serif",
+        textTransform: 'uppercase', letterSpacing: '0.8px',
+        transition: 'all 0.15s',
+        userSelect: 'none',
+      }}
+        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.color = 'rgba(255,255,255,0.7)' }}
+        onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; e.currentTarget.style.color = 'rgba(255,255,255,0.5)' }}
+      >
+        <span style={{ fontSize: '13px' }}>{icon}</span>
+        {label}
+        {collapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
+      </button>
+      {!collapsed && (
+        <div style={{
+          display: 'flex', flexWrap: 'wrap', gap: '2px',
+          animation: 'fadeIn 0.2s ease',
+        }}>
+          {children}
+        </div>
+      )}
+    </div>
+  )
+}
+
 /* ══════════════════════════════════════
    ══════  DESKTOP — THE SHELL  ══════
    ══════════════════════════════════════ */
-export default function Desktop() {
+
+function DesktopInner() {
   const [openApps, setOpenApps] = useState<OpenApp[]>([])
   const [activeAppId, setActiveAppId] = useState<string | null>(null)
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number } | null>(null)
@@ -385,49 +471,62 @@ export default function Desktop() {
   const [showShortcuts, setShowShortcuts] = useState(false)
   const [isLocked, setIsLocked] = useState(true)
   const [wallpaper, setWallpaper] = useState(() => localStorage.getItem('sylos_wallpaper') || 'default')
-  const { error: operationError, execute: executeWithError } = useAsyncOperation()
-  const { error: showError } = useToast()
+  const [viewMode, setViewMode] = useState<'categories' | 'grid'>(() => (localStorage.getItem('sylos_desktop_view') as any) || 'categories')
+  const [collapsedCats, setCollapsedCats] = useState<Set<string>>(() => {
+    try { return new Set(JSON.parse(localStorage.getItem('sylos_collapsed_cats') || '[]')) } catch { return new Set() }
+  })
   const { notifications, markRead, markAllRead, clearAll, dismissNotification } = useNotifications()
+  const { addToast } = useToastSystem()
 
   const unreadCount = notifications.filter(n => !n.read).length
 
   // Start the Agent Autonomy Engine on boot
   useEffect(() => {
-    // Give agents a few seconds to load from localStorage before starting
     const timer = setTimeout(() => {
       if (!autonomyEngine.isRunning()) {
         autonomyEngine.start()
+        addToast({ type: 'info', title: 'Agent Engine Online', message: 'Autonomous agents are now active', duration: 3000 })
       }
     }, 3000)
     return () => { clearTimeout(timer); autonomyEngine.stop() }
   }, [])
 
-  const apps = useMemo(() => [
-    { id: 'wallet', title: 'Wallet', icon: <Wallet size={26} />, description: 'Blockchain wallet & POL transfers', component: <ErrorBoundary level="component"><WalletApp /></ErrorBoundary> },
-    { id: 'pop-tracker', title: 'PoP Tracker', icon: <Activity size={26} />, description: 'On-chain proof of productivity', component: <ErrorBoundary level="component"><PoPTrackerApp /></ErrorBoundary> },
-    { id: 'files', title: 'Files', icon: <FolderOpen size={26} />, description: 'IPFS-backed encrypted storage', component: <ErrorBoundary level="component"><FileManagerApp /></ErrorBoundary> },
-    { id: 'messages', title: 'Messages', icon: <MessageCircle size={26} />, description: 'XMTP encrypted wallet-to-wallet chat', component: <ErrorBoundary level="component"><MessagesApp /></ErrorBoundary> },
-    { id: 'ai-agents', title: 'AI Agents', icon: <Bot size={26} />, description: 'LLM-powered autonomous agents', component: <ErrorBoundary level="component"><AgentDashboardApp /></ErrorBoundary> },
-    { id: 'civilization', title: 'Civilization', icon: <Globe size={26} />, description: 'Agent civilization overview and stats', component: <ErrorBoundary level="component"><CivilizationDashboard /></ErrorBoundary> },
-    { id: 'reputation', title: 'Reputation', icon: <TrendingUp size={26} />, description: 'Agent reputation scores and leaderboard', component: <ErrorBoundary level="component"><ReputationExplorer /></ErrorBoundary> },
-    { id: 'killswitch', title: 'Kill Switch', icon: <ShieldOff size={26} />, description: 'Emergency agent controls and enforcement', component: <ErrorBoundary level="component"><KillSwitchPanel /></ErrorBoundary> },
-    { id: 'citizen-profile', title: 'Citizens', icon: <User size={26} />, description: 'Full citizen identity profiles and life records', component: <ErrorBoundary level="component"><CitizenProfileApp /></ErrorBoundary> },
-    { id: 'marketplace', title: 'Marketplace', icon: <ShoppingBag size={26} />, description: 'Hire agents and trade services', component: <ErrorBoundary level="component"><AgentMarketplaceApp /></ErrorBoundary> },
-    { id: 'tx-queue', title: 'Approvals', icon: <Shield size={26} />, description: 'Sponsor approval queue for agent transactions', component: <ErrorBoundary level="component"><TransactionQueueApp /></ErrorBoundary> },
-    { id: 'community', title: 'Community', icon: <MessageSquare size={26} />, description: 'Reddit-style agent discussion forum', component: <ErrorBoundary level="component"><AgentCommunityApp /></ErrorBoundary> },
-    { id: 'hire-humans', title: 'Hire Humans', icon: <Briefcase size={26} />, description: 'Agents post jobs to hire human workers', component: <ErrorBoundary level="component"><HireHumansApp /></ErrorBoundary> },
-    { id: 'tokens', title: 'Tokens', icon: <Coins size={26} />, description: 'Live token balances from Polygon', component: <ErrorBoundary level="component"><TokenDashboardApp /></ErrorBoundary> },
-    { id: 'defi', title: 'DeFi', icon: <ArrowUpDown size={26} />, description: 'Swap, liquidity pools, and lending', component: <ErrorBoundary level="component"><DeFiInterface /></ErrorBoundary> },
-    { id: 'staking', title: 'Staking', icon: <Landmark size={26} />, description: 'Stake wSYLOS and earn rewards', component: <ErrorBoundary level="component"><StakingInterface /></ErrorBoundary> },
-    { id: 'governance', title: 'Governance', icon: <Vote size={26} />, description: 'Civilization proposals and voting', component: <ErrorBoundary level="component"><GovernanceInterface /></ErrorBoundary> },
-    { id: 'identity', title: 'Identity', icon: <Fingerprint size={26} />, description: 'Decentralized identity (DID)', component: <ErrorBoundary level="component"><IdentityInterface /></ErrorBoundary> },
-    { id: 'browser', title: 'Browser', icon: <Globe size={26} />, description: 'Sandboxed Web3 browser with tabs', component: <ErrorBoundary level="component"><WebBrowserApp /></ErrorBoundary> },
-    { id: 'notes', title: 'Notes', icon: <StickyNote size={26} />, description: 'Create, search, and pin notes', component: <ErrorBoundary level="component"><NotesApp /></ErrorBoundary> },
-    { id: 'activity-monitor', title: 'Activity', icon: <Cpu size={26} />, description: 'System processes & resource monitor', component: <ErrorBoundary level="component"><ActivityMonitorApp /></ErrorBoundary> },
-    { id: 'app-store', title: 'App Store', icon: <Store size={26} />, description: '16+ sandboxed Web3 dApps', component: <ErrorBoundary level="component"><AppStoreApp /></ErrorBoundary> },
-    { id: 'settings', title: 'Settings', icon: <Settings size={26} />, description: 'System preferences (persisted)', component: <ErrorBoundary level="component"><SettingsApp /></ErrorBoundary> },
-    { id: 'terminal', title: 'Terminal', icon: <Terminal size={26} />, description: 'SylOS command line interface', component: <ErrorBoundary level="component"><TerminalApp /></ErrorBoundary> },
+  const apps: AppDef[] = useMemo(() => [
+    // Favorites / Core
+    { id: 'wallet', title: 'Wallet', icon: <Wallet size={26} />, description: 'Blockchain wallet & POL transfers', component: <ErrorBoundary level="component"><WalletApp /></ErrorBoundary>, category: 'finance' },
+    { id: 'ai-agents', title: 'AI Agents', icon: <Bot size={26} />, description: 'LLM-powered autonomous agents', component: <ErrorBoundary level="component"><AgentDashboardApp /></ErrorBoundary>, category: 'agents' },
+    { id: 'community', title: 'Community', icon: <MessageSquare size={26} />, description: 'Reddit-style agent discussion forum', component: <ErrorBoundary level="component"><AgentCommunityApp /></ErrorBoundary>, category: 'social' },
+    { id: 'tokens', title: 'Tokens', icon: <Coins size={26} />, description: 'Live token balances from Polygon', component: <ErrorBoundary level="component"><TokenDashboardApp /></ErrorBoundary>, category: 'finance' },
+    { id: 'terminal', title: 'Terminal', icon: <Terminal size={26} />, description: 'SylOS command line interface', component: <ErrorBoundary level="component"><TerminalApp /></ErrorBoundary>, category: 'system' },
+    { id: 'settings', title: 'Settings', icon: <Settings size={26} />, description: 'System preferences (persisted)', component: <ErrorBoundary level="component"><SettingsApp /></ErrorBoundary>, category: 'system' },
+    // Agents
+    { id: 'civilization', title: 'Civilization', icon: <Globe size={26} />, description: 'Agent civilization overview and stats', component: <ErrorBoundary level="component"><CivilizationDashboard /></ErrorBoundary>, category: 'agents' },
+    { id: 'reputation', title: 'Reputation', icon: <TrendingUp size={26} />, description: 'Agent reputation scores and leaderboard', component: <ErrorBoundary level="component"><ReputationExplorer /></ErrorBoundary>, category: 'agents' },
+    { id: 'killswitch', title: 'Kill Switch', icon: <ShieldOff size={26} />, description: 'Emergency agent controls and enforcement', component: <ErrorBoundary level="component"><KillSwitchPanel /></ErrorBoundary>, category: 'agents' },
+    { id: 'citizen-profile', title: 'Citizens', icon: <User size={26} />, description: 'Full citizen identity profiles and life records', component: <ErrorBoundary level="component"><CitizenProfileApp /></ErrorBoundary>, category: 'agents' },
+    { id: 'marketplace', title: 'Marketplace', icon: <ShoppingBag size={26} />, description: 'Hire agents and trade services', component: <ErrorBoundary level="component"><AgentMarketplaceApp /></ErrorBoundary>, category: 'agents' },
+    { id: 'hire-humans', title: 'Hire Humans', icon: <Briefcase size={26} />, description: 'Agents post jobs to hire human workers', component: <ErrorBoundary level="component"><HireHumansApp /></ErrorBoundary>, category: 'agents' },
+    { id: 'tx-queue', title: 'Approvals', icon: <Shield size={26} />, description: 'Sponsor approval queue for agent transactions', component: <ErrorBoundary level="component"><TransactionQueueApp /></ErrorBoundary>, category: 'agents' },
+    // Finance
+    { id: 'pop-tracker', title: 'PoP Tracker', icon: <Activity size={26} />, description: 'On-chain proof of productivity', component: <ErrorBoundary level="component"><PoPTrackerApp /></ErrorBoundary>, category: 'finance' },
+    { id: 'defi', title: 'DeFi', icon: <ArrowUpDown size={26} />, description: 'Swap, liquidity pools, and lending', component: <ErrorBoundary level="component"><DeFiInterface /></ErrorBoundary>, category: 'finance' },
+    { id: 'staking', title: 'Staking', icon: <Landmark size={26} />, description: 'Stake wSYLOS and earn rewards', component: <ErrorBoundary level="component"><StakingInterface /></ErrorBoundary>, category: 'finance' },
+    { id: 'governance', title: 'Governance', icon: <Vote size={26} />, description: 'Civilization proposals and voting', component: <ErrorBoundary level="component"><GovernanceInterface /></ErrorBoundary>, category: 'finance' },
+    { id: 'identity', title: 'Identity', icon: <Fingerprint size={26} />, description: 'Decentralized identity (DID)', component: <ErrorBoundary level="component"><IdentityInterface /></ErrorBoundary>, category: 'finance' },
+    // Social
+    { id: 'messages', title: 'Messages', icon: <MessageCircle size={26} />, description: 'XMTP encrypted wallet-to-wallet chat', component: <ErrorBoundary level="component"><MessagesApp /></ErrorBoundary>, category: 'social' },
+    // System
+    { id: 'files', title: 'Files', icon: <FolderOpen size={26} />, description: 'IPFS-backed encrypted storage', component: <ErrorBoundary level="component"><FileManagerApp /></ErrorBoundary>, category: 'system' },
+    { id: 'browser', title: 'Browser', icon: <Globe size={26} />, description: 'Sandboxed Web3 browser with tabs', component: <ErrorBoundary level="component"><WebBrowserApp /></ErrorBoundary>, category: 'system' },
+    { id: 'notes', title: 'Notes', icon: <StickyNote size={26} />, description: 'Create, search, and pin notes', component: <ErrorBoundary level="component"><NotesApp /></ErrorBoundary>, category: 'system' },
+    { id: 'activity-monitor', title: 'Activity', icon: <Cpu size={26} />, description: 'System processes & resource monitor', component: <ErrorBoundary level="component"><ActivityMonitorApp /></ErrorBoundary>, category: 'system' },
+    { id: 'app-store', title: 'App Store', icon: <Store size={26} />, description: '16+ sandboxed Web3 dApps', component: <ErrorBoundary level="component"><AppStoreApp /></ErrorBoundary>, category: 'system' },
   ], [])
+
+  const favorites = useMemo(() => {
+    const favIds = DEFAULT_FAVORITES
+    return favIds.map(id => apps.find(a => a.id === id)).filter(Boolean) as AppDef[]
+  }, [apps])
 
   // Global keyboard shortcuts
   useEffect(() => {
@@ -441,23 +540,15 @@ export default function Desktop() {
     return () => document.removeEventListener('keydown', h)
   }, [])
 
-  const openApp = useCallback(async (app: typeof apps[0]) => {
-    try {
-      await executeWithError(async () => {
-        await new Promise(r => setTimeout(r, 80))
-        const existing = openApps.find(a => a.id === app.id)
-        if (existing) {
-          setOpenApps(p => p.map(a => a.id === app.id ? { ...a, minimized: false } : a))
-        } else {
-          setOpenApps(p => [...p, { ...app, minimized: false }])
-        }
-        setActiveAppId(app.id)
-      })
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : 'Failed'
-      showError('App Error', msg)
+  const openApp = useCallback((app: AppDef) => {
+    const existing = openApps.find(a => a.id === app.id)
+    if (existing) {
+      setOpenApps(p => p.map(a => a.id === app.id ? { ...a, minimized: false } : a))
+    } else {
+      setOpenApps(p => [...p, { id: app.id, title: app.title, icon: app.icon, component: app.component, minimized: false }])
     }
-  }, [openApps, executeWithError, showError])
+    setActiveAppId(app.id)
+  }, [openApps])
 
   const openAppById = useCallback((id: string) => {
     const app = apps.find(a => a.id === id)
@@ -498,7 +589,33 @@ export default function Desktop() {
     localStorage.setItem('sylos_wallpaper', id)
   }, [])
 
-  if (operationError) showError('System Error', operationError.message)
+  const toggleCategory = useCallback((catId: string) => {
+    setCollapsedCats(prev => {
+      const next = new Set(prev)
+      if (next.has(catId)) next.delete(catId)
+      else next.add(catId)
+      localStorage.setItem('sylos_collapsed_cats', JSON.stringify([...next]))
+      return next
+    })
+  }, [])
+
+  const toggleViewMode = useCallback(() => {
+    setViewMode(v => {
+      const next = v === 'categories' ? 'grid' : 'categories'
+      localStorage.setItem('sylos_desktop_view', next)
+      return next
+    })
+  }, [])
+
+  // Group apps by category
+  const appsByCategory = useMemo(() => {
+    const map: Record<string, AppDef[]> = {}
+    for (const cat of CATEGORIES) {
+      if (cat.id === 'favorites') continue
+      map[cat.id] = apps.filter(a => a.category === cat.id)
+    }
+    return map
+  }, [apps])
 
   return (
     <>
@@ -523,15 +640,58 @@ export default function Desktop() {
           <div style={{ position: 'absolute', top: '60%', right: '30%', width: '350px', height: '350px', background: 'radial-gradient(circle, rgba(236,72,153,0.04) 0%, transparent 55%)', borderRadius: '50%', animation: 'orb-drift 28s ease-in-out infinite 8s' }} />
         </div>
 
-        {/* Desktop icons — column-flow like macOS */}
-        <div style={{ flex: 1, position: 'relative', zIndex: 10, padding: '20px 24px', overflow: 'hidden' }}>
-          <div style={{ display: 'grid', gridTemplateRows: 'repeat(auto-fill, minmax(90px, 1fr))', gridAutoFlow: 'column', gap: '2px 4px', maxHeight: 'calc(100vh - 96px)', width: 'fit-content' }} role="grid" aria-label="Desktop Applications">
-            {apps.map(app => (
-              <div key={app.id} role="gridcell" tabIndex={-1}>
-                <DesktopIcon icon={app.icon} label={app.title} onClick={() => openApp(app)} appId={app.id} description={app.description} />
-              </div>
-            ))}
+        {/* Desktop icons area */}
+        <div style={{ flex: 1, position: 'relative', zIndex: 10, padding: '16px 20px', overflow: 'auto' }}>
+          {/* View mode toggle */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '8px' }}>
+            <button onClick={toggleViewMode} title={viewMode === 'categories' ? 'Switch to grid view' : 'Switch to category view'} style={{
+              display: 'flex', alignItems: 'center', gap: '6px',
+              padding: '5px 12px', borderRadius: '8px', border: 'none', cursor: 'pointer',
+              background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.35)',
+              fontSize: '10px', fontWeight: 600, fontFamily: "'Inter', sans-serif",
+              transition: 'all 0.15s',
+            }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; e.currentTarget.style.color = 'rgba(255,255,255,0.6)' }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.color = 'rgba(255,255,255,0.35)' }}
+            >
+              <LayoutGrid size={12} />
+              {viewMode === 'categories' ? 'Grid' : 'Categories'}
+            </button>
           </div>
+
+          {viewMode === 'categories' ? (
+            /* Category view */
+            <div style={{ maxWidth: '900px' }}>
+              {/* Favorites row */}
+              <CategorySection label="Favorites" icon="★" collapsed={collapsedCats.has('favorites')} onToggle={() => toggleCategory('favorites')}>
+                {favorites.map(app => (
+                  <div key={app.id}>
+                    <DesktopIcon icon={app.icon} label={app.title} onClick={() => openApp(app)} appId={app.id} description={app.description} />
+                  </div>
+                ))}
+              </CategorySection>
+
+              {/* Other categories */}
+              {CATEGORIES.filter(c => c.id !== 'favorites').map(cat => (
+                <CategorySection key={cat.id} label={cat.label} icon={cat.icon} collapsed={collapsedCats.has(cat.id)} onToggle={() => toggleCategory(cat.id)}>
+                  {(appsByCategory[cat.id] || []).map(app => (
+                    <div key={app.id}>
+                      <DesktopIcon icon={app.icon} label={app.title} onClick={() => openApp(app)} appId={app.id} description={app.description} />
+                    </div>
+                  ))}
+                </CategorySection>
+              ))}
+            </div>
+          ) : (
+            /* Grid view — classic column flow */
+            <div style={{ display: 'grid', gridTemplateRows: 'repeat(auto-fill, minmax(90px, 1fr))', gridAutoFlow: 'column', gap: '2px 4px', maxHeight: 'calc(100vh - 96px)', width: 'fit-content' }} role="grid" aria-label="Desktop Applications">
+              {apps.map(app => (
+                <div key={app.id} role="gridcell" tabIndex={-1}>
+                  <DesktopIcon icon={app.icon} label={app.title} onClick={() => openApp(app)} appId={app.id} description={app.description} />
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Open windows */}
           {openApps.map(app => !app.minimized && (
@@ -574,5 +734,13 @@ export default function Desktop() {
         />
       </div>
     </>
+  )
+}
+
+export default function Desktop() {
+  return (
+    <ToastProvider>
+      <DesktopInner />
+    </ToastProvider>
   )
 }

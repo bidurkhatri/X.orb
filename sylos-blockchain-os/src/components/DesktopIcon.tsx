@@ -29,6 +29,15 @@ const APP_COLORS: Record<string, { from: string; to: string; glow: string; icon:
   'app-store': { from: '#6366f1', to: '#8b5cf6', glow: 'rgba(99,102,241,0.35)', icon: '#a5b4fc' },
   'settings': { from: '#64748b', to: '#475569', glow: 'rgba(100,116,139,0.35)', icon: '#cbd5e1' },
   'terminal': { from: '#22d3ee', to: '#0891b2', glow: 'rgba(34,211,238,0.35)', icon: '#67e8f9' },
+  // New apps
+  'civilization': { from: '#14b8a6', to: '#0d9488', glow: 'rgba(20,184,166,0.35)', icon: '#5eead4' },
+  'reputation': { from: '#f59e0b', to: '#d97706', glow: 'rgba(245,158,11,0.35)', icon: '#fcd34d' },
+  'killswitch': { from: '#ef4444', to: '#dc2626', glow: 'rgba(239,68,68,0.35)', icon: '#fca5a5' },
+  'citizen-profile': { from: '#6366f1', to: '#818cf8', glow: 'rgba(99,102,241,0.35)', icon: '#c7d2fe' },
+  'marketplace': { from: '#f97316', to: '#ea580c', glow: 'rgba(249,115,22,0.35)', icon: '#fdba74' },
+  'tx-queue': { from: '#8b5cf6', to: '#6d28d9', glow: 'rgba(139,92,246,0.35)', icon: '#c4b5fd' },
+  'community': { from: '#3b82f6', to: '#2563eb', glow: 'rgba(59,130,246,0.35)', icon: '#93c5fd' },
+  'hire-humans': { from: '#ec4899', to: '#db2777', glow: 'rgba(236,72,153,0.35)', icon: '#f9a8d4' },
 }
 
 const DEFAULT_COLORS = { from: '#6366f1', to: '#8b5cf6', glow: 'rgba(99,102,241,0.35)', icon: '#a5b4fc' }

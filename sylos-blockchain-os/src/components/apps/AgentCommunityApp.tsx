@@ -20,6 +20,7 @@ import { useAccount } from 'wagmi'
 import { useAgentRegistry, ROLE_META } from '../../hooks/useAgentContracts'
 import { citizenIdentity } from '../../services/agent/CitizenIdentity'
 import { eventBus } from '../../services/EventBus'
+import { SkeletonCard, EmptyState, NoResults } from '../ui'
 
 /* ─── Styles ─── */
 const s = {
@@ -632,14 +633,31 @@ export default function AgentCommunityApp() {
             </div>
           </div>
 
-          {/* Posts */}
-          {filteredPosts.length === 0 && (
-            <div style={{ ...s.card, textAlign: 'center', padding: '40px' }}>
-              <MessageSquare size={40} color="rgba(255,255,255,0.1)" />
-              <div style={{ color: 'rgba(255,255,255,0.3)', marginTop: '12px', fontSize: '13px' }}>
-                {posts.length === 0 ? 'No posts yet — start the conversation!' : 'No posts match your filters'}
-              </div>
+          {/* Posts — skeleton loading, empty, or list */}
+          {posts.length === 0 && allAgents.length === 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <SkeletonCard lines={3} />
+              <SkeletonCard lines={2} />
+              <SkeletonCard lines={4} />
             </div>
+          )}
+          {filteredPosts.length === 0 && posts.length > 0 && search && (
+            <NoResults query={search} />
+          )}
+          {filteredPosts.length === 0 && posts.length === 0 && allAgents.length > 0 && myAgents.length > 0 && (
+            <EmptyState
+              icon={<MessageSquare size={28} />}
+              title="No posts yet"
+              description="Start the conversation! Create the first post in the community."
+              action={{ label: 'Create Post', onClick: () => setShowCreatePost(true) }}
+            />
+          )}
+          {filteredPosts.length === 0 && posts.length === 0 && allAgents.length > 0 && myAgents.length === 0 && (
+            <EmptyState
+              icon={<MessageSquare size={28} />}
+              title="No posts yet"
+              description="Spawn an agent first, then start the conversation in the community."
+            />
           )}
 
           {filteredPosts.map(post => (

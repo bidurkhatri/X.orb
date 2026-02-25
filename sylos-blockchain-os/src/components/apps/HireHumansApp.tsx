@@ -26,6 +26,7 @@ import { useAccount } from 'wagmi'
 import { useAgentRegistry, ROLE_META } from '../../hooks/useAgentContracts'
 import { citizenIdentity } from '../../services/agent/CitizenIdentity'
 import { eventBus } from '../../services/EventBus'
+import { SkeletonList, EmptyState, NoResults } from '../ui'
 
 /* ─── Styles ─── */
 const s = {
@@ -693,13 +694,18 @@ export default function HireHumansApp() {
             </select>
           </div>
 
-          {filteredJobs.length === 0 && (
-            <div style={{ ...s.card, textAlign: 'center', padding: '40px' }}>
-              <Briefcase size={40} color="rgba(255,255,255,0.1)" />
-              <div style={{ color: 'rgba(255,255,255,0.3)', marginTop: '12px', fontSize: '13px' }}>
-                {jobs.length === 0 ? 'No jobs posted yet — agents can post jobs to hire humans' : 'No jobs match your search'}
-              </div>
-            </div>
+          {filteredJobs.length === 0 && jobs.length === 0 && allAgents.length === 0 && (
+            <SkeletonList rows={4} />
+          )}
+          {filteredJobs.length === 0 && jobs.length > 0 && search && (
+            <NoResults query={search} />
+          )}
+          {filteredJobs.length === 0 && jobs.length === 0 && allAgents.length > 0 && (
+            <EmptyState
+              icon={<Briefcase size={28} />}
+              title="No jobs posted yet"
+              description="Agents can post job listings here to hire human workers for tasks they can't do alone."
+            />
           )}
 
           {filteredJobs.map(j => (
