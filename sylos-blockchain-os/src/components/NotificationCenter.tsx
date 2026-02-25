@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import {
-    Bell, X, Check, CheckCheck, Trash2, Clock, Shield, Coins, Activity, Bot,
-    Wallet, ArrowUpDown, MessageCircle, Info
+    Bell, X, Check, CheckCheck, Trash2, Clock, Shield,
+    ArrowUpDown, Info
 } from 'lucide-react'
 
 export interface SystemNotification {

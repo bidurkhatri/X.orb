@@ -1,5 +1,5 @@
-import { Wifi, Battery, Volume2, Shield, Cpu, HardDrive, Bell, Search, Lock, Bot, Terminal as TerminalIcon, Settings, Zap } from 'lucide-react'
-import { useState, useEffect, useRef } from 'react'
+import { Wifi, Battery, Volume2, Shield, Cpu, HardDrive, Bell, Search, Lock, Bot, Terminal as TerminalIcon, Settings, Zap, Users } from 'lucide-react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 
 interface TaskbarProps {
   openApps: Array<{ id: string; title: string; icon: React.ReactNode; minimized: boolean }>
@@ -16,12 +16,36 @@ export default function Taskbar({ openApps, activeAppId, onAppClick, onNotificat
   const [currentTime, setCurrentTime] = useState(new Date())
   const [showStartMenu, setShowStartMenu] = useState(false)
   const [showSystemTray, setShowSystemTray] = useState(false)
+  const [storageKB, setStorageKB] = useState(0)
+  const [agentCount, setAgentCount] = useState(0)
   const startRef = useRef<HTMLDivElement>(null)
   const trayRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000)
     return () => clearInterval(timer)
+  }, [])
+
+  // Real system metrics
+  useEffect(() => {
+    const measure = () => {
+      try {
+        let total = 0
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i)
+          if (key) total += localStorage.getItem(key)?.length || 0
+        }
+        setStorageKB(Math.round(total / 1024))
+      } catch { setStorageKB(0) }
+
+      try {
+        const reg = JSON.parse(localStorage.getItem('sylos_agent_registry') || '[]')
+        setAgentCount(Array.isArray(reg) ? reg.filter((a: any) => a.status === 'active').length : 0)
+      } catch { setAgentCount(0) }
+    }
+    measure()
+    const interval = setInterval(measure, 5000)
+    return () => clearInterval(interval)
   }, [])
 
   useEffect(() => {
@@ -33,8 +57,14 @@ export default function Taskbar({ openApps, activeAppId, onAppClick, onNotificat
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
+  // Session uptime
+  const uptime = useMemo(() => {
+    const m = Math.floor(performance.now() / 60000)
+    return `${Math.floor(m / 60)}h ${m % 60}m`
+  }, [currentTime]) // recalculate each second
+
   const startMenuItems = [
-    { icon: <Bot size={16} color="#a78bfa" />, label: 'AI Agents', desc: 'Agent civilization', appId: 'ai-agents' },
+    { icon: <Bot size={16} color="#a78bfa" />, label: 'AI Agents', desc: `${agentCount} active agent${agentCount !== 1 ? 's' : ''}`, appId: 'ai-agents' },
     { icon: <TerminalIcon size={16} color="#22d3ee" />, label: 'Terminal', desc: 'Command line', appId: 'terminal' },
     { icon: <Cpu size={16} color="#34d399" />, label: 'Activity', desc: 'System monitor', appId: 'activity-monitor' },
     { icon: <HardDrive size={16} color="#fbbf24" />, label: 'Files', desc: 'IPFS storage', appId: 'files' },
@@ -170,7 +200,7 @@ export default function Taskbar({ openApps, activeAppId, onAppClick, onNotificat
               </div>
               <div style={{ padding: '6px 14px 4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <Zap size={9} /> Chain 137 · v1.0.0
+                  <Zap size={9} /> Chain 137 · v1.0.0 · Up {uptime}
                 </span>
               </div>
             </div>
@@ -182,10 +212,13 @@ export default function Taskbar({ openApps, activeAppId, onAppClick, onNotificat
       <div style={{
         position: 'absolute', left: '50%', transform: 'translateX(-50%)',
         display: 'flex', alignItems: 'center', gap: '2px',
-        padding: openApps.length > 0 ? '4px 8px' : '0',
+        padding: openApps.length > 0 ? '4px 6px' : '0',
         borderRadius: '14px',
         background: openApps.length > 0 ? 'rgba(255,255,255,0.03)' : 'transparent',
         border: openApps.length > 0 ? '1px solid rgba(255,255,255,0.04)' : 'none',
+        maxWidth: '60vw',
+        overflowX: 'auto',
+        scrollbarWidth: 'none',
       }}>
         {openApps.map(app => (
           <button
@@ -193,15 +226,17 @@ export default function Taskbar({ openApps, activeAppId, onAppClick, onNotificat
             onClick={() => onAppClick(app.id)}
             title={app.title}
             style={{
-              display: 'flex', alignItems: 'center', gap: '7px',
-              padding: '6px 14px', borderRadius: '10px', border: 'none', cursor: 'pointer',
-              fontFamily: 'inherit', fontSize: '12px', fontWeight: 500,
+              display: 'flex', alignItems: 'center', gap: '6px',
+              padding: '5px 12px', borderRadius: '10px', border: 'none', cursor: 'pointer',
+              fontFamily: 'inherit', fontSize: '11px', fontWeight: 500,
               transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
               background: activeAppId === app.id
                 ? 'linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(139, 92, 246, 0.15))'
                 : 'transparent',
-              color: activeAppId === app.id ? '#e0e7ff' : 'rgba(255,255,255,0.4)',
+              color: activeAppId === app.id ? '#e0e7ff' : app.minimized ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.4)',
               position: 'relative',
+              whiteSpace: 'nowrap',
+              opacity: app.minimized ? 0.6 : 1,
             }}
             onMouseEnter={e => {
               if (activeAppId !== app.id) e.currentTarget.style.background = 'rgba(255,255,255,0.06)'
@@ -214,7 +249,7 @@ export default function Taskbar({ openApps, activeAppId, onAppClick, onNotificat
             <span>{app.title}</span>
             {/* Bottom indicator */}
             <div style={{
-              position: 'absolute', bottom: '-4px', left: '50%', transform: 'translateX(-50%)',
+              position: 'absolute', bottom: '-3px', left: '50%', transform: 'translateX(-50%)',
               width: activeAppId === app.id ? '16px' : '4px', height: '3px', borderRadius: '2px',
               background: activeAppId === app.id
                 ? 'linear-gradient(90deg, #818cf8, #a78bfa)'
@@ -228,6 +263,21 @@ export default function Taskbar({ openApps, activeAppId, onAppClick, onNotificat
 
       {/* ─── Right: System Tray ─── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        {/* Active agents indicator */}
+        {agentCount > 0 && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: '4px',
+            padding: '4px 8px', borderRadius: '8px',
+            background: 'rgba(139,92,246,0.08)',
+            border: '1px solid rgba(139,92,246,0.12)',
+            fontSize: '10px', fontWeight: 600, color: '#a78bfa',
+            fontFamily: "'JetBrains Mono', monospace",
+          }}>
+            <Users size={11} />
+            {agentCount}
+          </div>
+        )}
+
         {/* Notification bell */}
         <button onClick={onNotificationClick} style={{
           position: 'relative', background: 'none', border: 'none', cursor: 'pointer',
@@ -267,7 +317,7 @@ export default function Taskbar({ openApps, activeAppId, onAppClick, onNotificat
 
           {showSystemTray && (
             <div style={{
-              position: 'absolute', bottom: '56px', right: 0, width: '260px',
+              position: 'absolute', bottom: '56px', right: 0, width: '280px',
               background: 'rgba(8, 10, 28, 0.95)',
               border: '1px solid rgba(255,255,255,0.06)',
               borderRadius: '18px', padding: '12px',
@@ -279,10 +329,10 @@ export default function Taskbar({ openApps, activeAppId, onAppClick, onNotificat
               {[
                 { icon: <Wifi size={14} />, label: 'Network', value: 'Polygon PoS', color: '#34d399' },
                 { icon: <Zap size={14} />, label: 'Chain ID', value: '137', color: '#818cf8' },
-                { icon: <Volume2 size={14} />, label: 'Sound', value: '100%', color: '#a78bfa' },
+                { icon: <Bot size={14} />, label: 'Active Agents', value: `${agentCount}`, color: '#a78bfa' },
+                { icon: <HardDrive size={14} />, label: 'Storage', value: `${storageKB} KB`, color: '#f472b6' },
+                { icon: <Volume2 size={14} />, label: 'Uptime', value: uptime, color: '#fbbf24' },
                 { icon: <Battery size={14} />, label: 'Battery', value: '100%', color: '#34d399' },
-                { icon: <Cpu size={14} />, label: 'CPU', value: '4.2%', color: '#fbbf24' },
-                { icon: <HardDrive size={14} />, label: 'Storage', value: `${(JSON.stringify(localStorage).length / 1024).toFixed(0)} KB`, color: '#f472b6' },
               ].map((item, i) => (
                 <div key={i} style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
