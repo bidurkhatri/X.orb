@@ -38,7 +38,7 @@ export default function LockScreen() {
       const success = await authenticate();
       
       if (success) {
-        router.replace('/desktop');
+        router.replace('/(tabs)');
       } else {
         Alert.alert(
           strings.auth.failed,
