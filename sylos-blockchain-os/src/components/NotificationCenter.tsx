@@ -22,16 +22,10 @@ function loadNotifs(): SystemNotification[] {
 }
 function saveNotifs(n: SystemNotification[]) { localStorage.setItem(NOTIF_KEY, JSON.stringify(n)) }
 
-// Seed initial demo notifications if none exist
+// Initial system notification shown once on first boot
 function seedNotifications(): SystemNotification[] {
-    const now = Date.now()
     return [
-        { id: 'n1', title: 'Welcome to SylOS', message: 'Your blockchain operating system is ready. Connect your wallet to get started.', type: 'info', timestamp: now - 5000, read: false },
-        { id: 'n2', title: 'Polygon Network', message: 'Connected to Polygon PoS mainnet (Chain ID 137). RPC endpoint active.', type: 'success', timestamp: now - 60000, read: false },
-        { id: 'n3', title: 'SylBot AI Agent', message: 'Configure your AI provider in the Agent app to enable autonomous blockchain queries.', type: 'info', timestamp: now - 120000, read: false },
-        { id: 'n4', title: 'Gas Price Alert', message: 'Average gas on Polygon is 35 Gwei — optimal for transactions.', type: 'info', timestamp: now - 300000, read: true },
-        { id: 'n5', title: 'XMTP Protocol', message: 'Decentralized messaging available. Connect wallet to send and receive encrypted messages.', type: 'info', timestamp: now - 600000, read: true },
-        { id: 'n6', title: 'System Update', message: 'SylOS v1.0.0-alpha loaded. New features: AI Agents, Spotlight Search, Lock Screen.', type: 'success', timestamp: now - 900000, read: true },
+        { id: 'n_welcome', title: 'Welcome to SylOS', message: 'Your blockchain operating system is ready. Connect your wallet to get started.', type: 'info', timestamp: Date.now(), read: false },
     ]
 }
 

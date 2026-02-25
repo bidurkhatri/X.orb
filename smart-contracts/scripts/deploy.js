@@ -172,10 +172,12 @@ async function main() {
 
     // Mint Identity SBTs for test accounts
     console.log("🪪 Minting Identity SBTs to test accounts...");
-    await sylosSBT.connect(admin).mintIdentity(manager.address, "ipfs://QmManagerIdentityMockValue");
-    await sylosSBT.connect(admin).mintIdentity(verifier.address, "ipfs://QmVerifierIdentityMockValue");
-    await sylosSBT.connect(admin).mintIdentity(validator.address, "ipfs://QmValidatorIdentityMockValue");
-    await sylosSBT.connect(admin).mintIdentity(emergency.address, "ipfs://QmEmergencyIdentityMockValue");
+    // Generate identity CIDs from address hashes (deterministic per-account)
+    const identityCID = (addr) => "ipfs://" + ethers.keccak256(ethers.toUtf8Bytes(`sylos-identity-${addr}`)).slice(2);
+    await sylosSBT.connect(admin).mintIdentity(manager.address, identityCID(manager.address));
+    await sylosSBT.connect(admin).mintIdentity(verifier.address, identityCID(verifier.address));
+    await sylosSBT.connect(admin).mintIdentity(validator.address, identityCID(validator.address));
+    await sylosSBT.connect(admin).mintIdentity(emergency.address, identityCID(emergency.address));
 
     // Setup roles for various contracts
     console.log("🔐 Setting up roles...");
