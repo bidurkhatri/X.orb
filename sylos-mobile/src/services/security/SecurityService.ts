@@ -107,29 +107,77 @@ class SecurityService {
 
   public async generateSIWESession(): Promise<{ success: boolean; address?: string; token?: string; error?: string }> {
     try {
-      console.log('Initiating WalletConnect SIWE simulation...');
+      console.log('Initiating SIWE authentication...');
 
-      // Simulate generating a session key via standard Ethers.js
+      // Generate a session wallet for signing the SIWE message
       const wallet = ethers.Wallet.createRandom();
       const nonce = Math.floor(Math.random() * 1000000).toString();
-      const message = `sylos-mobile wants you to sign in with your Ethereum account:\n${wallet.address}\n\nSign in to SylOS Mobile.\n\nNonce: ${nonce}`;
+      const issuedAt = new Date().toISOString();
+      const domain = 'sylos-mobile';
+      const uri = 'https://sylos.app';
+
+      // Build an EIP-4361 compliant SIWE message
+      const message = [
+        `${domain} wants you to sign in with your Ethereum account:`,
+        wallet.address,
+        '',
+        'Sign in to SylOS Mobile.',
+        '',
+        `URI: ${uri}`,
+        `Version: 1`,
+        `Chain ID: 137`,
+        `Nonce: ${nonce}`,
+        `Issued At: ${issuedAt}`,
+      ].join('\n');
 
       const signature = await wallet.signMessage(message);
-
-      if (signature) {
-        // Mock a Supabase JWT returned from an Edge Function
-        const mockJwt = `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.mock_supabase_token_${nonce}`;
-        await this.storeSecureData('supabase_jwt', mockJwt);
-        await this.storeSecureData('wallet_address', wallet.address);
-
-        console.log(`Successfully authenticated Wallet: ${wallet.address}`);
-        return { success: true, address: wallet.address, token: mockJwt };
+      if (!signature) {
+        return { success: false, error: 'User rejected signature' };
       }
 
-      return { success: false, error: 'User rejected signature' };
+      // Verify via Supabase verify-siwe edge function
+      const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+      const supabaseKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+
+      if (!supabaseUrl || !supabaseKey) {
+        return { success: false, error: 'Supabase not configured' };
+      }
+
+      const verifyRes = await fetch(`${supabaseUrl}/functions/v1/verify-siwe`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: supabaseKey,
+        },
+        body: JSON.stringify({ message, signature }),
+      });
+
+      if (!verifyRes.ok) {
+        const errData = await verifyRes.json().catch(() => ({}));
+        return { success: false, error: errData.error || `Verification failed (${verifyRes.status})` };
+      }
+
+      const result = await verifyRes.json();
+
+      if (!result.success) {
+        return { success: false, error: result.error || 'SIWE verification failed' };
+      }
+
+      // Store the verified session data securely
+      const sessionToken = JSON.stringify({
+        user_id: result.user_id,
+        wallet_address: result.wallet_address,
+        authenticated_at: issuedAt,
+      });
+
+      await this.storeSecureData('supabase_jwt', sessionToken);
+      await this.storeSecureData('wallet_address', result.wallet_address);
+
+      console.log(`Successfully authenticated wallet: ${result.wallet_address}`);
+      return { success: true, address: result.wallet_address, token: sessionToken };
     } catch (error) {
-      console.error('SIWE WalletConnect error:', error);
-      return { success: false, error: 'Cryptographic session generation failed' };
+      console.error('SIWE authentication error:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'SIWE authentication failed' };
     }
   }
 
@@ -191,7 +239,7 @@ class SecurityService {
     return false;
   }
 
-  public isDeviceSecure(): boolean {
+  public getIsDeviceSecure(): boolean {
     return this.isDeviceSecure;
   }
 
@@ -244,52 +292,9 @@ class SecurityService {
   }
 
   public async generateSecureKey(): Promise<string> {
-    // Generate a secure random key for encryption using expo-random
-    const { getRandomBytesAsync } = require('expo-random');
-    const randomBytes = await getRandomBytesAsync(32);
-    return Array.from(randomBytes, byte => byte.toString(16).padStart(2, '0')).join('');
-  }
-
-  public async encryptData(data: string, key: string): Promise<string> {
-    try {
-      if (!data || !key) {
-        throw new Error('Data and key are required for encryption');
-      }
-
-      // Use proper crypto library for secure encryption
-      const CryptoJS = require('react-native-crypto-js');
-
-      // Use AES encryption with proper key derivation
-      const encrypted = CryptoJS.AES.encrypt(data, key).toString();
-      return encrypted;
-    } catch (error) {
-      console.error('Encryption failed:', error);
-      throw new Error('Failed to encrypt data securely');
-    }
-  }
-
-  public async decryptData(encryptedData: string, key: string): Promise<string> {
-    try {
-      if (!encryptedData || !key) {
-        throw new Error('Encrypted data and key are required for decryption');
-      }
-
-      // Use proper crypto library for secure decryption
-      const CryptoJS = require('react-native-crypto-js');
-
-      // Decrypt using AES
-      const decrypted = CryptoJS.AES.decrypt(encryptedData, key);
-      const originalText = decrypted.toString(CryptoJS.enc.Utf8);
-
-      if (!originalText) {
-        throw new Error('Failed to decrypt data - invalid key or corrupted data');
-      }
-
-      return originalText;
-    } catch (error) {
-      console.error('Decryption failed:', error);
-      throw new Error('Failed to decrypt data securely');
-    }
+    const Crypto = require('expo-crypto');
+    const randomBytes = await Crypto.getRandomBytesAsync(32);
+    return Array.from(randomBytes, (byte: number) => byte.toString(16).padStart(2, '0')).join('');
   }
 
   public async getBiometricHardwareInfo(): Promise<{ hasHardware: boolean; isEnrolled: boolean }> {
@@ -315,9 +320,6 @@ class SecurityService {
   }
 
   private generateSessionId(): string {
-    const { getRandomBytesAsync } = require('expo-random');
-    // This is a simplified version - in a real implementation, this would be async
-    // For now, we'll use a timestamp-based approach with proper crypto
     return `session_${Date.now()}_${Math.floor(Math.random() * 1e9).toString(36)}`;
   }
 
