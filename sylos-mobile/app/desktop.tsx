@@ -49,6 +49,14 @@ const appIcons: AppIcon[] = [
     description: strings.apps.fileManagerDesc,
   },
   {
+    id: 'agents',
+    name: strings.apps.agents,
+    icon: 'people',
+    color: '#818CF8',
+    route: '/agents',
+    description: strings.apps.agentsDesc,
+  },
+  {
     id: 'token-dashboard',
     name: strings.apps.tokenDashboard,
     icon: 'trending-up',

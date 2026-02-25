@@ -13,8 +13,15 @@ export const CONTRACTS = {
     WSYLOS_TOKEN: _WSYLOS,
     WRAPPED_SYLOS: _WSYLOS,  // Alias for agent system
     POP_TRACKER: (import.meta.env['VITE_POP_TRACKER'] as string) || '0x67ebac5f352Cda62De2f126d02063002dc8B6510',
-    GOVERNANCE: (import.meta.env['VITE_GOVERNANCE'] as string) || '0xcc85bc66C7c2c05505A4d62513e4eBA4a3B7Ff76',
-    PAYMASTER: (import.meta.env['VITE_PAYMASTER'] as string) || '0xAe1418F0a941a13DA8bC689Df7B3b4f7b4E21583',
+    GOVERNANCE: (import.meta.env['VITE_GOVERNANCE'] as string) || '0xcc854CFc60a7eEab557CA7CC4906C6B38BafFf76',
+    PAYMASTER: (import.meta.env['VITE_PAYMASTER'] as string) || '0xAe144749668b3778bBAb721558B00C655ACD1583',
+    // Agent Civilization Contracts (deployed addresses TBD)
+    AGENT_REGISTRY: (import.meta.env['VITE_AGENT_REGISTRY'] as string) || '',
+    REPUTATION_SCORE: (import.meta.env['VITE_REPUTATION_SCORE'] as string) || '',
+    SLASHING_ENGINE: (import.meta.env['VITE_SLASHING_ENGINE'] as string) || '',
+    // Economy Contracts
+    PAYMENT_STREAMING: (import.meta.env['VITE_PAYMENT_STREAMING'] as string) || '',
+    AGENT_MARKETPLACE: (import.meta.env['VITE_AGENT_MARKETPLACE'] as string) || '',
 } as const
 
 export const CHAIN = {

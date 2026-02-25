@@ -86,6 +86,9 @@ export default function RootLayout() {
         <Stack.Screen name="token-dashboard" />
         <Stack.Screen name="pop-tracker" />
         
+        {/* Agent Civilization */}
+        <Stack.Screen name="agents" />
+
         {/* Utility routes */}
         <Stack.Screen name="file-manager" />
         <Stack.Screen name="settings" />

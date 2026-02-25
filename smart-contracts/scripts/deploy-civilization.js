@@ -133,17 +133,70 @@ async function main() {
   console.log("  Deployer granted REPORTER_ROLE on SlashingEngine");
 
   // ---------------------------------------------------------------
+  // Deploy Economy Contracts
+  // ---------------------------------------------------------------
+
+  console.log("\n[6/10] Deploying PaymentStreaming...");
+  const PaymentStreaming = await ethers.getContractFactory("PaymentStreaming");
+  const paymentStreaming = await PaymentStreaming.deploy(
+    wrappedSylosAddress,
+    TREASURY_ADDRESS
+  );
+  await paymentStreaming.waitForDeployment();
+  const paymentStreamingAddr = await paymentStreaming.getAddress();
+  console.log(`  PaymentStreaming: ${paymentStreamingAddr}`);
+
+  console.log("[7/10] Deploying AgentMarketplace...");
+  const AgentMarketplace = await ethers.getContractFactory("AgentMarketplace");
+  const agentMarketplace = await AgentMarketplace.deploy(
+    wrappedSylosAddress,
+    TREASURY_ADDRESS
+  );
+  await agentMarketplace.waitForDeployment();
+  const agentMarketplaceAddr = await agentMarketplace.getAddress();
+  console.log(`  AgentMarketplace: ${agentMarketplaceAddr}`);
+
+  // ---------------------------------------------------------------
+  // Configure Cross-Contract Permissions
+  // ---------------------------------------------------------------
+
+  console.log("\n[8/10] Configuring cross-contract permissions...");
+
+  // AgentRegistry needs to know about ReputationScore and SlashingEngine
+  await agentRegistry.setReputationContract(reputationScoreAddr);
+  console.log("  AgentRegistry.reputationContract = ReputationScore");
+
+  await agentRegistry.setSlashingContract(slashingEngineAddr);
+  console.log("  AgentRegistry.slashingContract = SlashingEngine");
+
+  // SlashingEngine needs ORACLE_ROLE on ReputationScore to apply deltas
+  console.log("\n[9/10] Granting roles...");
+  const ORACLE_ROLE = ethers.keccak256(ethers.toUtf8Bytes("ORACLE_ROLE"));
+  await reputationScore.grantRole(ORACLE_ROLE, slashingEngineAddr);
+  console.log("  SlashingEngine granted ORACLE_ROLE on ReputationScore");
+
+  // Grant OPERATOR_ROLE on AgentRegistry to deployer (for recordAction calls)
+  const OPERATOR_ROLE = ethers.keccak256(ethers.toUtf8Bytes("OPERATOR_ROLE"));
+  await agentRegistry.grantRole(OPERATOR_ROLE, deployer.address);
+  console.log("  Deployer granted OPERATOR_ROLE on AgentRegistry");
+
+  // Grant REPORTER_ROLE on SlashingEngine to deployer
+  const REPORTER_ROLE = ethers.keccak256(ethers.toUtf8Bytes("REPORTER_ROLE"));
+  await slashingEngine.grantRole(REPORTER_ROLE, deployer.address);
+  console.log("  Deployer granted REPORTER_ROLE on SlashingEngine");
+
+  // ---------------------------------------------------------------
   // Summary
   // ---------------------------------------------------------------
 
-  console.log("\n[8/8] Verifying configuration...");
+  console.log("\n[10/10] Verifying configuration...");
   console.log(`  AgentRegistry.reputationContract: ${await agentRegistry.reputationContract()}`);
   console.log(`  AgentRegistry.slashingContract: ${await agentRegistry.slashingContract()}`);
   console.log(`  AgentRegistry.minStakeBond: ${ethers.formatEther(await agentRegistry.minStakeBond())} wSYLOS`);
   console.log(`  AgentRegistry.maxAgentsPerSponsor: ${await agentRegistry.maxAgentsPerSponsor()}`);
 
   console.log("\n" + "=".repeat(70));
-  console.log("  DEPLOYMENT COMPLETE — Agent Civilization Contracts");
+  console.log("  DEPLOYMENT COMPLETE — SylOS Civilization + Economy Contracts");
   console.log("=".repeat(70));
 
   const contracts = {
@@ -151,6 +204,8 @@ async function main() {
     AgentRegistry: agentRegistryAddr,
     ReputationScore: reputationScoreAddr,
     SlashingEngine: slashingEngineAddr,
+    PaymentStreaming: paymentStreamingAddr,
+    AgentMarketplace: agentMarketplaceAddr,
   };
 
   console.log("\nContract Addresses:");
@@ -162,10 +217,10 @@ async function main() {
   console.log(`Chain ID: ${(await ethers.provider.getNetwork()).chainId}`);
 
   console.log("\nNext Steps:");
-  console.log("  1. Update frontend VITE_AGENT_REGISTRY, VITE_REPUTATION_SCORE, VITE_SLASHING_ENGINE");
+  console.log("  1. Update frontend env vars with all contract addresses");
   console.log("  2. Grant ORACLE_ROLE to your backend oracle service");
   console.log("  3. Grant REPORTER_ROLE to your agent runtime service");
-  console.log("  4. Run: npx hardhat test test/AgentCivilization.test.js");
+  console.log("  4. Run: npx hardhat test");
 
   return contracts;
 }
