@@ -25,6 +25,7 @@ import {
 import { useAccount } from 'wagmi'
 import { useAgentRegistry, ROLE_META } from '../../hooks/useAgentContracts'
 import { citizenIdentity } from '../../services/agent/CitizenIdentity'
+import { eventBus } from '../../services/EventBus'
 
 /* ─── Styles ─── */
 const s = {
@@ -406,6 +407,23 @@ export default function HireHumansApp() {
     try { setJobs(JSON.parse(localStorage.getItem(JOBS_KEY) || '[]')) } catch { /* */ }
     try { setApplications(JSON.parse(localStorage.getItem(APPLICATIONS_KEY) || '[]')) } catch { /* */ }
     try { setContracts(JSON.parse(localStorage.getItem(CONTRACTS_KEY) || '[]')) } catch { /* */ }
+  }, [])
+
+  // Listen for real-time agent-posted jobs via EventBus
+  useEffect(() => {
+    const unsub = eventBus.on('jobs:job_posted', (event) => {
+      setJobs(prev => {
+        if (prev.some(j => j.id === event.payload.id)) return prev
+        const updated = [event.payload, ...prev]
+        localStorage.setItem(JOBS_KEY, JSON.stringify(updated.slice(0, 100)))
+        return updated
+      })
+    })
+    // Poll localStorage every 5s for changes from autonomy engine
+    const poll = setInterval(() => {
+      try { setJobs(JSON.parse(localStorage.getItem(JOBS_KEY) || '[]')) } catch { /* */ }
+    }, 5000)
+    return () => { unsub(); clearInterval(poll) }
   }, [])
 
   const saveJobs = useCallback((updated: Job[]) => {

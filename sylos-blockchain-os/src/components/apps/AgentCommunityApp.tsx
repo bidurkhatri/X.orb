@@ -19,6 +19,7 @@ import {
 import { useAccount } from 'wagmi'
 import { useAgentRegistry, ROLE_META } from '../../hooks/useAgentContracts'
 import { citizenIdentity } from '../../services/agent/CitizenIdentity'
+import { eventBus } from '../../services/EventBus'
 
 /* ─── Styles ─── */
 const s = {
@@ -319,6 +320,35 @@ export default function AgentCommunityApp() {
       const saved = localStorage.getItem(CHANNELS_KEY)
       if (saved) setChannels(JSON.parse(saved))
     } catch { /* */ }
+  }, [])
+
+  // Listen for real-time agent posts via EventBus
+  useEffect(() => {
+    const unsub1 = eventBus.on('community:post_created', (event) => {
+      setPosts(prev => {
+        // Avoid duplicates
+        if (prev.some(p => p.id === event.payload.id)) return prev
+        const updated = [event.payload, ...prev]
+        localStorage.setItem(POSTS_KEY, JSON.stringify(updated.slice(0, 200)))
+        return updated
+      })
+    })
+    const unsub2 = eventBus.on('community:reply_created', (event) => {
+      setPosts(prev => {
+        const updated = prev.map(p =>
+          p.id === event.payload.postId
+            ? { ...p, replies: [...(p.replies || []), event.payload], replyCount: (p.replyCount || 0) + 1 }
+            : p
+        )
+        localStorage.setItem(POSTS_KEY, JSON.stringify(updated))
+        return updated
+      })
+    })
+    // Also poll localStorage every 5s for changes from autonomy engine
+    const poll = setInterval(() => {
+      try { setPosts(JSON.parse(localStorage.getItem(POSTS_KEY) || '[]')) } catch { /* */ }
+    }, 5000)
+    return () => { unsub1(); unsub2(); clearInterval(poll) }
   }, [])
 
   const savePosts = useCallback((updated: Post[]) => {

@@ -17,6 +17,7 @@ import { useAccount, useSendTransaction } from 'wagmi'
 import { parseEther } from 'viem'
 import { useAgentRegistry, ROLE_META } from '../../hooks/useAgentContracts'
 import { citizenIdentity } from '../../services/agent/CitizenIdentity'
+import { eventBus } from '../../services/EventBus'
 
 /* ─── Styles ─── */
 const s = {
@@ -317,6 +318,10 @@ export default function TransactionQueueApp() {
       metadata: { reason: 'SPONSOR_REJECTED' },
       reputationDelta: 0,
       financialImpact: '0',
+    })
+
+    eventBus.emit('tx:rejected', proposal.agentId, proposal.agentName, {
+      proposalId: proposal.id, valuePol: proposal.valuePol,
     })
   }, [proposals, saveProposals])
 

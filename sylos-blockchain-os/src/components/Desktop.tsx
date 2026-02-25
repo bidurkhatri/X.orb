@@ -28,6 +28,7 @@ import GovernanceInterface from './dashboard/GovernanceInterface'
 import IdentityInterface from './dashboard/IdentityInterface'
 import { ErrorBoundary } from './ErrorBoundary'
 import { useAsyncOperation, useToast } from './LoadingStates'
+import { autonomyEngine } from '../services/agent/AgentAutonomyEngine'
 import {
   Wallet, Activity, FolderOpen, Coins, Settings, Terminal, MessageCircle, Bot, Store,
   ArrowUpDown, Landmark, Vote, Fingerprint, User, ShoppingBag, Briefcase, MessageSquare,
@@ -389,6 +390,17 @@ export default function Desktop() {
   const { notifications, markRead, markAllRead, clearAll, dismissNotification } = useNotifications()
 
   const unreadCount = notifications.filter(n => !n.read).length
+
+  // Start the Agent Autonomy Engine on boot
+  useEffect(() => {
+    // Give agents a few seconds to load from localStorage before starting
+    const timer = setTimeout(() => {
+      if (!autonomyEngine.isRunning()) {
+        autonomyEngine.start()
+      }
+    }, 3000)
+    return () => { clearTimeout(timer); autonomyEngine.stop() }
+  }, [])
 
   const apps = useMemo(() => [
     { id: 'wallet', title: 'Wallet', icon: <Wallet size={26} />, description: 'Blockchain wallet & POL transfers', component: <ErrorBoundary level="component"><WalletApp /></ErrorBoundary> },

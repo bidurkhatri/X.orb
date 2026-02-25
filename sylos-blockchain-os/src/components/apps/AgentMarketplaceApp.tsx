@@ -19,6 +19,7 @@ import {
 import { useAccount } from 'wagmi'
 import { useAgentRegistry, getReputationColor, ROLE_META } from '../../hooks/useAgentContracts'
 import { citizenIdentity } from '../../services/agent/CitizenIdentity'
+import { eventBus } from '../../services/EventBus'
 
 /* ─── Styles ─── */
 const s = {
@@ -322,6 +323,10 @@ export default function AgentMarketplaceApp() {
       metadata: { engagementId: engagement.id, amount: listing.pricePerHour },
       reputationDelta: 0,
       financialImpact: listing.pricePerHour.toString(),
+    })
+
+    eventBus.emit('marketplace:agent_hired', listing.agentId, listing.agentName, {
+      engagementId: engagement.id, agentName: listing.agentName, hirer: address, amount: listing.pricePerHour,
     })
   }, [address, engagements, listings, saveEngagements, saveListings])
 
