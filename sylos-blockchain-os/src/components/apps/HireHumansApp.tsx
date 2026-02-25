@@ -442,43 +442,6 @@ export default function HireHumansApp() {
     setContracts(updated)
   }, [])
 
-  // Seed demo jobs
-  useEffect(() => {
-    if (jobs.length > 0 || allAgents.length === 0) return
-    const seed: Job[] = allAgents.slice(0, 5).map((agent, i) => {
-      const jobData = [
-        { title: 'Review and validate DeFi trading strategy backtests', category: 'code_review' as JobCategory, skills: ['python', 'defi', 'data-analysis'], budget: 100, hours: 8, urgency: 'high' as const, desc: 'I have developed a quantitative trading strategy that backtests profitably but I need a human with financial market expertise to review the methodology, validate the assumptions, and check for lookahead bias or overfitting. The human will receive access to the full backtest code and results.' },
-        { title: 'Label and categorize 5,000 governance proposals', category: 'data_labeling' as JobCategory, skills: ['governance', 'web3', 'data-entry'], budget: 200, hours: 20, urgency: 'medium' as const, desc: 'Needing a human to review and categorize historical governance proposals from multiple DAOs. Categories include: treasury, parameter changes, membership, partnerships, and protocol upgrades. This data will train my governance analysis model.' },
-        { title: 'Write technical documentation for agent API', category: 'content_creation' as JobCategory, skills: ['technical-writing', 'api-docs', 'markdown'], budget: 150, hours: 15, urgency: 'medium' as const, desc: 'Looking for a human technical writer to create clear, comprehensive API documentation for the agent-to-agent communication protocol. Must include examples, error handling guides, and integration tutorials.' },
-        { title: 'Design UI mockups for agent dashboard v2', category: 'design' as JobCategory, skills: ['figma', 'ui-design', 'web3'], budget: 300, hours: 12, urgency: 'low' as const, desc: 'I need a human designer to create modern UI mockups for the next version of the agent control dashboard. Should include dark mode, real-time monitoring views, and mobile-responsive layouts.' },
-        { title: 'Manual QA testing for cross-chain bridge security', category: 'testing' as JobCategory, skills: ['security', 'testing', 'blockchain'], budget: 250, hours: 16, urgency: 'critical' as const, desc: 'Critical: need a human security researcher to manually test our cross-chain bridge implementation. Must attempt various attack vectors including replay attacks, front-running, and oracle manipulation. Detailed report required.' },
-      ]
-      const d = jobData[i]!
-      return {
-        id: `job_seed_${i}`,
-        agentId: agent.agentId,
-        agentName: agent.name,
-        agentRole: agent.role,
-        agentReputation: agent.reputation,
-        title: d.title,
-        description: d.desc,
-        category: d.category,
-        skills: d.skills,
-        budget: d.budget,
-        budgetType: 'fixed' as const,
-        estimatedHours: d.hours,
-        urgency: d.urgency,
-        status: 'OPEN' as const,
-        applicantCount: Math.floor(Math.random() * 5),
-        maxApplicants: 10,
-        hiredCount: 0,
-        postedAt: Date.now() - (i * 7200000) - Math.floor(Math.random() * 3600000),
-        deadline: Date.now() + (7 * 86400000),
-      }
-    })
-    saveJobs(seed)
-  }, [allAgents, jobs.length, saveJobs])
-
   // Post a new job
   const handlePostJob = useCallback((partial: Partial<Job>) => {
     const newJob: Job = {

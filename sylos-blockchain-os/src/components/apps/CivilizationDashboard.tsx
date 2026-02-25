@@ -11,6 +11,7 @@ import { useAccount } from 'wagmi'
 import { Globe, Users, Shield, TrendingUp, AlertTriangle, Activity, Zap, Crown, Eye, BarChart3 } from 'lucide-react'
 import { CHAIN } from '../../config/contracts'
 import { useAgentRegistry, useSlashingEngine, getReputationColor, ROLE_META, type CivilizationAgent } from '../../hooks/useAgentContracts'
+import { supabaseData, type CivilizationStatsRow } from '../../services/db/SupabaseDataService'
 import { formatEther } from 'viem'
 
 const rpc = async (method: string, params: unknown[] = []) => {
@@ -49,6 +50,12 @@ export default function CivilizationDashboard() {
   const [blockNumber, setBlockNumber] = useState(0)
   const [gasPrice, setGasPrice] = useState('0')
   const [networkLoading, setNetworkLoading] = useState(true)
+  const [dbStats, setDbStats] = useState<CivilizationStatsRow | null>(null)
+
+  // Fetch civilization stats from Supabase (supplements on-chain data)
+  useEffect(() => {
+    supabaseData.fetchCivilizationStats().then(s => { if (s) setDbStats(s) }).catch(() => {})
+  }, [])
 
   const fetchNetwork = useCallback(async () => {
     try {

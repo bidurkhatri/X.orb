@@ -14,6 +14,7 @@
 
 import { v4 as uuidv4 } from 'uuid'
 import { supabase } from '@/lib/supabase'
+import { supabaseData, type AgentRow } from '@/services/db/SupabaseDataService'
 import type { AgentRole, AgentStatus, PermissionScope, ReputationTier } from './AgentRoles'
 import { ROLE_PERMISSIONS, getReputationTier } from './AgentRoles'
 import { citizenIdentity } from './CitizenIdentity'
@@ -78,6 +79,8 @@ class AgentRegistryService {
 
     constructor() {
         this.loadFromStorage()
+        // Async: merge Supabase data after initial local load
+        this.loadFromSupabase()
     }
 
     /* ─── Persistence ─── */
@@ -98,10 +101,65 @@ class AgentRegistryService {
             const agents: RegisteredAgent[] = parsed.agents || []
             agents.forEach(a => this.agents.set(a.agentId, a))
             this._loaded = true
-            console.log(`[AgentRegistry] Loaded ${this.agents.size} registered agents`)
         } catch (e) {
             console.error('[AgentRegistry] Failed to load:', e)
             this._loaded = true
+        }
+    }
+
+    /**
+     * Load agents from Supabase and merge with local state.
+     * Supabase is the source of truth for status/reputation;
+     * localStorage is the source of truth for LLM keys (never sent to server).
+     */
+    private async loadFromSupabase(): Promise<void> {
+        try {
+            if (!(await supabaseData.isAvailable())) return
+            const rows = await supabaseData.fetchAllAgents()
+            let merged = 0
+            for (const row of rows) {
+                const existing = this.agents.get(row.agent_id)
+                if (existing) {
+                    // Server wins for status & reputation
+                    existing.status = row.status.toLowerCase() as AgentStatus
+                    existing.reputation = row.reputation_score
+                    existing.reputationTier = (row.reputation_tier as ReputationTier) || getReputationTier(row.reputation_score)
+                    existing.totalActionsExecuted = row.total_actions
+                } else {
+                    // New agent from server (spawned from another device)
+                    this.agents.set(row.agent_id, this.rowToAgent(row))
+                }
+                merged++
+            }
+            if (merged > 0) {
+                this.saveToStorage()
+            }
+        } catch {
+            // Supabase may not be configured — that's fine
+        }
+    }
+
+    private rowToAgent(row: AgentRow): RegisteredAgent {
+        const role = row.role as AgentRole
+        return {
+            agentId: row.agent_id,
+            name: row.name,
+            role,
+            sponsorAddress: row.sponsor_address,
+            sessionWalletAddress: row.session_wallet || '',
+            stakeBond: row.stake_bond,
+            permissionScope: (row.permission_scope as unknown as PermissionScope) || ROLE_PERMISSIONS[role],
+            reputation: row.reputation_score,
+            reputationTier: (row.reputation_tier as ReputationTier) || getReputationTier(row.reputation_score),
+            status: row.status.toLowerCase() as AgentStatus,
+            createdAt: new Date(row.spawned_at).getTime(),
+            expiresAt: row.expires_at ? new Date(row.expires_at).getTime() : 0,
+            lastActiveAt: row.last_active_at ? new Date(row.last_active_at).getTime() : Date.now(),
+            llmProvider: { name: row.llm_provider || 'Unknown', apiUrl: '', model: '' },
+            totalActionsExecuted: row.total_actions,
+            totalValueGenerated: '0',
+            slashEvents: 0,
+            description: `${role} agent`,
         }
     }
 
@@ -121,27 +179,26 @@ class AgentRegistryService {
     private async syncToSupabase(agent: RegisteredAgent): Promise<void> {
         if (!navigator.onLine) return
         try {
-            await supabase.from('agent_registry').upsert([{
+            const statusMap: Record<string, string> = { active: 'Active', paused: 'Paused', revoked: 'Revoked', expired: 'Expired' }
+            await supabaseData.upsertAgent({
                 agent_id: agent.agentId,
                 name: agent.name,
                 role: agent.role,
                 sponsor_address: agent.sponsorAddress,
                 session_wallet: agent.sessionWalletAddress,
                 stake_bond: agent.stakeBond,
-                reputation: agent.reputation,
-                reputation_tier: agent.reputationTier,
-                status: agent.status,
-                created_at: agent.createdAt,
-                expires_at: agent.expiresAt,
-                last_active_at: agent.lastActiveAt,
+                slashed_amount: '0',
+                permission_hash: '',
+                reputation_score: agent.reputation,
+                status: statusMap[agent.status] || 'Active',
+                spawned_at: new Date(agent.createdAt).toISOString(),
+                expires_at: agent.expiresAt ? new Date(agent.expiresAt).toISOString() : null,
                 total_actions: agent.totalActionsExecuted,
-                slash_events: agent.slashEvents,
-                description: agent.description,
+                last_active_at: new Date(agent.lastActiveAt).toISOString(),
                 llm_provider: agent.llmProvider.name,
-                llm_model: agent.llmProvider.model,
-            }], { onConflict: 'agent_id' })
+            })
         } catch {
-            // Graceful — Supabase may not have this table yet
+            // Graceful — Supabase may not be configured yet
         }
     }
 

@@ -1,6 +1,11 @@
 /**
  * SylOS Agent Supervisor Daemon
- * Manages the lifecycle, RAM/CPU allocation limits, and "Heartbeat" wake cycles of all AI Agents.
+ * Manages the lifecycle, resource tracking, and "Heartbeat" wake cycles of all AI Agents.
+ *
+ * Resource metrics are tracked from actual agent activity:
+ * - CPU usage is derived from time spent executing (active cycle time vs idle time)
+ * - RAM is estimated from the size of agent context + conversation history
+ * - Task completion is reported by the AutonomyEngine, not randomly generated
  */
 import { sysIpc } from './IpcBridge';
 import { v4 as uuidv4 } from 'uuid';
@@ -17,6 +22,10 @@ export interface AgentInstance {
     cpuUsage: number;
     ramUsageMB: number;
     spawnTime: number;
+    lastCycleStart: number;
+    totalCycleTimeMs: number;
+    totalCycles: number;
+    contextTokens: number;   // Estimated token count in agent context
 }
 
 class AgentSupervisor {
@@ -24,7 +33,7 @@ class AgentSupervisor {
     private daemonInterval: any = null;
 
     // Limits
-    private MAX_TOTAL_RAM_MB = 1024; // 1GB cap inside localized browser WASM simulation
+    private MAX_TOTAL_RAM_MB = 1024;
     private HARD_HALT_TRIGGERED = false;
 
     constructor() {
@@ -48,8 +57,12 @@ class AgentSupervisor {
             allowance,
             status: 'SLEEPING',
             cpuUsage: 0,
-            ramUsageMB: 10 + Math.floor(Math.random() * 20), // Base LLM context size
-            spawnTime: Date.now()
+            ramUsageMB: 5, // Base overhead for agent registration
+            spawnTime: Date.now(),
+            lastCycleStart: 0,
+            totalCycleTimeMs: 0,
+            totalCycles: 0,
+            contextTokens: 0,
         };
 
         this.agents.set(id, newAgent);
@@ -69,6 +82,38 @@ class AgentSupervisor {
     }
 
     /**
+     * Called by the AutonomyEngine when an agent starts an execution cycle.
+     */
+    public reportCycleStart(agentId: string): void {
+        const agent = this.agents.get(agentId);
+        if (agent && agent.status !== 'TERMINATED' && agent.status !== 'HALTED') {
+            agent.status = 'EXECUTING';
+            agent.lastCycleStart = performance.now();
+        }
+    }
+
+    /**
+     * Called by the AutonomyEngine when an agent finishes an execution cycle.
+     */
+    public reportCycleEnd(agentId: string, contextTokens?: number): void {
+        const agent = this.agents.get(agentId);
+        if (!agent) return;
+
+        if (agent.lastCycleStart > 0) {
+            const elapsed = performance.now() - agent.lastCycleStart;
+            agent.totalCycleTimeMs += elapsed;
+            agent.totalCycles++;
+            agent.lastCycleStart = 0;
+        }
+
+        if (contextTokens !== undefined) {
+            agent.contextTokens = contextTokens;
+        }
+
+        agent.status = 'SLEEPING';
+    }
+
+    /**
      * Safely powers down a singular agent and slashes/refunds their bond based on OS state.
      */
     public terminateAgent(id: string) {
@@ -83,10 +128,10 @@ class AgentSupervisor {
 
     /**
      * The OS Master Kill-Switch.
-     * Instantly suspends the event loops of all spawned agents to prevent unapproved blockchain leakage.
+     * Instantly suspends the event loops of all spawned agents.
      */
     public triggerMasterKillSwitch() {
-        console.warn("🚨 [SUPERVISOR] MASTER KILL-SWITCH ENGAGED. HALTING ALL ACTIVE AGENTS.");
+        console.warn("[SUPERVISOR] MASTER KILL-SWITCH ENGAGED. HALTING ALL ACTIVE AGENTS.");
         this.HARD_HALT_TRIGGERED = true;
         this.agents.forEach(agent => {
             if (agent.status !== 'TERMINATED') {
@@ -97,51 +142,49 @@ class AgentSupervisor {
     }
 
     public disarmKillSwitch() {
-        console.info("🟩 [SUPERVISOR] MASTER KILL-SWITCH DISARMED. RESUMING SCHEDULER.");
+        console.info("[SUPERVISOR] MASTER KILL-SWITCH DISARMED. RESUMING SCHEDULER.");
         this.HARD_HALT_TRIGGERED = false;
         this.agents.forEach(agent => {
             if (agent.status === 'HALTED') {
-                agent.status = 'SLEEPING'; // Needs a task to wake up
+                agent.status = 'SLEEPING';
             }
         });
     }
 
     private bootDaemon() {
-        // Runs a daemon cycle every 3 seconds to manage heat output and memory scaling
+        // Runs a daemon cycle every 3 seconds to compute real metrics
         this.daemonInterval = setInterval(() => {
             if (this.HARD_HALT_TRIGGERED) return;
 
             let totalRam = 0;
+            const now = performance.now();
+
             this.agents.forEach(agent => {
                 if (agent.status === 'TERMINATED' || agent.status === 'HALTED') return;
 
-                // Simulate Agent lifecycle changes
-                if (agent.status === 'EXECUTING') {
-                    // Random fluctuate CPU usage to simulate inference
-                    agent.cpuUsage = Math.min(100, agent.cpuUsage + (Math.random() * 40 - 20));
-                    agent.ramUsageMB = Math.min(250, agent.ramUsageMB + (Math.random() * 10));
-
-                    sysIpc.dispatch(agent.id, 'HEARTBEAT', { cpu: agent.cpuUsage, ram: agent.ramUsageMB });
-
-                    // Simulating task completion probability
-                    if (Math.random() > 0.8) {
-                        agent.status = 'SLEEPING';
-                        agent.cpuUsage = 0;
-                    }
-                } else if (agent.status === 'SLEEPING') {
-                    // Slight chance to wake up and request work
-                    if (Math.random() > 0.9) {
-                        agent.status = 'EXECUTING';
-                    }
+                // Compute CPU usage: percentage of time spent executing in the last 30s window
+                if (agent.status === 'EXECUTING' && agent.lastCycleStart > 0) {
+                    const activeMs = now - agent.lastCycleStart;
+                    // CPU% = active time as fraction of the daemon window (3s)
+                    agent.cpuUsage = Math.min(100, (activeMs / 3000) * 100);
+                } else {
+                    // Decay CPU toward 0 when sleeping
+                    agent.cpuUsage = Math.max(0, agent.cpuUsage * 0.5);
                 }
+
+                // RAM estimate: base overhead + ~4 bytes per token in context
+                const contextMB = (agent.contextTokens * 4) / (1024 * 1024);
+                agent.ramUsageMB = 5 + contextMB;
+
+                sysIpc.dispatch(agent.id, 'HEARTBEAT', { cpu: agent.cpuUsage, ram: agent.ramUsageMB });
 
                 totalRam += agent.ramUsageMB;
             });
 
-            // Guardrail constraint: Memory threshold breach triggers a Halt
+            // Guardrail: Memory threshold breach triggers a Halt
             if (totalRam > this.MAX_TOTAL_RAM_MB) {
-                console.warn(`[SUPERVISOR] System RAM maxed (${totalRam}MB). Throttling compute.`);
-                this.triggerMasterKillSwitch(); // Drastic measure for prototype showcasing limits
+                console.warn(`[SUPERVISOR] System RAM maxed (${Math.round(totalRam)}MB). Throttling compute.`);
+                this.triggerMasterKillSwitch();
             }
 
         }, 3000);

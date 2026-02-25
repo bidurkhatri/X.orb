@@ -1,45 +1,30 @@
 import { useEffect } from 'react';
-import { View, ActivityIndicator } from 'react-native';
+import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useAuth } from '../src/context/AuthContext';
-import { theme } from '../src/theme';
-import { strings } from '../src/constants/strings';
 
-export default function Index() {
+export default function SplashScreen() {
   const router = useRouter();
-  const { isAuthenticated, isLoading } = useAuth();
 
   useEffect(() => {
+    // Brief splash then go straight to tabs.
+    // In production, check auth state and route to lockscreen if needed.
     const timer = setTimeout(() => {
-      if (isLoading) {
-        return; // Still loading
-      }
-
-      if (isAuthenticated) {
-        router.replace('/desktop');
-      } else {
-        router.replace('/lockscreen');
-      }
-    }, 2000);
-
+      router.replace('/(tabs)');
+    }, 1500);
     return () => clearTimeout(timer);
-  }, [isAuthenticated, isLoading]);
+  }, [router]);
 
-  if (isLoading) {
-    return (
-      <View
-        style={{
-          flex: 1,
-          backgroundColor: theme.colors.primary,
-          justifyContent: 'center',
-          alignItems: 'center',
-        }}
-      >
-        <ActivityIndicator size="large" color={theme.colors.white} />
-      </View>
-    );
-  }
-
-  // This will be immediately replaced by the useEffect
-  return null;
+  return (
+    <View style={s.container}>
+      <Text style={s.logo}>SylOS</Text>
+      <Text style={s.tagline}>Agent Command Center</Text>
+      <ActivityIndicator size="small" color="rgba(255,255,255,0.5)" style={{ marginTop: 24 }} />
+    </View>
+  );
 }
+
+const s = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#0a0e1a', justifyContent: 'center', alignItems: 'center' },
+  logo: { fontSize: 42, fontWeight: '800', color: '#fff', letterSpacing: -1 },
+  tagline: { fontSize: 14, color: 'rgba(255,255,255,0.35)', marginTop: 6, fontWeight: '500' },
+});

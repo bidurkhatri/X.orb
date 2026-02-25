@@ -1,0 +1,18 @@
+{
+  "name": "sylos",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --filter sylos-blockchain-os dev",
+    "build": "pnpm --filter sylos-blockchain-os build",
+    "test": "pnpm -r test",
+    "test:contracts": "pnpm --filter smart-contracts test",
+    "test:web": "pnpm --filter sylos-blockchain-os test",
+    "lint": "pnpm -r lint",
+    "type-check": "pnpm -r type-check",
+    "clean": "pnpm -r clean"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=8.0.0"
+  }
+}

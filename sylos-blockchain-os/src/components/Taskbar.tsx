@@ -72,7 +72,7 @@ export default function Taskbar({ openApps, activeAppId, onAppClick, onNotificat
   ]
 
   return (
-    <div style={{
+    <div role="toolbar" aria-label="Taskbar" style={{
       position: 'relative', zIndex: 50, height: '52px',
       background: 'rgba(6, 8, 22, 0.75)',
       backdropFilter: 'blur(40px) saturate(180%)',
@@ -91,6 +91,9 @@ export default function Taskbar({ openApps, activeAppId, onAppClick, onNotificat
       <div ref={startRef} style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
         <button
           onClick={() => { setShowStartMenu(v => !v); setShowSystemTray(false) }}
+          aria-expanded={showStartMenu}
+          aria-haspopup="menu"
+          aria-label="SylOS Start Menu"
           style={{
             padding: '6px 14px',
             background: showStartMenu
@@ -121,7 +124,7 @@ export default function Taskbar({ openApps, activeAppId, onAppClick, onNotificat
 
         {/* ─── Start Menu ─── */}
         {showStartMenu && (
-          <div style={{
+          <div role="menu" aria-label="Start menu" onKeyDown={e => { if (e.key === 'Escape') setShowStartMenu(false) }} style={{
             position: 'absolute', bottom: '56px', left: 0, width: '300px',
             background: 'rgba(8, 10, 28, 0.95)',
             border: '1px solid rgba(255,255,255,0.08)',
@@ -155,7 +158,7 @@ export default function Taskbar({ openApps, activeAppId, onAppClick, onNotificat
 
             {/* Menu items */}
             {startMenuItems.map((item, i) => (
-              <button key={i} onClick={() => { if (item.appId && onOpenApp) { onOpenApp(item.appId); setShowStartMenu(false) } }} style={{
+              <button key={i} role="menuitem" aria-label={`${item.label} - ${item.desc}`} onClick={() => { if (item.appId && onOpenApp) { onOpenApp(item.appId); setShowStartMenu(false) } }} style={{
                 display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 14px',
                 borderRadius: '12px', border: 'none', cursor: 'pointer', background: 'transparent',
                 color: 'rgba(255,255,255,0.7)', fontSize: '13px', fontWeight: 500, width: '100%',
@@ -279,7 +282,7 @@ export default function Taskbar({ openApps, activeAppId, onAppClick, onNotificat
         )}
 
         {/* Notification bell */}
-        <button onClick={onNotificationClick} style={{
+        <button onClick={onNotificationClick} aria-label={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ''}`} style={{
           position: 'relative', background: 'none', border: 'none', cursor: 'pointer',
           padding: '7px', borderRadius: '9px', color: 'rgba(255,255,255,0.35)', transition: 'all 0.15s',
         }}
@@ -302,6 +305,8 @@ export default function Taskbar({ openApps, activeAppId, onAppClick, onNotificat
         <div ref={trayRef} style={{ position: 'relative' }}>
           <button
             onClick={() => { setShowSystemTray(v => !v); setShowStartMenu(false) }}
+            aria-expanded={showSystemTray}
+            aria-label="System tray"
             style={{
               display: 'flex', alignItems: 'center', gap: '8px',
               color: 'rgba(255,255,255,0.3)', background: 'none', border: 'none', cursor: 'pointer',

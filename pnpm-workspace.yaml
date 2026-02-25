@@ -1,0 +1,5 @@
+packages:
+  - 'sylos-blockchain-os'
+  - 'smart-contracts'
+  - 'sylos-mobile'
+  - 'packages/*'

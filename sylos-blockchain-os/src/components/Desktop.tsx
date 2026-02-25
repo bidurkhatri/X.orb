@@ -620,6 +620,14 @@ function DesktopInner() {
   return (
     <>
       {isLocked && <LockScreenOverlay onUnlock={() => setIsLocked(false)} />}
+      <a href="#desktop-content" style={{
+        position: 'absolute', left: '-9999px', top: 'auto', width: '1px', height: '1px', overflow: 'hidden',
+        zIndex: 1000, padding: '8px 16px', background: '#4f46e5', color: '#fff', fontSize: '14px', fontWeight: 600,
+        borderRadius: '0 0 8px 0', textDecoration: 'none',
+      }} onFocus={e => { e.currentTarget.style.left = '0'; e.currentTarget.style.width = 'auto'; e.currentTarget.style.height = 'auto' }}
+         onBlur={e => { e.currentTarget.style.left = '-9999px'; e.currentTarget.style.width = '1px'; e.currentTarget.style.height = '1px' }}>
+        Skip to content
+      </a>
       <div
         role="main"
         aria-label="SylOS Desktop"
@@ -641,7 +649,7 @@ function DesktopInner() {
         </div>
 
         {/* Desktop icons area */}
-        <div style={{ flex: 1, position: 'relative', zIndex: 10, padding: '16px 20px', overflow: 'auto' }}>
+        <div id="desktop-content" aria-label="Desktop applications" style={{ flex: 1, position: 'relative', zIndex: 10, padding: '16px 20px', overflow: 'auto' }}>
           {/* View mode toggle */}
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '8px' }}>
             <button onClick={toggleViewMode} title={viewMode === 'categories' ? 'Switch to grid view' : 'Switch to category view'} style={{

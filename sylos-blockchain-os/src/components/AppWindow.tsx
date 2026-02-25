@@ -169,6 +169,9 @@ export default function AppWindow({ title, icon, children, onClose, onMinimize, 
         onClick={onFocus}
         role="dialog"
         aria-label={`${title} window`}
+        aria-labelledby={`window-title-${title.replace(/\s+/g, '-').toLowerCase()}`}
+        tabIndex={0}
+        onKeyDown={e => { if (e.key === 'Escape') onClose() }}
         style={{
           position: 'fixed', ...windowStyle,
           borderRadius: isMaximized ? '0' : '14px',
@@ -298,7 +301,7 @@ export default function AppWindow({ title, icon, children, onClose, onMinimize, 
             }}>
               <div style={{ width: '14px', height: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{icon}</div>
             </div>
-            <span style={{
+            <span id={`window-title-${title.replace(/\s+/g, '-').toLowerCase()}`} style={{
               fontSize: '13px', fontWeight: 600,
               color: isActive ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.4)',
               letterSpacing: '0.2px',

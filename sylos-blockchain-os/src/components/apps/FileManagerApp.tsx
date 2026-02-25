@@ -82,7 +82,7 @@ export default function FileManagerApp() {
         </div>
         <div>
           <input type="file" ref={ref} onChange={handleUpload} style={{ display: 'none' }} />
-          <button disabled={uploading} onClick={() => ref.current?.click()} style={{
+          <button disabled={uploading} onClick={() => ref.current?.click()} aria-label="Upload file" style={{
             padding: '8px 16px', borderRadius: '10px', border: 'none', cursor: uploading ? 'not-allowed' : 'pointer',
             background: 'linear-gradient(135deg, #4f46e5, #7c3aed)', color: '#fff', fontSize: '12px', fontWeight: 600,
             fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: '6px', opacity: uploading ? 0.5 : 1,
@@ -106,9 +106,9 @@ export default function FileManagerApp() {
             <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.15)', margin: 0, textAlign: 'center', maxWidth: '300px' }}>Upload your first file to encrypt and pin it to IPFS</p>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          <div role="list" aria-label="File list" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             {files.map(f => (
-              <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 14px', borderRadius: '12px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.04)', transition: 'border-color 0.15s' }}
+              <div key={f.id} role="listitem" aria-label={`${f.file_name}, ${formatBytes(f.file_size)}`} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 14px', borderRadius: '12px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.04)', transition: 'border-color 0.15s' }}
                 onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(99,102,241,0.2)')}
                 onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.04)')}>
                 <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'rgba(99,102,241,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -123,9 +123,9 @@ export default function FileManagerApp() {
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: '4px' }}>
-                  <button onClick={() => handleDl(f.ipfs_cid)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.25)', padding: '6px' }}><Download size={14} /></button>
-                  <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.25)', padding: '6px' }}><Share2 size={14} /></button>
-                  <button onClick={() => handleDel(f.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(239,68,68,0.4)', padding: '6px' }}><Trash2 size={14} /></button>
+                  <button onClick={() => handleDl(f.ipfs_cid)} aria-label={`Download ${f.file_name}`} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.25)', padding: '6px' }}><Download size={14} /></button>
+                  <button aria-label={`Share ${f.file_name}`} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.25)', padding: '6px' }}><Share2 size={14} /></button>
+                  <button onClick={() => handleDel(f.id)} aria-label={`Delete ${f.file_name}`} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(239,68,68,0.4)', padding: '6px' }}><Trash2 size={14} /></button>
                 </div>
               </div>
             ))}

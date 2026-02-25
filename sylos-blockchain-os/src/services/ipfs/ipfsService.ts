@@ -1,8 +1,9 @@
 import CryptoJS from 'crypto-js';
 
 // Environment variables for IPFS pinning configuration
-const PINATA_JWT = import.meta.env.VITE_PINATA_JWT;
 const PINATA_GATEWAY = import.meta.env.VITE_PINATA_GATEWAY || 'https://gateway.pinata.cloud/ipfs';
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
 export interface UploadResult {
     success: boolean;
@@ -41,8 +42,8 @@ export const encryptFile = async (file: File, secretKey: string): Promise<Blob> 
  * @param file The blob/file to upload
  */
 export const pinToIPFS = async (file: Blob | File, filename: string): Promise<UploadResult> => {
-    if (!PINATA_JWT) {
-        console.warn("⚠️ VITE_PINATA_JWT is not defined. Simulating IPFS Network Pinning...");
+    if (!SUPABASE_URL) {
+        console.warn("⚠️ VITE_SUPABASE_URL is not defined. Simulating IPFS Network Pinning...");
         // Simulate network latency
         await new Promise(resolve => setTimeout(resolve, 2500));
 
@@ -59,10 +60,11 @@ export const pinToIPFS = async (file: Blob | File, filename: string): Promise<Up
         const formData = new FormData();
         formData.append('file', file, filename);
 
-        const res = await fetch('https://api.pinata.cloud/pinning/pinFileToIPFS', {
+        const res = await fetch(`${SUPABASE_URL}/functions/v1/api-proxy?action=pin-to-ipfs`, {
             method: 'POST',
             headers: {
-                Authorization: `Bearer ${PINATA_JWT}`
+                Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+                apikey: SUPABASE_ANON_KEY,
             },
             body: formData
         });
