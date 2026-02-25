@@ -18,6 +18,7 @@ import { agentRegistry, type RegisteredAgent, type SpawnAgentConfig, type LLMPro
 import { agentWalletManager } from '@/services/agent/AgentSessionWallet'
 import { getAgentRuntime, destroyAgentRuntime, type AgentRuntime, type AgentStep, type AgentTask, type AgentMessage } from '@/services/agent/AgentRuntime'
 import { ROLE_META, type AgentRole, getReputationColor, getReputationTier } from '@/services/agent/AgentRoles'
+import { useAgentRegistry } from '@/hooks/useAgentContracts'
 import { useAccount } from 'wagmi'
 
 /* ═══════════════════════════════
@@ -239,6 +240,8 @@ function AgentCard({ agent, selected, onClick, onPause, onResume, onRevoke }: {
 
 export default function AgentDashboardApp() {
     const { address } = useAccount()
+    const { myAgents: hookAgents, contractsDeployed, txPending, refresh: hookRefresh,
+            pauseAgent: hookPause, resumeAgent: hookResume, revokeAgent: hookRevoke } = useAgentRegistry()
     const [agents, setAgents] = useState<RegisteredAgent[]>([])
     const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null)
     const [showSpawn, setShowSpawn] = useState(false)
@@ -253,7 +256,8 @@ export default function AgentDashboardApp() {
 
     const sponsorAddr = address || '0xUnconnected'
 
-    // Reload agent list
+    // Reload agent list — uses localStorage for the LLM runtime data,
+    // but lifecycle operations go through the hook (on-chain when deployed)
     const refreshAgents = useCallback(() => {
         const all = address ? agentRegistry.getAgentsBySponsor(address) : agentRegistry.getAllAgents()
         setAgents(all)
@@ -303,9 +307,33 @@ export default function AgentDashboardApp() {
         finally { setSending(false); refreshAgents() }
     }, [input, sending, refreshAgents])
 
-    const handlePause = (id: string) => { try { agentRegistry.pauseAgent(id, sponsorAddr); agentWalletManager.deactivateWallet(id); destroyAgentRuntime(id); refreshAgents() } catch (e: any) { alert(e.message) } }
-    const handleResume = (id: string) => { try { agentRegistry.resumeAgent(id, sponsorAddr); agentWalletManager.activateWallet(id); refreshAgents() } catch (e: any) { alert(e.message) } }
-    const handleRevoke = (id: string) => { try { agentRegistry.revokeAgent(id, sponsorAddr); agentWalletManager.deactivateWallet(id); destroyAgentRuntime(id); refreshAgents(); if (selectedAgentId === id) setSelectedAgentId(null) } catch (e: any) { alert(e.message) } }
+    const handlePause = (id: string) => {
+        try {
+            agentRegistry.pauseAgent(id, sponsorAddr)
+            hookPause(id) // Also call on-chain when deployed
+            agentWalletManager.deactivateWallet(id)
+            destroyAgentRuntime(id)
+            refreshAgents()
+        } catch (e: any) { alert(e.message) }
+    }
+    const handleResume = (id: string) => {
+        try {
+            agentRegistry.resumeAgent(id, sponsorAddr)
+            hookResume(id) // Also call on-chain when deployed
+            agentWalletManager.activateWallet(id)
+            refreshAgents()
+        } catch (e: any) { alert(e.message) }
+    }
+    const handleRevoke = (id: string) => {
+        try {
+            agentRegistry.revokeAgent(id, sponsorAddr)
+            hookRevoke(id) // Also call on-chain when deployed
+            agentWalletManager.deactivateWallet(id)
+            destroyAgentRuntime(id)
+            refreshAgents()
+            if (selectedAgentId === id) setSelectedAgentId(null)
+        } catch (e: any) { alert(e.message) }
+    }
 
     const selectedAgent = agents.find(a => a.agentId === selectedAgentId)
     const selectedMeta = selectedAgent ? ROLE_META[selectedAgent.role] : null

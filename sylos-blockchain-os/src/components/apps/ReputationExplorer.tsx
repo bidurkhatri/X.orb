@@ -1,17 +1,16 @@
 /**
- * ReputationExplorer — Deep-dive into agent reputation scores
+ * ReputationExplorer — Agent reputation leaderboard
  *
- * Visualizes reputation distribution, tier leaderboards, and individual
- * agent reputation history within the SylOS civilization.
+ * Reads agent data from the shared useAgentRegistry hook (on-chain when
+ * deployed, localStorage when not). Shows tier distribution, search/filter,
+ * and expandable agent detail cards.
  */
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState } from 'react'
 import { TrendingUp, TrendingDown, Crown, Shield, Eye, Users, AlertTriangle, Search, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react'
-import { useAccount } from 'wagmi'
-import { agentRegistry, type RegisteredAgent } from '@/services/agent/AgentRegistry'
-import { getReputationColor, getReputationTier, ROLE_META, type ReputationTier } from '@/services/agent/AgentRoles'
+import { useAgentRegistry, getReputationColor, getReputationTier, ROLE_META, type ReputationTier, type CivilizationAgent } from '../../hooks/useAgentContracts'
+import { formatEther } from 'viem'
 
-/* ── Styles ── */
 const s = {
   page: { height: '100%', padding: '24px', background: 'linear-gradient(180deg, #080c1a 0%, #0f1328 100%)', overflow: 'auto', fontFamily: "'Inter', system-ui, sans-serif", color: '#e2e8f0' } as React.CSSProperties,
   card: { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '16px', padding: '20px' } as React.CSSProperties,
@@ -55,11 +54,10 @@ function RepBar({ score, width = '100%' }: { score: number; width?: string }) {
   )
 }
 
-function AgentRow({ agent, rank, expanded, onToggle }: { agent: RegisteredAgent; rank: number; expanded: boolean; onToggle: () => void }) {
+function AgentRow({ agent, rank, expanded, onToggle }: { agent: CivilizationAgent; rank: number; expanded: boolean; onToggle: () => void }) {
   const meta = ROLE_META[agent.role]
   const tierColor = getReputationColor(agent.reputationTier)
   const statusColors: Record<string, string> = { active: '#22c55e', paused: '#f59e0b', revoked: '#ef4444', expired: '#6b7280' }
-
   const trendIcon = agent.reputation >= 5000 ? <TrendingUp size={12} style={{ color: '#22c55e' }} /> : <TrendingDown size={12} style={{ color: '#ef4444' }} />
 
   return (
@@ -78,7 +76,7 @@ function AgentRow({ agent, rank, expanded, onToggle }: { agent: RegisteredAgent;
             <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: statusColors[agent.status] }} />
           </div>
           <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)', marginTop: '2px' }}>
-            {meta.label} · {agent.totalActionsExecuted} actions · {agent.status}
+            {meta.label} · {agent.totalActions} actions · {agent.status}
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
@@ -100,22 +98,16 @@ function AgentRow({ agent, rank, expanded, onToggle }: { agent: RegisteredAgent;
           </div>
           <div style={{ padding: '10px', borderRadius: '10px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)' }}>
             <div style={s.label}>Stake Bond</div>
-            <div style={{ fontSize: '20px', fontWeight: 700, color: '#34d399', marginTop: '4px' }}>{(Number(agent.stakeBond) / 1e18).toFixed(0)} wSYLOS</div>
-            <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)', marginTop: '4px' }}>Slash events: {agent.slashEvents}</div>
+            <div style={{ fontSize: '20px', fontWeight: 700, color: '#34d399', marginTop: '4px' }}>{formatEther(agent.stakeBond)} wSYLOS</div>
+            <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)', marginTop: '4px' }}>
+              Slashed: {formatEther(agent.slashedAmount)} wSYLOS
+            </div>
           </div>
           <div style={{ padding: '10px', borderRadius: '10px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)' }}>
             <div style={s.label}>Activity</div>
-            <div style={{ fontSize: '20px', fontWeight: 700, color: '#818cf8', marginTop: '4px' }}>{agent.totalActionsExecuted}</div>
+            <div style={{ fontSize: '20px', fontWeight: 700, color: '#818cf8', marginTop: '4px' }}>{agent.totalActions}</div>
             <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)', marginTop: '4px' }}>
-              Last active: {new Date(agent.lastActiveAt).toLocaleDateString()}
-            </div>
-          </div>
-          <div style={{ gridColumn: '1 / -1', padding: '10px', borderRadius: '10px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)' }}>
-            <div style={s.label}>Permissions</div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '6px' }}>
-              {agent.permissionScope.allowedTools.map(tool => (
-                <span key={tool} style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', background: 'rgba(99,102,241,0.1)', color: '#818cf8', fontFamily: "'JetBrains Mono', monospace" }}>{tool}</span>
-              ))}
+              {agent.source === 'chain' ? 'On-chain verified' : 'Local tracking'}
             </div>
           </div>
         </div>
@@ -125,56 +117,38 @@ function AgentRow({ agent, rank, expanded, onToggle }: { agent: RegisteredAgent;
 }
 
 export default function ReputationExplorer() {
-  const { address } = useAccount()
-  const [agents, setAgents] = useState<RegisteredAgent[]>([])
+  const { agents, myAgents, loading, contractsDeployed, refresh } = useAgentRegistry()
   const [search, setSearch] = useState('')
   const [filterTier, setFilterTier] = useState<ReputationTier | 'ALL'>('ALL')
   const [sortBy, setSortBy] = useState<'reputation' | 'actions' | 'name'>('reputation')
   const [expandedId, setExpandedId] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
 
-  const refresh = useCallback(() => {
-    setLoading(true)
-    const all = agentRegistry.getAllAgents()
-    setAgents(all)
-    setLoading(false)
-  }, [])
-
-  useEffect(() => {
-    refresh()
-    const interval = setInterval(refresh, 10000)
-    return () => clearInterval(interval)
-  }, [refresh])
-
-  // Filter and sort
   const filtered = agents
     .filter(a => filterTier === 'ALL' || a.reputationTier === filterTier)
     .filter(a => !search || a.name.toLowerCase().includes(search.toLowerCase()) || a.role.toLowerCase().includes(search.toLowerCase()))
     .sort((a, b) => {
       if (sortBy === 'reputation') return b.reputation - a.reputation
-      if (sortBy === 'actions') return b.totalActionsExecuted - a.totalActionsExecuted
+      if (sortBy === 'actions') return b.totalActions - a.totalActions
       return a.name.localeCompare(b.name)
     })
 
-  // Tier stats
   const tierCounts = TIER_ORDER.reduce((acc, tier) => {
     acc[tier] = agents.filter(a => a.reputationTier === tier).length
     return acc
   }, {} as Record<ReputationTier, number>)
 
   const avgRep = agents.length > 0 ? Math.round(agents.reduce((sum, a) => sum + a.reputation, 0) / agents.length) : 0
-  const myAgents = address ? agents.filter(a => a.sponsorAddress.toLowerCase() === address.toLowerCase()) : []
   const myAvgRep = myAgents.length > 0 ? Math.round(myAgents.reduce((sum, a) => sum + a.reputation, 0) / myAgents.length) : 0
 
   return (
     <div style={s.page}>
-      {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
         <TrendingUp size={28} style={{ color: '#22c55e' }} />
         <div>
           <h1 style={{ fontSize: '22px', fontWeight: 700, margin: '0 0 2px 0', letterSpacing: '-0.5px' }}>Reputation Explorer</h1>
           <p style={{ margin: 0, fontSize: '12px', color: 'rgba(255,255,255,0.4)' }}>
             Agent trust scores, tier distribution, and leaderboard
+            {contractsDeployed ? ' (on-chain)' : ' (local)'}
           </p>
         </div>
         <button onClick={refresh} style={{ marginLeft: 'auto', padding: '8px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
@@ -182,7 +156,6 @@ export default function ReputationExplorer() {
         </button>
       </div>
 
-      {/* Overview Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '24px' }}>
         <div style={{ background: 'linear-gradient(135deg, #818cf810, #818cf805)', border: '1px solid #818cf820', borderRadius: '16px', padding: '16px' }}>
           <div style={s.label}>Total Agents</div>
@@ -203,7 +176,6 @@ export default function ReputationExplorer() {
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '300px 1fr', gap: '16px' }}>
-        {/* Left: Tier Distribution */}
         <div>
           <div style={{ ...s.card, marginBottom: '16px' }}>
             <div style={{ fontSize: '13px', fontWeight: 600, marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -214,8 +186,6 @@ export default function ReputationExplorer() {
               <TierBar key={tier} tier={tier} count={tierCounts[tier]} total={agents.length} />
             ))}
           </div>
-
-          {/* Tier Legend */}
           <div style={s.card}>
             <div style={{ fontSize: '13px', fontWeight: 600, marginBottom: '12px' }}>Tier Guide</div>
             {TIER_ORDER.map(tier => {
@@ -235,45 +205,27 @@ export default function ReputationExplorer() {
           </div>
         </div>
 
-        {/* Right: Leaderboard */}
         <div style={s.card}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
             <Users size={14} style={{ color: '#818cf8' }} />
             <span style={{ fontSize: '13px', fontWeight: 600 }}>Agent Leaderboard</span>
             <span style={{ marginLeft: 'auto', fontSize: '11px', color: 'rgba(255,255,255,0.3)' }}>{filtered.length} agents</span>
           </div>
-
-          {/* Search & Filters */}
           <div style={{ display: 'flex', gap: '8px', marginBottom: '14px' }}>
             <div style={{ flex: 1, position: 'relative' }}>
               <Search size={14} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.2)' }} />
-              <input
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                placeholder="Search agents..."
-                style={s.input}
-              />
+              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search agents..." style={s.input} />
             </div>
-            <select
-              value={filterTier}
-              onChange={e => setFilterTier(e.target.value as ReputationTier | 'ALL')}
-              style={{ padding: '8px 12px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(0,0,0,0.3)', color: '#e2e8f0', fontSize: '12px', fontFamily: 'inherit', outline: 'none', cursor: 'pointer' }}
-            >
+            <select value={filterTier} onChange={e => setFilterTier(e.target.value as ReputationTier | 'ALL')} style={{ padding: '8px 12px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(0,0,0,0.3)', color: '#e2e8f0', fontSize: '12px', fontFamily: 'inherit', outline: 'none', cursor: 'pointer' }}>
               <option value="ALL">All Tiers</option>
               {TIER_ORDER.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
-            <select
-              value={sortBy}
-              onChange={e => setSortBy(e.target.value as 'reputation' | 'actions' | 'name')}
-              style={{ padding: '8px 12px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(0,0,0,0.3)', color: '#e2e8f0', fontSize: '12px', fontFamily: 'inherit', outline: 'none', cursor: 'pointer' }}
-            >
+            <select value={sortBy} onChange={e => setSortBy(e.target.value as 'reputation' | 'actions' | 'name')} style={{ padding: '8px 12px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(0,0,0,0.3)', color: '#e2e8f0', fontSize: '12px', fontFamily: 'inherit', outline: 'none', cursor: 'pointer' }}>
               <option value="reputation">By Reputation</option>
               <option value="actions">By Actions</option>
               <option value="name">By Name</option>
             </select>
           </div>
-
-          {/* Agent List */}
           <div style={{ border: '1px solid rgba(255,255,255,0.04)', borderRadius: '12px', overflow: 'hidden' }}>
             {loading ? (
               <div style={{ padding: '40px', textAlign: 'center', color: 'rgba(255,255,255,0.2)', fontSize: '13px' }}>Loading agents...</div>
@@ -283,13 +235,7 @@ export default function ReputationExplorer() {
               </div>
             ) : (
               filtered.map((agent, i) => (
-                <AgentRow
-                  key={agent.agentId}
-                  agent={agent}
-                  rank={i + 1}
-                  expanded={expandedId === agent.agentId}
-                  onToggle={() => setExpandedId(expandedId === agent.agentId ? null : agent.agentId)}
-                />
+                <AgentRow key={agent.agentId} agent={agent} rank={i + 1} expanded={expandedId === agent.agentId} onToggle={() => setExpandedId(expandedId === agent.agentId ? null : agent.agentId)} />
               ))
             )}
           </div>
