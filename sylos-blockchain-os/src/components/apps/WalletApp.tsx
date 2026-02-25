@@ -50,8 +50,11 @@ export default function WalletApp() {
     if (!address) return
     setLoadingTxs(true)
     try {
-      const apiKey = (import.meta.env['VITE_POLYGONSCAN_API_KEY'] as string) || ''
-      const res = await fetch(`https://api.polygonscan.com/api?module=account&action=txlist&address=${address}&startblock=0&endblock=99999999&page=1&offset=15&sort=desc&apikey=${apiKey}`)
+      const supabaseUrl = import.meta.env['VITE_SUPABASE_URL'] || ''
+      const supabaseKey = import.meta.env['VITE_SUPABASE_ANON_KEY'] || ''
+      const res = await fetch(`${supabaseUrl}/functions/v1/api-proxy?action=tx-history&address=${address}`, {
+        headers: { Authorization: `Bearer ${supabaseKey}`, apikey: supabaseKey },
+      })
       const data = await res.json()
       if (data.status === '1' && Array.isArray(data.result)) {
         setTxs(data.result)
@@ -99,10 +102,10 @@ export default function WalletApp() {
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span style={{ flex: 1, fontSize: '11px', color: 'rgba(255,255,255,0.35)', fontFamily: "'JetBrains Mono', monospace", overflow: 'hidden', textOverflow: 'ellipsis' }}>{address}</span>
-            <button onClick={copyAddr} style={{ background: 'rgba(255,255,255,0.08)', border: 'none', borderRadius: '6px', padding: '4px 8px', cursor: 'pointer', color: 'rgba(255,255,255,0.6)', display: 'flex', alignItems: 'center', gap: '3px', fontSize: '10px' }}>
-              {copied ? <><Check size={10} /> Copied</> : <><Copy size={10} /> Copy</>}
+            <button onClick={copyAddr} aria-label="Copy wallet address" style={{ background: 'rgba(255,255,255,0.08)', border: 'none', borderRadius: '6px', padding: '4px 8px', cursor: 'pointer', color: 'rgba(255,255,255,0.6)', display: 'flex', alignItems: 'center', gap: '3px', fontSize: '10px' }}>
+              {copied ? <><Check size={10} /> <span aria-live="polite">Copied</span></> : <><Copy size={10} /> Copy</>}
             </button>
-            <a href={`https://polygonscan.com/address/${address}`} target="_blank" rel="noreferrer" style={{ background: 'rgba(255,255,255,0.08)', border: 'none', borderRadius: '6px', padding: '4px 8px', color: 'rgba(255,255,255,0.6)', display: 'flex', alignItems: 'center', fontSize: '10px', textDecoration: 'none' }}>
+            <a href={`https://polygonscan.com/address/${address}`} target="_blank" rel="noreferrer" aria-label="View on Polygonscan" style={{ background: 'rgba(255,255,255,0.08)', border: 'none', borderRadius: '6px', padding: '4px 8px', color: 'rgba(255,255,255,0.6)', display: 'flex', alignItems: 'center', fontSize: '10px', textDecoration: 'none' }}>
               <ExternalLink size={10} />
             </a>
           </div>
@@ -126,9 +129,9 @@ export default function WalletApp() {
             <Send size={14} color="#818cf8" /> Send POL
           </h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <input value={to} onChange={e => setTo(e.target.value)} placeholder="Recipient address (0x...)" style={cs.input} />
-            <input type="number" value={amt} onChange={e => setAmt(e.target.value)} placeholder="Amount (POL)" step="0.0001" min="0" style={cs.input} />
-            <button onClick={handleSend} disabled={isPending || !to || !amt} style={{
+            <input value={to} onChange={e => setTo(e.target.value)} placeholder="Recipient address (0x...)" aria-label="Recipient address" style={cs.input} />
+            <input type="number" value={amt} onChange={e => setAmt(e.target.value)} placeholder="Amount (POL)" step="0.0001" min="0" aria-label="Amount in POL" style={cs.input} />
+            <button onClick={handleSend} disabled={isPending || !to || !amt} aria-label="Send POL" style={{
               width: '100%', padding: '11px', borderRadius: '10px', border: 'none', cursor: isPending || !to || !amt ? 'not-allowed' : 'pointer',
               background: to && amt ? 'linear-gradient(135deg, #4f46e5, #7c3aed)' : 'rgba(255,255,255,0.04)',
               color: '#fff', fontSize: '13px', fontWeight: 600, fontFamily: 'inherit', opacity: !to || !amt ? 0.4 : 1,
@@ -155,7 +158,7 @@ export default function WalletApp() {
         <div style={cs.card}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
             <h3 style={{ fontSize: '13px', fontWeight: 600, margin: 0, color: '#fff' }}>Transaction History</h3>
-            <button onClick={fetchTxHistory} disabled={loadingTxs} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.3)', display: 'flex', alignItems: 'center', padding: 0 }}>
+            <button onClick={fetchTxHistory} disabled={loadingTxs} aria-label="Refresh transaction history" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.3)', display: 'flex', alignItems: 'center', padding: 0 }}>
               <RefreshCw size={12} style={{ animation: loadingTxs ? 'spin 1s linear infinite' : 'none' }} />
             </button>
           </div>

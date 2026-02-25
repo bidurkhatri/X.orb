@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
+import NetInfo, { NetInfoState } from '@react-native-community/netinfo';
 import { SyncService } from '../services/sync/SyncService';
 import { StorageService } from '../services/storage/StorageService';
 
@@ -38,6 +39,9 @@ export const SyncProvider: React.FC<SyncProviderProps> = ({ children }) => {
 
   useEffect(() => {
     initializeSync();
+    return () => {
+      unsubscribeRef.current?.();
+    };
   }, []);
 
   const initializeSync = async () => {
@@ -64,37 +68,29 @@ export const SyncProvider: React.FC<SyncProviderProps> = ({ children }) => {
 
   const checkNetworkStatus = async (): Promise<boolean> => {
     try {
-      // Simple check by attempting to reach a known endpoint
-      const response = await fetch('https://www.google.com', {
-        method: 'HEAD',
-        timeout: 5000,
-      });
-      return response.ok || response.status === 200;
+      const state = await NetInfo.fetch();
+      return state.isConnected ?? false;
     } catch {
       return false;
     }
   };
 
+  const unsubscribeRef = useRef<(() => void) | null>(null);
+
   const setupNetworkListener = () => {
-    // Listen for network changes
-    const handleOnline = () => {
-      setIsOnline(true);
-      if (isSyncEnabled) {
+    // Clean up previous listener if any
+    unsubscribeRef.current?.();
+
+    const unsubscribe = NetInfo.addEventListener((state: NetInfoState) => {
+      const connected = state.isConnected ?? false;
+      setIsOnline(connected);
+      if (connected && isSyncEnabled) {
         syncData();
       }
-    };
+    });
 
-    const handleOffline = () => {
-      setIsOnline(false);
-    };
-
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
+    unsubscribeRef.current = unsubscribe;
+    return unsubscribe;
   };
 
   const syncData = async (): Promise<void> => {

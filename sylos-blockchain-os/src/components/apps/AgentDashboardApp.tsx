@@ -122,11 +122,11 @@ function SpawnDialog({ onSpawn, onClose, sponsorAddress }: { onSpawn: (config: S
     const meta = ROLE_META[role]
 
     return (
-        <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
-            <div style={{ width: '440px', maxHeight: '90%', overflowY: 'auto', background: '#141829', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '24px' }}>
+        <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }} onClick={onClose}>
+            <div role="dialog" aria-modal="true" aria-label="Spawn New Agent" onKeyDown={e => { if (e.key === 'Escape') onClose() }} onClick={e => e.stopPropagation()} style={{ width: '440px', maxHeight: '90%', overflowY: 'auto', background: '#141829', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '24px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                     <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#fff', margin: 0 }}>🌐 Spawn New Agent</h2>
-                    <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.3)', cursor: 'pointer' }}><X size={18} /></button>
+                    <button onClick={onClose} aria-label="Close spawn dialog" style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.3)', cursor: 'pointer' }}><X size={18} /></button>
                 </div>
 
                 <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.3)', marginBottom: '16px', lineHeight: 1.5 }}>
@@ -135,7 +135,7 @@ function SpawnDialog({ onSpawn, onClose, sponsorAddress }: { onSpawn: (config: S
 
                 {/* Name */}
                 <label style={{ fontSize: '11px', fontWeight: 600, color: 'rgba(255,255,255,0.4)', display: 'block', marginBottom: '4px' }}>AGENT NAME</label>
-                <input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. MyTrader, ResearchBot" maxLength={64}
+                <input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. MyTrader, ResearchBot" maxLength={64} aria-label="Agent name"
                     style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.04)', color: '#e2e8f0', fontSize: '13px', marginBottom: '14px', boxSizing: 'border-box', outline: 'none', fontFamily: 'inherit' }} />
 
                 {/* Role */}
@@ -167,7 +167,7 @@ function SpawnDialog({ onSpawn, onClose, sponsorAddress }: { onSpawn: (config: S
                         }}>{p.name}</button>
                     ))}
                 </div>
-                <input value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder={`${provider.name} API Key`} type="password"
+                <input value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder={`${provider.name} API Key`} type="password" aria-label={`${provider.name} API key`}
                     style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.04)', color: '#e2e8f0', fontSize: '12px', fontFamily: "'JetBrains Mono', monospace", marginBottom: '14px', boxSizing: 'border-box', outline: 'none' }} />
 
                 {/* Expiry */}
@@ -208,7 +208,7 @@ function AgentCard({ agent, selected, onClick, onPause, onResume, onRevoke }: {
     const statusColors: Record<string, string> = { active: '#22c55e', paused: '#f59e0b', revoked: '#ef4444', expired: '#6b7280' }
 
     return (
-        <div onClick={onClick} style={{
+        <div role="option" aria-selected={selected} aria-label={`${agent.name} - ${meta.label} - ${agent.status}`} onClick={onClick} style={{
             padding: '10px 12px', cursor: 'pointer', borderLeft: `3px solid ${selected ? meta.color : 'transparent'}`,
             background: selected ? `${meta.color}10` : 'transparent', transition: 'all 0.15s ease',
         }}>
@@ -225,9 +225,9 @@ function AgentCard({ agent, selected, onClick, onPause, onResume, onRevoke }: {
             <RepBar score={agent.reputation} />
             {selected && (
                 <div style={{ display: 'flex', gap: '4px', marginTop: '6px' }}>
-                    {agent.status === 'active' && <button onClick={e => { e.stopPropagation(); onPause() }} style={{ padding: '3px 8px', borderRadius: '4px', border: '1px solid rgba(245,158,11,0.2)', background: 'rgba(245,158,11,0.08)', color: '#f59e0b', fontSize: '9px', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 }}>⏸ Pause</button>}
-                    {agent.status === 'paused' && <button onClick={e => { e.stopPropagation(); onResume() }} style={{ padding: '3px 8px', borderRadius: '4px', border: '1px solid rgba(34,197,94,0.2)', background: 'rgba(34,197,94,0.08)', color: '#22c55e', fontSize: '9px', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 }}>▶ Resume</button>}
-                    {agent.status !== 'revoked' && <button onClick={e => { e.stopPropagation(); if (confirm('Revoke this agent? This is permanent and will slash its stake.')) onRevoke() }} style={{ padding: '3px 8px', borderRadius: '4px', border: '1px solid rgba(239,68,68,0.2)', background: 'rgba(239,68,68,0.08)', color: '#f87171', fontSize: '9px', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 }}>☠ Revoke</button>}
+                    {agent.status === 'active' && <button onClick={e => { e.stopPropagation(); onPause() }} aria-label={`Pause ${agent.name}`} style={{ padding: '3px 8px', borderRadius: '4px', border: '1px solid rgba(245,158,11,0.2)', background: 'rgba(245,158,11,0.08)', color: '#f59e0b', fontSize: '9px', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 }}>⏸ Pause</button>}
+                    {agent.status === 'paused' && <button onClick={e => { e.stopPropagation(); onResume() }} aria-label={`Resume ${agent.name}`} style={{ padding: '3px 8px', borderRadius: '4px', border: '1px solid rgba(34,197,94,0.2)', background: 'rgba(34,197,94,0.08)', color: '#22c55e', fontSize: '9px', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 }}>▶ Resume</button>}
+                    {agent.status !== 'revoked' && <button onClick={e => { e.stopPropagation(); if (confirm('Revoke this agent? This is permanent and will slash its stake.')) onRevoke() }} aria-label={`Revoke ${agent.name}`} style={{ padding: '3px 8px', borderRadius: '4px', border: '1px solid rgba(239,68,68,0.2)', background: 'rgba(239,68,68,0.08)', color: '#f87171', fontSize: '9px', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 }}>☠ Revoke</button>}
                 </div>
             )}
         </div>
@@ -378,7 +378,7 @@ export default function AgentDashboardApp() {
                     </button>
                 </div>
 
-                <div style={{ flex: 1, overflowY: 'auto' }}>
+                <div role="listbox" aria-label="Agent list" style={{ flex: 1, overflowY: 'auto' }}>
                     {agents.length === 0 && (
                         <div style={{ padding: '20px', textAlign: 'center', color: 'rgba(255,255,255,0.15)', fontSize: '11px' }}>
                             No agents yet.<br />Spawn your first licensed worker.
@@ -522,9 +522,9 @@ export default function AgentDashboardApp() {
                         {selectedAgent.status === 'active' && (
                             <form onSubmit={e => { e.preventDefault(); handleSend() }} style={S.inputBar}>
                                 <div style={{ display: 'flex', gap: '8px' }}>
-                                    <input value={input} onChange={e => setInput(e.target.value)} placeholder={sending ? `${selectedAgent.name} is executing...` : `Give ${selectedAgent.name} a task...`} disabled={sending}
+                                    <input value={input} onChange={e => setInput(e.target.value)} placeholder={sending ? `${selectedAgent.name} is executing...` : `Give ${selectedAgent.name} a task...`} disabled={sending} aria-label={`Task input for ${selectedAgent.name}`}
                                         style={{ flex: 1, padding: '12px 16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.04)', color: '#e2e8f0', fontSize: '13px', fontFamily: 'inherit', outline: 'none', opacity: sending ? 0.5 : 1 }} />
-                                    <button type="submit" disabled={sending || !input.trim()} style={{
+                                    <button type="submit" disabled={sending || !input.trim()} aria-label="Send task" style={{
                                         padding: '0 18px', borderRadius: '12px', border: 'none', cursor: sending ? 'default' : 'pointer',
                                         background: sending ? 'rgba(99,102,241,0.2)' : 'linear-gradient(135deg, #4f46e5, #7c3aed)',
                                         color: '#fff', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 600, fontFamily: 'inherit',

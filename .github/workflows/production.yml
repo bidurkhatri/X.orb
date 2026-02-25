@@ -14,35 +14,35 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
           node-version: '18.x'
-          cache: 'npm'
+          cache: 'pnpm'
 
-      - name: Install Frontend Dependencies
-        working-directory: ./sylos-blockchain-os
-        run: npm ci
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: Lint Frontend
         working-directory: ./sylos-blockchain-os
-        run: npm run lint
+        run: pnpm run lint
 
       - name: Run Vite Tests
         working-directory: ./sylos-blockchain-os
-        run: npm run test
-
-      - name: Install Smart Contract Dependencies
-        working-directory: ./smart-contracts
-        run: npm ci
+        run: pnpm run test
 
       - name: Compile Smart Contracts
         working-directory: ./smart-contracts
-        run: npx hardhat compile
+        run: pnpm exec hardhat compile
 
       - name: Run Hardhat Tests
         working-directory: ./smart-contracts
-        run: npx hardhat test
+        run: pnpm exec hardhat test
 
   contract-deployment:
     name: Deploy Contracts to Polygon
@@ -52,16 +52,22 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
           node-version: '18.x'
+          cache: 'pnpm'
 
-      - name: Deploy Scripts
+      - name: Install Dependencies and Deploy
         working-directory: ./smart-contracts
         run: |
-          npm ci
-          npx hardhat run scripts/deploy.ts --network polygon
+          pnpm install --frozen-lockfile
+          pnpm exec hardhat run scripts/deploy.ts --network polygon
         env:
           POLYGON_PRIVATE_KEY: ${{ secrets.POLYGON_PRIVATE_KEY }}
           POLYGON_RPC_URL: ${{ secrets.POLYGON_RPC_URL }}
