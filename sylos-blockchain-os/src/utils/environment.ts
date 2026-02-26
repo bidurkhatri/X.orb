@@ -51,19 +51,19 @@ class EnvironmentManager {
       'VITE_WALLETCONNECT_PROJECT_ID'
     ]
 
-    // Check for required environment variables in production
+    // Warn about missing environment variables — never throw during bootstrap
     if (import.meta.env.PROD) {
       for (const varName of requiredVars) {
         if (!import.meta.env[varName]) {
-          throw new Error(`Missing required environment variable: ${varName}`)
+          console.warn(`[SylOS] Missing environment variable: ${varName} — some features may be unavailable`)
         }
       }
     }
 
     return {
-      NODE_ENV: (import.meta.env.VITE_NODE_ENV as EnvironmentConfig['NODE_ENV']) || 'development',
+      NODE_ENV: (import.meta.env.VITE_NODE_ENV as EnvironmentConfig['NODE_ENV']) || (import.meta.env.PROD ? 'production' : 'development'),
       VITE_APP_VERSION: import.meta.env.VITE_APP_VERSION || '1.0.0',
-      VITE_API_BASE_URL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000',
+      VITE_API_BASE_URL: import.meta.env.VITE_API_BASE_URL || '',
       VITE_SUPABASE_URL: import.meta.env.VITE_SUPABASE_URL || '',
       VITE_SUPABASE_ANON_KEY: import.meta.env.VITE_SUPABASE_ANON_KEY || '',
       VITE_WALLETCONNECT_PROJECT_ID: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || '',
@@ -192,15 +192,12 @@ export const getSecurityHeaders = (): Record<string, string> => {
   return headers
 }
 
-// Validate environment setup
+// Validate environment setup — warns but never throws to avoid killing the app
 export const validateEnvironment = (): void => {
   const errors = envManager.validateConfig()
-  
+
   if (errors.length > 0) {
-    console.error('Environment validation errors:', errors)
-    if (envManager.isProduction()) {
-      throw new Error(`Environment configuration errors: ${errors.join(', ')}`)
-    }
+    console.warn('[SylOS] Environment validation warnings:', errors)
   }
 }
 
