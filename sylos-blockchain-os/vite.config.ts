@@ -12,32 +12,13 @@ export default defineConfig(({ mode }) => {
   const isStaging = mode === 'staging'
   const isAnalyze = mode === 'analyze'
 
-  const baseUrl = isProduction
-    ? 'https://cdn.sylos.io'
-    : isStaging
-      ? 'https://staging-cdn.sylos.io'
-      : '/'
+  // Use VITE_CDN_URL env var for custom CDN, otherwise serve from same origin
+  const baseUrl = process.env.VITE_CDN_URL || '/'
 
   return {
     plugins: [
       react({
-        // Enable JSX runtime optimization
         jsxRuntime: 'automatic',
-        // Enable React optimization
-        babel: {
-          plugins: isProduction ? [
-            // Remove console.logs in production
-            ['transform-remove-console', {
-              exclude: ['error', 'warn']
-            }],
-            // Remove debugger statements
-            ['transform-remove-debugger'],
-            // Optimize React
-            ['transform-react-remove-prop-types', {
-              mode: 'wrap'
-            }]
-          ] : []
-        }
       }),
       // HTML plugin for CSP and performance optimization
       createHtmlPlugin({
@@ -83,114 +64,31 @@ export default defineConfig(({ mode }) => {
       // Enhanced minification for production
       minify: isProduction ? 'esbuild' : false,
 
-      // Target modern browsers for better performance
-      target: isProduction ? [
-        'es2019',
-        'chrome80',
-        'firefox78',
-        'safari14',
-        'edge80'
-      ] : 'esnext',
+      target: ['es2020', 'chrome80', 'firefox78', 'safari14', 'edge80'],
 
       // CSS code splitting
       cssCodeSplit: true,
 
-      // Enhanced rollup options for performance
-      ...(isProduction && {
-        rollupOptions: {
-          // Tree shaking optimization
-          treeshake: {
-            moduleSideEffects: false,
-            propertyReadSideEffects: false,
-            tryCatchDeoptimization: false
+      rollupOptions: {
+        onwarn(warning, warn) {
+          if (warning.code === 'UNUSED_EXTERNAL_IMPORT') return
+          if (warning.code === 'CIRCULAR_DEPENDENCY') return
+          warn(warning)
+        },
+        output: {
+          manualChunks: (id) => {
+            if (id.includes('node_modules')) {
+              // Keep React separate for caching (rarely changes)
+              if (id.includes('node_modules/react-dom') || id.includes('node_modules/react/')) return 'react-vendor'
+              // Blockchain libs are large — separate chunk
+              if (/\/node_modules\/(ethers|@rainbow-me|wagmi|viem|@walletconnect|@reown|@coinbase)\//.test(id)) return 'blockchain-vendor'
+            }
           },
-          onwarn(warning, warn) {
-            // Ignore specific warnings in production
-            if (warning.code === 'UNUSED_EXTERNAL_IMPORT') return
-            if (warning.code === 'CIRCULAR_DEPENDENCY') return
-            warn(warning)
-          },
-          output: {
-            // Advanced chunking strategy
-            manualChunks: (id) => {
-              // Node_modules optimization
-              if (id.includes('node_modules')) {
-                // React ecosystem
-                if (/react|react-dom|react-router/.test(id)) {
-                  return 'react-vendor'
-                }
-                // Blockchain libraries  
-                if (/ethers|@rainbow-me|wagmi|viem|web3/.test(id)) {
-                  return 'blockchain-vendor'
-                }
-                // UI libraries
-                if (/lucide|@supabase|tailwind/.test(id)) {
-                  return 'ui-vendor'
-                }
-                // State management
-                if (/@tanstack|zustand|redux/.test(id)) {
-                  return 'state-vendor'
-                }
-                // Utility libraries
-                if (/date-fns|lodash|clsx|axios/.test(id)) {
-                  return 'utils-vendor'
-                }
-                // DeFi libraries
-                if (/defi|uniswap|sushi/.test(id)) {
-                  return 'defi-vendor'
-                }
-                // Group all other node_modules
-                return 'vendor'
-              }
-
-              // App code splitting by feature
-              if (id.includes('/src/components/apps/')) {
-                const appName = id.split('/').pop()?.replace('.tsx', '') || 'app'
-                return `app-${appName}`
-              }
-
-              // Core OS components
-              if (id.includes('/src/components/')) {
-                return 'core-components'
-              }
-
-              // Utils and hooks
-              if (id.includes('/src/utils/') || id.includes('/src/hooks/')) {
-                return 'app-utils'
-              }
-            },
-
-            // Optimized asset naming
-            assetFileNames: (assetInfo) => {
-              const info = assetInfo.name?.split('.')
-              const ext = info?.[info.length - 1]
-
-              if (/\.(png|jpe?g|gif|svg|ico|webp|avif)$/i.test(assetInfo.name || '')) {
-                return `assets/images/[name]-[hash][extname]`
-              }
-              if (/\.(woff2?|eot|ttf|otf)$/i.test(assetInfo.name || '')) {
-                return `assets/fonts/[name]-[hash][extname]`
-              }
-              if (/\.(mp4|webm|ogg)$/i.test(assetInfo.name || '')) {
-                return `assets/media/[name]-[hash][extname]`
-              }
-              return `assets/[name]-[hash][extname]`
-            },
-
-            // Optimized chunk naming
-            chunkFileNames: (chunkInfo) => {
-              const facadeModuleId = chunkInfo.facadeModuleId
-              if (facadeModuleId) {
-                const moduleName = facadeModuleId.split('/').pop()?.replace('.tsx', '') || 'chunk'
-                return `js/[name]-[hash].js`
-              }
-              return 'js/[name]-[hash].js'
-            },
-
-            entryFileNames: 'js/[name]-[hash].js'
-          }
+          chunkFileNames: 'js/[name]-[hash].js',
+          entryFileNames: 'js/[name]-[hash].js',
+          assetFileNames: 'assets/[name]-[hash][extname]',
         }
-      }),
+      },
 
       // Performance budgets
       chunkSizeWarningLimit: 1000, // 1MB
