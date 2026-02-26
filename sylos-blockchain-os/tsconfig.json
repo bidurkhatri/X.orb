@@ -1,8 +1,19 @@
 {
   "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": [
+        "src/*"
+      ]
+    },
     "target": "ES2020",
     "useDefineForClassFields": true,
-    "lib": ["ES2020", "DOM", "DOM.Iterable", "ES2021.String"],
+    "lib": [
+      "ES2020",
+      "DOM",
+      "DOM.Iterable",
+      "ES2021.String"
+    ],
     "module": "ESNext",
     "skipLibCheck": true,
     "moduleResolution": "bundler",
@@ -29,6 +40,12 @@
     "declarationMap": true,
     "sourceMap": true
   },
-  "include": ["src"],
-  "exclude": ["node_modules", "dist", "build"]
+  "include": [
+    "src"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "build"
+  ]
 }

@@ -11,9 +11,9 @@
   "scripts": {
     "dev": "vite --mode development",
     "dev:staging": "vite --mode staging",
-    "build": "tsc && vite build",
-    "build:staging": "tsc && vite build --mode staging",
-    "build:analyze": "tsc && vite build --mode staging --mode analyze",
+    "build": "vite build",
+    "build:staging": "vite build --mode staging",
+    "build:analyze": "vite build --mode staging --mode analyze",
     "preview": "vite preview",
     "preview:staging": "vite preview --mode staging",
     "preview:prod": "vite preview --mode production",
