@@ -37,7 +37,7 @@
     "health-check": "node scripts/health-check.js",
     "monitor": "node scripts/monitor.js",
     "pre-commit": "lint-staged",
-    "prepare": "husky install"
+    "prepare": "husky install || true"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.3.0",
