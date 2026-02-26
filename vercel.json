@@ -1,9 +1,10 @@
 {
-  "buildCommand": "cd sylos-blockchain-os && npm run build",
-  "outputDirectory": "sylos-blockchain-os/dist",
-  "installCommand": "cd sylos-blockchain-os && npm install --legacy-peer-deps",
-  "framework": null,
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
-  ]
+    "version": 2,
+    "buildCommand": "cd sylos-blockchain-os && npm run build",
+    "installCommand": "cd sylos-blockchain-os && npm install --no-package-lock --legacy-peer-deps",
+    "outputDirectory": "sylos-blockchain-os/dist",
+    "framework": null,
+    "rewrites": [
+        { "source": "/(.*)", "destination": "/index.html" }
+    ]
 }

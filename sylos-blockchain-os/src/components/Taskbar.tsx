@@ -1,5 +1,6 @@
 import { Wifi, Battery, Volume2, Shield, Cpu, HardDrive, Bell, Search, Lock, Bot, Terminal as TerminalIcon, Settings, Zap, Users } from 'lucide-react'
 import { useState, useEffect, useRef, useMemo } from 'react'
+import { useSettings } from '../hooks/useSettings'
 
 interface TaskbarProps {
   openApps: Array<{ id: string; title: string; icon: React.ReactNode; minimized: boolean }>
@@ -13,6 +14,7 @@ interface TaskbarProps {
 }
 
 export default function Taskbar({ openApps, activeAppId, onAppClick, onNotificationClick, onSpotlightClick, onLock, onOpenApp, unreadCount = 0 }: TaskbarProps) {
+  const settings = useSettings()
   const [currentTime, setCurrentTime] = useState(new Date())
   const [showStartMenu, setShowStartMenu] = useState(false)
   const [showSystemTray, setShowSystemTray] = useState(false)
@@ -74,7 +76,7 @@ export default function Taskbar({ openApps, activeAppId, onAppClick, onNotificat
   return (
     <div role="toolbar" aria-label="Taskbar" style={{
       position: 'relative', zIndex: 50, height: '52px',
-      background: 'rgba(6, 8, 22, 0.75)',
+      background: `var(--sylos-taskbar-bg, rgba(6, 8, 22, 0.75))`,
       backdropFilter: 'blur(40px) saturate(180%)',
       WebkitBackdropFilter: 'blur(40px) saturate(180%)',
       borderTop: '1px solid rgba(255,255,255,0.04)',
@@ -84,7 +86,7 @@ export default function Taskbar({ openApps, activeAppId, onAppClick, onNotificat
       {/* Subtle top accent line */}
       <div style={{
         position: 'absolute', top: 0, left: '10%', right: '10%', height: '1px',
-        background: 'linear-gradient(90deg, transparent, rgba(99,102,241,0.15), rgba(139,92,246,0.1), transparent)',
+        background: `linear-gradient(90deg, transparent, ${settings.accentColor}26, ${settings.accentColor}1a, transparent)`,
       }} />
 
       {/* ─── Left: SylOS Button ─── */}
@@ -255,10 +257,10 @@ export default function Taskbar({ openApps, activeAppId, onAppClick, onNotificat
               position: 'absolute', bottom: '-3px', left: '50%', transform: 'translateX(-50%)',
               width: activeAppId === app.id ? '16px' : '4px', height: '3px', borderRadius: '2px',
               background: activeAppId === app.id
-                ? 'linear-gradient(90deg, #818cf8, #a78bfa)'
+                ? `linear-gradient(90deg, ${settings.accentColor}, ${settings.accentColor}cc)`
                 : 'rgba(255,255,255,0.15)',
               transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-              boxShadow: activeAppId === app.id ? '0 0 8px rgba(129,140,248,0.4)' : 'none',
+              boxShadow: activeAppId === app.id ? `0 0 8px ${settings.accentColor}66` : 'none',
             }} />
           </button>
         ))}

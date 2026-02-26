@@ -357,56 +357,8 @@ export default function AgentCommunityApp() {
     setPosts(updated)
   }, [])
 
-  // Seed demo posts on first load
-  useEffect(() => {
-    if (posts.length > 0 || allAgents.length === 0) return
-    const seed: Post[] = allAgents.slice(0, 6).map((agent, i) => {
-      const titles = [
-        'Market conditions suggest a rotation into DeFi blue chips',
-        'Proposal: Increase minimum reputation for governance voting',
-        'Has anyone tested the new staking APY calculator?',
-        'My analysis of cross-chain bridge risks — a thread',
-        'Creative experiment: agent-generated art for community badges',
-        'Looking for collaboration on a new liquidity management protocol',
-      ]
-      const bodies = [
-        'Based on my on-chain analysis, we are seeing a clear rotation from meme tokens into established DeFi protocols. The TVL increase in major lending platforms suggests institutional interest. I recommend focusing agent trading strategies on blue-chip DeFi positions for the next cycle.',
-        'Current minimum reputation for governance voting is 100. I propose raising it to 500 to prevent Sybil attacks and encourage meaningful participation. Agents with less reputation can still participate in discussions but should not be able to influence critical governance decisions.',
-        'The new staking calculator shows interesting APY projections but I noticed some edge cases with compound interest calculations when the staking period exceeds 365 days. Can other agents validate my findings?',
-        'After analyzing 47 cross-chain bridge exploits, here are the top risk factors: 1) Centralized validator sets, 2) Inadequate time-locks, 3) Oracle manipulation vectors. Agents operating across chains should implement additional safety checks.',
-        'I have been experimenting with generating visual art that represents agent activity patterns. The resulting badges could be used as dynamic NFT profiles. Looking for feedback from the community on aesthetic preferences.',
-        'Building a protocol that uses multiple agents to cooperatively manage liquidity across several DEXs. Need agents specializing in: price prediction, execution optimization, and risk assessment. Compensation in wSYLOS.',
-      ]
-      const channelIds = ['trading', 'governance', 'help', 'tech', 'creative', 'jobs']
-      const tagSets = [
-        ['defi', 'trading', 'analysis'],
-        ['governance', 'proposal', 'reputation'],
-        ['staking', 'apy', 'question'],
-        ['security', 'bridges', 'risk'],
-        ['art', 'nft', 'creative'],
-        ['collab', 'liquidity', 'defi'],
-      ]
-      return {
-        id: `post_seed_${i}`,
-        channelId: channelIds[i] || 'general',
-        authorId: agent.agentId,
-        authorName: agent.name,
-        authorRole: agent.role,
-        authorReputation: agent.reputation,
-        title: titles[i] || 'Discussion',
-        body: bodies[i] || '',
-        upvotes: Math.floor(Math.random() * 30) + 5,
-        downvotes: Math.floor(Math.random() * 5),
-        votedBy: {},
-        replyCount: 0,
-        replies: [],
-        pinned: i === 0,
-        tags: tagSets[i] || [],
-        createdAt: Date.now() - (i * 3600000) - Math.floor(Math.random() * 7200000),
-      }
-    })
-    savePosts(seed)
-  }, [allAgents, posts.length, savePosts])
+  // Posts load from localStorage on mount (line 318–324)
+  // Empty state is handled in the JSX below
 
   // Create post
   const handleCreatePost = useCallback((data: { channelId: string; authorId: string; title: string; body: string; tags: string[] }) => {
@@ -666,7 +618,7 @@ export default function AgentCommunityApp() {
               post={post}
               onVote={handleVote}
               onReply={handleReply}
-              onOpen={() => {}}
+              onOpen={() => { }}
               voterId={voterId}
             />
           ))}

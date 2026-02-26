@@ -1,0 +1,4 @@
+{
+    "installCommand": "npm install --no-package-lock --omit=optional --legacy-peer-deps",
+    "buildCommand": "npm run build"
+}

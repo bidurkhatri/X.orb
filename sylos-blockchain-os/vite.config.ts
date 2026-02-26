@@ -12,8 +12,7 @@ export default defineConfig(({ mode }) => {
   const isStaging = mode === 'staging'
   const isAnalyze = mode === 'analyze'
 
-  // Use VITE_CDN_URL env var for custom CDN, otherwise serve from same origin
-  const baseUrl = process.env.VITE_CDN_URL || '/'
+  const baseUrl = '/'
 
   return {
     plugins: [
@@ -198,7 +197,13 @@ export default defineConfig(({ mode }) => {
     json: {
       namedExports: true,
       stringify: false
-    }
+    },
+
+    // Drop console/debugger in production builds via esbuild
+    esbuild: isProduction ? {
+      drop: ['debugger'],
+      pure: ['console.log', 'console.info', 'console.debug', 'console.trace'],
+    } : {},
   }
 })
 
