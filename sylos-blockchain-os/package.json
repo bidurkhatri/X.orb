@@ -136,8 +136,5 @@
   },
   "optionalDependencies": {
     "@rollup/rollup-win32-x64-msvc": "^4.58.0"
-  },
-  "overrides": {
-    "rollup": "npm:@rollup/rollup-linux-x64-gnu@4.59.0"
   }
 }
