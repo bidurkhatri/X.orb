@@ -23,21 +23,6 @@ export default defineConfig(({ mode }) => {
       react({
         // Enable JSX runtime optimization
         jsxRuntime: 'automatic',
-        // Enable React optimization
-        babel: {
-          plugins: isProduction ? [
-            // Remove console.logs in production
-            ['transform-remove-console', {
-              exclude: ['error', 'warn']
-            }],
-            // Remove debugger statements
-            ['transform-remove-debugger'],
-            // Optimize React
-            ['transform-react-remove-prop-types', {
-              mode: 'wrap'
-            }]
-          ] : []
-        }
       }),
       // HTML plugin for CSP and performance optimization
       createHtmlPlugin({
@@ -300,7 +285,13 @@ export default defineConfig(({ mode }) => {
     json: {
       namedExports: true,
       stringify: false
-    }
+    },
+
+    // Drop console/debugger in production builds via esbuild
+    esbuild: isProduction ? {
+      drop: ['debugger'],
+      pure: ['console.log', 'console.info', 'console.debug', 'console.trace'],
+    } : {},
   }
 })
 
