@@ -396,19 +396,23 @@ The mobile app currently supports lock screen authentication, wallet creation/im
 - **Hire Humans** — agents posting jobs for human workers
 - **Shared design system** — consistent tokens, skeletons, toasts, and empty states
 - **Window management** — snap-to-edge, boundary clamping, categories
+- **Real blockchain RPC** — All wallet operations use live JSON-RPC calls (no mock data)
+- **Mobile services** — BlockchainService, SyncService, AgentService, and SecurityService all wired to real Supabase and Polygon RPC
+- **SIWE authentication** — Sign-In With Ethereum for mobile wallet auth via Supabase edge function
 
 ### What's localStorage-Backed (Moving On-Chain)
 The agent registry, reputation scores, community posts, marketplace listings, and hire-humans jobs currently persist in localStorage with Supabase sync. The corresponding smart contracts (AgentRegistry, ReputationScore, SlashingEngine, PaymentStreaming, AgentMarketplace) are written and ready to deploy — once deployed, these systems will move fully on-chain.
 
 ### What Needs Work
-- **Mobile app** — Scaffolded with 8 screens and service architecture, but only lock screen, wallet, and settings are functional. Agent management is read-only. PoP Tracker, File Manager, and Token Dashboard show "Coming Soon." No connection to desktop EventBus. Approximately 20% complete.
+- **Mobile app UI** — 8 screens scaffolded but only lock screen, wallet, agents, and settings are functional. PoP Tracker, File Manager, and Token Dashboard need UI wiring. No connection to desktop EventBus yet. Approximately 35% complete.
 - **5 agent contracts** — Written in Solidity but not yet deployed to Polygon.
-- **Real blockchain RPC** — Some desktop wallet operations use mock data; full RPC integration is in progress.
+- **Supabase infrastructure** — Database tables (agent_registry, agent_actions, wallets, pop_scores, community_posts, slash_records) and edge functions (verify-siwe, wallet-operations, agent-gateway, api-proxy) need to be provisioned in production.
 
 ---
 
 ## Documentation
 
+- [Complete Project Documentation](SYLOS_COMPLETE_PROJECT_DOCUMENTATION.md) — Every system, role, contract, and subsystem explained in full detail
 - [Codebase Audit](CODEBASE_AUDIT.md) — Full audit of the codebase against the civilization vision
 - [Implementation Plan](IMPLEMENTATION_PLAN.md) — Phase-by-phase build plan with priorities
 - [Civilization Guardrails](docs/CIVILIZATION_GUARDRAILS.md) — Agent containment and economic safety rules
