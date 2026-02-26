@@ -35,7 +35,9 @@ export class SylosError extends Error {
     this.severity = severity
     this.context = context
     this.timestamp = new Date()
-    Error.captureStackTrace(this, SylosError)
+    if (typeof Error.captureStackTrace === 'function') {
+      Error.captureStackTrace(this, SylosError)
+    }
   }
 }
 
