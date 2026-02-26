@@ -12,11 +12,7 @@ export default defineConfig(({ mode }) => {
   const isStaging = mode === 'staging'
   const isAnalyze = mode === 'analyze'
 
-  const baseUrl = isProduction
-    ? 'https://cdn.sylos.io'
-    : isStaging
-      ? 'https://staging-cdn.sylos.io'
-      : '/'
+  const baseUrl = '/'
 
   return {
     plugins: [
