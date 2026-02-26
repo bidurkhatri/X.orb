@@ -17,7 +17,7 @@ import {
 import { agentRegistry, type RegisteredAgent, type SpawnAgentConfig, type LLMProvider } from '@/services/agent/AgentRegistry'
 import { agentWalletManager } from '@/services/agent/AgentSessionWallet'
 import { getAgentRuntime, destroyAgentRuntime, type AgentRuntime, type AgentStep, type AgentTask, type AgentMessage } from '@/services/agent/AgentRuntime'
-import { AgentAutonomyEngine } from '@/services/agent/AgentAutonomyEngine'
+import { autonomyEngine } from '@/services/agent/AgentAutonomyEngine'
 import { ROLE_META, type AgentRole, getReputationColor, getReputationTier } from '@/services/agent/AgentRoles'
 import { useAgentRegistry } from '@/hooks/useAgentContracts'
 import { useAccount } from 'wagmi'
@@ -108,7 +108,7 @@ function SpawnDialog({ onSpawn, onClose, sponsorAddress }: {
 }) {
     const [name, setName] = useState('')
     const [role, setRole] = useState<AgentRole>('TRADER')
-    const [provider, setProvider] = useState<LLMProvider>(LLM_PRESETS[0])
+    const [provider, setProvider] = useState<LLMProvider>(LLM_PRESETS[0] as LLMProvider)
     const [apiKey, setApiKey] = useState('')
     const [expiryDays, setExpiryDays] = useState(7)
     const [error, setError] = useState('')
@@ -349,8 +349,7 @@ function AgentCard({ agent, selected, onClick, onPause, onResume, onRevoke }: {
 
 export default function AgentDashboardApp() {
     const { address } = useAccount()
-    const { myAgents: hookAgents, contractsDeployed, txPending, refresh: hookRefresh,
-        pauseAgent: hookPause, resumeAgent: hookResume, revokeAgent: hookRevoke } = useAgentRegistry()
+    const { myAgents, pauseAgent: hookPause, resumeAgent: hookResume, revokeAgent: hookRevoke } = useAgentRegistry()
     const [agents, setAgents] = useState<RegisteredAgent[]>([])
     const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null)
     const [showSpawn, setShowSpawn] = useState(false)
@@ -471,11 +470,11 @@ export default function AgentDashboardApp() {
     })
 
     return (
-        <div style={S.root}>
+        <div style={S['root']}>
             {showSpawn && <SpawnDialog onSpawn={handleSpawn} onClose={() => setShowSpawn(false)} sponsorAddress={sponsorAddr} />}
 
             {/* ── Sidebar: Agent Registry ── */}
-            <div style={S.sidebar}>
+            <div style={S['sidebar']}>
                 <div style={{ padding: '12px 14px', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                         <span style={{ fontSize: '11px', fontWeight: 700, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Agent Registry</span>
@@ -517,7 +516,7 @@ export default function AgentDashboardApp() {
             </div>
 
             {/* ── Main Panel ── */}
-            <div style={S.main}>
+            <div style={S['main']}>
                 {!selectedAgent ? (
                     /* No agent selected — welcome screen */
                     <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '16px', padding: '40px' }}>
@@ -540,7 +539,7 @@ export default function AgentDashboardApp() {
                 ) : (
                     <>
                         {/* Header */}
-                        <div style={S.header}>
+                        <div style={S['header']}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                 <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: `linear-gradient(135deg, ${selectedMeta!.color}40, ${selectedMeta!.color}20)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px' }}>
                                     {selectedMeta!.icon}
@@ -607,7 +606,7 @@ export default function AgentDashboardApp() {
                         )}
 
                         {/* Main Content */}
-                        <div ref={scrollRef} style={S.chat}>
+                        <div ref={scrollRef} style={S['chat']}>
                             {displayItems.length === 0 && !sending && (
                                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', height: '100%', padding: '20px' }}>
                                     <span style={{ fontSize: '32px' }}>{selectedMeta!.icon}</span>
@@ -662,7 +661,7 @@ export default function AgentDashboardApp() {
 
                         {/* Input */}
                         {selectedAgent.status === 'active' && (
-                            <form onSubmit={e => { e.preventDefault(); handleSend() }} style={S.inputBar}>
+                            <form onSubmit={e => { e.preventDefault(); handleSend() }} style={S['inputBar']}>
                                 <div style={{ display: 'flex', gap: '8px' }}>
                                     <input value={input} onChange={e => setInput(e.target.value)} placeholder={sending ? `${selectedAgent.name} is executing...` : `Give ${selectedAgent.name} a task...`} disabled={sending} aria-label={`Task input for ${selectedAgent.name}`}
                                         style={{ flex: 1, padding: '12px 16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.04)', color: '#e2e8f0', fontSize: '13px', fontFamily: 'inherit', outline: 'none', opacity: sending ? 0.5 : 1 }} />
