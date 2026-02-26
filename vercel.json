@@ -1,6 +1,6 @@
 {
     "version": 2,
     "buildCommand": "cd sylos-blockchain-os && npm run build",
-    "installCommand": "cd sylos-blockchain-os && npm install --no-package-lock --omit=optional --legacy-peer-deps",
+    "installCommand": "cd sylos-blockchain-os && npm install --no-package-lock --legacy-peer-deps",
     "outputDirectory": "sylos-blockchain-os/dist"
 }
