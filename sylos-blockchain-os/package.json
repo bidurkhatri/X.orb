@@ -36,8 +36,7 @@
     "deploy:push": "echo 'Deploying to server...' && ./scripts/deploy.sh",
     "health-check": "node scripts/health-check.js",
     "monitor": "node scripts/monitor.js",
-    "pre-commit": "lint-staged",
-    "prepare": "husky install"
+    "pre-commit": "lint-staged"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.3.0",
