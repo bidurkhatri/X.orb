@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { X, Minus, Maximize2, Minimize2 } from 'lucide-react'
+import { useSettings } from '../hooks/useSettings'
 
 interface AppWindowProps {
   title: string
@@ -16,6 +17,7 @@ const MIN_W = 400
 const MIN_H = 300
 
 export default function AppWindow({ title, icon, children, onClose, onMinimize, isActive, onFocus }: AppWindowProps) {
+  const settings = useSettings()
   const [isMaximized, setIsMaximized] = useState(false)
   const [position, setPosition] = useState(() => ({
     x: Math.min(100 + Math.random() * 120, window.innerWidth - 880),
@@ -210,7 +212,7 @@ export default function AppWindow({ title, icon, children, onClose, onMinimize, 
             backdropFilter: 'blur(40px) saturate(180%)',
             WebkitBackdropFilter: 'blur(40px) saturate(180%)',
             borderBottom: isActive
-              ? '1px solid rgba(99,102,241,0.12)'
+              ? `1px solid ${settings.accentColor}1f`
               : '1px solid rgba(255,255,255,0.04)',
             cursor: isMaximized ? 'default' : isDragging ? 'grabbing' : 'grab',
             userSelect: 'none',
@@ -221,7 +223,7 @@ export default function AppWindow({ title, icon, children, onClose, onMinimize, 
           <div style={{
             position: 'absolute', top: 0, left: 0, right: 0, height: '1px',
             background: isActive
-              ? 'linear-gradient(90deg, transparent, rgba(99,102,241,0.2) 30%, rgba(139,92,246,0.15) 70%, transparent)'
+              ? `linear-gradient(90deg, transparent, ${settings.accentColor}33 30%, ${settings.accentColor}26 70%, transparent)`
               : 'linear-gradient(90deg, transparent, rgba(255,255,255,0.04), transparent)',
           }} />
 
@@ -315,7 +317,7 @@ export default function AppWindow({ title, icon, children, onClose, onMinimize, 
         {/* ─── Content area ─── */}
         <div style={{
           flex: 1, overflow: 'auto',
-          background: 'linear-gradient(180deg, #0b0f22 0%, #0d1126 50%, #0f1328 100%)',
+          background: `var(--sylos-window-bg, linear-gradient(180deg, #0b0f22 0%, #0d1126 50%, #0f1328 100%))`,
           color: 'rgba(255,255,255,0.87)',
         }}>
           {children}

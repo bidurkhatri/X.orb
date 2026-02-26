@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
+import { useSettings } from '../hooks/useSettings'
 import Taskbar from './Taskbar'
 import AppWindow from './AppWindow'
 import DesktopIcon from './DesktopIcon'
@@ -462,6 +463,7 @@ function CategorySection({ label, icon, collapsed, onToggle, children }: {
    ══════════════════════════════════════ */
 
 function DesktopInner() {
+  const settings = useSettings() // reactive — triggers re-render on any Settings change
   const [openApps, setOpenApps] = useState<OpenApp[]>([])
   const [activeAppId, setActiveAppId] = useState<string | null>(null)
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number } | null>(null)
@@ -625,7 +627,7 @@ function DesktopInner() {
         zIndex: 1000, padding: '8px 16px', background: '#4f46e5', color: '#fff', fontSize: '14px', fontWeight: 600,
         borderRadius: '0 0 8px 0', textDecoration: 'none',
       }} onFocus={e => { e.currentTarget.style.left = '0'; e.currentTarget.style.width = 'auto'; e.currentTarget.style.height = 'auto' }}
-         onBlur={e => { e.currentTarget.style.left = '-9999px'; e.currentTarget.style.width = '1px'; e.currentTarget.style.height = '1px' }}>
+        onBlur={e => { e.currentTarget.style.left = '-9999px'; e.currentTarget.style.width = '1px'; e.currentTarget.style.height = '1px' }}>
         Skip to content
       </a>
       <div
@@ -636,6 +638,7 @@ function DesktopInner() {
           height: '100%', width: '100%', display: 'flex', flexDirection: 'column', position: 'relative',
           background: WALLPAPERS.find(w => w.id === wallpaper)?.gradient || WALLPAPERS[0]!.gradient,
           fontFamily: "'Inter', system-ui, sans-serif",
+          fontSize: `${settings.fontSize}px`,
         }}
       >
         {/* Dot grid overlay */}
