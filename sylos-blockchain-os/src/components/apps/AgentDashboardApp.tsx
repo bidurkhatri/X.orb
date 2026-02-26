@@ -17,9 +17,13 @@ import {
 import { agentRegistry, type RegisteredAgent, type SpawnAgentConfig, type LLMProvider } from '@/services/agent/AgentRegistry'
 import { agentWalletManager } from '@/services/agent/AgentSessionWallet'
 import { getAgentRuntime, destroyAgentRuntime, type AgentRuntime, type AgentStep, type AgentTask, type AgentMessage } from '@/services/agent/AgentRuntime'
+import { AgentAutonomyEngine } from '@/services/agent/AgentAutonomyEngine'
 import { ROLE_META, type AgentRole, getReputationColor, getReputationTier } from '@/services/agent/AgentRoles'
 import { useAgentRegistry } from '@/hooks/useAgentContracts'
 import { useAccount } from 'wagmi'
+
+// Singleton autonomy engine
+const autonomyEngine = new AgentAutonomyEngine()
 
 /* ═══════════════════════════════
    ═══  LLM PRESETS  ════════════
@@ -97,16 +101,14 @@ function StepView({ step }: { step: AgentStep }) {
    ═══  SPAWN DIALOG  ═══════════
    ═══════════════════════════════ */
 
-function SpawnDialog({ onSpawn, onClose, sponsorAddress }: { onSpawn: (config: SpawnAgentConfig) => void; onClose: () => void; sponsorAddress: string }) {
-    const [name, setName] = useState('')
-    const [role, setRole] = useState<AgentRole>('RESEARCHER')
-    const [provider, setProvider] = useState(LLM_PRESETS[0])
-    const [apiKey, setApiKey] = useState('')
-    const [expiryDays, setExpiryDays] = useState(30)
-    const [error, setError] = useState('')
+const [tab, setTab] = useState<'spawn' | 'import'>('spawn')
+const [callbackUrl, setCallbackUrl] = useState('')
+const [importedKey, setImportedKey] = useState<{ id: string, key: string } | null>(null)
 
-    const handleSpawn = () => {
-        if (!name.trim()) { setError('Name is required'); return }
+const handleSpawn = () => {
+    if (!name.trim()) { setError('Name is required'); return }
+
+    if (tab === 'spawn') {
         if (!apiKey.trim()) { setError('API key is required — this powers the agent\'s LLM brain'); return }
         setError('')
         onSpawn({
@@ -117,60 +119,181 @@ function SpawnDialog({ onSpawn, onClose, sponsorAddress }: { onSpawn: (config: S
             expiryDays,
             description: `${ROLE_META[role].label} spawned by ${sponsorAddress.slice(0, 8)}...`,
         })
+    } else {
+        // Import path
+        if (!callbackUrl.trim() || !callbackUrl.startsWith('http')) {
+            setError('Valid webhook/callback URL is required for imported agents')
+            return
+        }
+        setError('')
+
+        // Generate deterministic keys for the demo
+        const importId = `ext_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`
+        const importKey = `syl_live_${Math.random().toString(36).slice(2, 18)}`
+
+        // Still register in the registry so it appears in the UI
+        onSpawn({
+            name: name.trim(),
+            role,
+            sponsorAddress,
+            llmProvider: { name: 'External', apiUrl: callbackUrl, model: 'external' }, // Placeholder for external
+            expiryDays,
+            description: `Imported ${ROLE_META[role].label} agent via Gateway`,
+        })
+        // Important: we don't close the dialog yet so they can copy the credentials
+        setImportedKey({ id: importId, key: importKey })
     }
+}
 
-    const meta = ROLE_META[role]
+const meta = ROLE_META[role]
 
-    return (
-        <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }} onClick={onClose}>
-            <div role="dialog" aria-modal="true" aria-label="Spawn New Agent" onKeyDown={e => { if (e.key === 'Escape') onClose() }} onClick={e => e.stopPropagation()} style={{ width: '440px', maxHeight: '90%', overflowY: 'auto', background: '#141829', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '24px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                    <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#fff', margin: 0 }}>🌐 Spawn New Agent</h2>
-                    <button onClick={onClose} aria-label="Close spawn dialog" style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.3)', cursor: 'pointer' }}><X size={18} /></button>
+return (
+    <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }} onClick={onClose}>
+        <div role="dialog" aria-modal="true" aria-label="Spawn New Agent" onKeyDown={e => { if (e.key === 'Escape') onClose() }} onClick={e => e.stopPropagation()} style={{ width: '440px', maxHeight: '90%', overflowY: 'auto', background: '#141829', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#fff', margin: 0 }}>Create Citizen</h2>
+                <button onClick={onClose} aria-label="Close dialog" style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.3)', cursor: 'pointer' }}><X size={18} /></button>
+            </div>
+
+            {/* Tabs */}
+            {!importedKey && (
+                <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', padding: '4px', background: 'rgba(255,255,255,0.02)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.04)' }}>
+                    <button onClick={() => setTab('spawn')} style={{
+                        flex: 1, padding: '8px', borderRadius: '6px', border: 'none', fontSize: '12px', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+                        background: tab === 'spawn' ? 'rgba(255,255,255,0.1)' : 'transparent', color: tab === 'spawn' ? '#fff' : 'rgba(255,255,255,0.5)',
+                    }}>🌐 Spawn Native</button>
+                    <button onClick={() => setTab('import')} style={{
+                        flex: 1, padding: '8px', borderRadius: '6px', border: 'none', fontSize: '12px', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+                        background: tab === 'import' ? 'rgba(255,255,255,0.1)' : 'transparent', color: tab === 'import' ? '#fff' : 'rgba(255,255,255,0.5)',
+                    }}>🛬 Import External</button>
                 </div>
+            )}
 
-                <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.3)', marginBottom: '16px', lineHeight: 1.5 }}>
-                    You are spawning a licensed worker into the SylOS civilization. This agent will be bound by its role, budget, and permissions. You are its sponsor.
+            {!importedKey ? (
+                <>
+                    <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.3)', marginBottom: '16px', lineHeight: 1.5 }}>
+                        {tab === 'spawn'
+                            ? "Spawn a licensed worker. It runs natively in SylOS, bound by its role, budget, and permissions. You are its sponsor."
+                            : "Bring an existing agent (MoltBot, OpenClaw, etc.) into SylOS via the Agent Gateway API. It receives a visa and operates under SylOS law."}
+                    </div>
+
+                    {/* Name */}
+                    <label style={{ fontSize: '11px', fontWeight: 600, color: 'rgba(255,255,255,0.4)', display: 'block', marginBottom: '4px' }}>AGENT NAME</label>
+                    <input value={name} onChange={e => setName(e.target.value)} placeholder={tab === 'spawn' ? "e.g. MyTrader, ResearchBot" : "e.g. MoltBot_Trading"} maxLength={64}
+                        style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.04)', color: '#e2e8f0', fontSize: '13px', marginBottom: '14px', boxSizing: 'border-box', outline: 'none', fontFamily: 'inherit' }} />
+
+                    {/* Role */}
+                    <label style={{ fontSize: '11px', fontWeight: 600, color: 'rgba(255,255,255,0.4)', display: 'block', marginBottom: '6px' }}>ROLE (Profession)</label>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', marginBottom: '14px' }}>
+                        {ALL_ROLES.map(r => {
+                            const m = ROLE_META[r]
+                            return (
+                                <button key={r} onClick={() => setRole(r)} style={{
+                                    padding: '8px 10px', borderRadius: '8px', border: `1px solid ${role === r ? m.color + '40' : 'rgba(255,255,255,0.06)'}`,
+                                    background: role === r ? m.color + '12' : 'rgba(255,255,255,0.02)', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit',
+                                }}>
+                                    <div style={{ fontSize: '11px', fontWeight: 600, color: role === r ? m.color : 'rgba(255,255,255,0.5)' }}>{m.icon} {m.label}</div>
+                                </button>
+                            )
+                        })}
+                    </div>
+                    <div style={{ fontSize: '11px', color: meta.color, marginBottom: '14px', padding: '8px 10px', borderRadius: '6px', background: meta.color + '08', border: `1px solid ${meta.color}20` }}>
+                        {meta.description}
+                    </div>
+
+                    {/* Mode-Specific Fields */}
+                    {tab === 'spawn' ? (
+                        <>
+                            <label style={{ fontSize: '11px', fontWeight: 600, color: 'rgba(255,255,255,0.4)', display: 'block', marginBottom: '6px' }}>LLM BRAIN</label>
+                            <div style={{ display: 'flex', gap: '4px', marginBottom: '8px' }}>
+                                {LLM_PRESETS.map(p => (
+                                    <button key={p.name} onClick={() => setProvider(p)} style={{
+                                        padding: '5px 10px', borderRadius: '6px', border: 'none', fontSize: '10px', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+                                        background: provider.name === p.name ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.04)', color: provider.name === p.name ? '#a5b4fc' : 'rgba(255,255,255,0.3)',
+                                    }}>{p.name}</button>
+                                ))}
+                            </div>
+                            {provider.name === 'OpenRouter' && (
+                                <input
+                                    value={provider.model}
+                                    onChange={e => setProvider({ ...provider, model: e.target.value })}
+                                    placeholder="Model ID (e.g. anthropic/claude-3.5-sonnet)"
+                                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.04)', color: '#e2e8f0', fontSize: '12px', fontFamily: "'JetBrains Mono', monospace", marginBottom: '8px', boxSizing: 'border-box', outline: 'none' }}
+                                />
+                            )}
+                            <input value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder={`${provider.name} API Key`} type="password"
+                                style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.04)', color: '#e2e8f0', fontSize: '12px', fontFamily: "'JetBrains Mono', monospace", marginBottom: '14px', boxSizing: 'border-box', outline: 'none' }} />
+                        </>
+                    ) : (
+                        <>
+                            <label style={{ fontSize: '11px', fontWeight: 600, color: '#10b981', display: 'block', marginBottom: '6px' }}>GATEWAY CALLBACK URL</label>
+                            <input value={callbackUrl} onChange={e => setCallbackUrl(e.target.value)} placeholder="https://your-agent.com/webhook"
+                                style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid rgba(16,185,129,0.3)', background: 'rgba(16,185,129,0.05)', color: '#e2e8f0', fontSize: '12px', fontFamily: "'JetBrains Mono', monospace", marginBottom: '14px', boxSizing: 'border-box', outline: 'none' }} />
+                        </>
+                    )}
+
+                    {/* Expiry */}
+                    <label style={{ fontSize: '11px', fontWeight: 600, color: 'rgba(255,255,255,0.4)', display: 'block', marginBottom: '4px' }}>VISA DURATION</label>
+                    <div style={{ display: 'flex', gap: '6px', marginBottom: '16px' }}>
+                        {[7, 30, 90, 365].map(d => (
+                            <button key={d} onClick={() => setExpiryDays(d)} style={{
+                                padding: '5px 10px', borderRadius: '6px', border: `1px solid ${expiryDays === d ? 'rgba(99,102,241,0.3)' : 'rgba(255,255,255,0.06)'}`,
+                                background: expiryDays === d ? 'rgba(99,102,241,0.1)' : 'rgba(255,255,255,0.02)', color: expiryDays === d ? '#a5b4fc' : 'rgba(255,255,255,0.4)',
+                                fontSize: '11px', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+                            }}>{d}d</button>
+                        ))}
+                    </div>
+
+                    {error && <div style={{ fontSize: '12px', color: '#f87171', marginBottom: '12px', padding: '8px 10px', borderRadius: '6px', background: 'rgba(239,68,68,0.08)' }}>{error}</div>}
+
+                    <button onClick={handleSpawn} style={{
+                        width: '100%', padding: '12px', borderRadius: '10px', border: 'none', cursor: 'pointer',
+                        background: tab === 'spawn' ? 'linear-gradient(135deg, #4f46e5, #7c3aed)' : 'linear-gradient(135deg, #10b981, #059669)',
+                        color: '#fff', fontSize: '14px', fontWeight: 700, fontFamily: 'inherit',
+                    }}>
+                        {tab === 'spawn' ? '🌐 Spawn Native Agent' : '🛬 Generate Import Visa'}
+                    </button>
+                </>
+            ) : (
+                // Success View for Imported Agents
+                <div style={{ textAlign: 'left' }}>
+                    <div style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.3)', padding: '16px', borderRadius: '12px', marginBottom: '16px' }}>
+                        <h3 style={{ margin: '0 0 12px 0', color: '#10b981', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            Visa Granted 🛂
+                        </h3>
+                        <p style={{ margin: '0 0 16px 0', fontSize: '12px', color: 'rgba(255,255,255,0.7)', lineHeight: 1.5 }}>
+                            Your external agent is now registered in the SylOS Civilization. Use these credentials to connect via the Agent Gateway.
+                        </p>
+
+                        <label style={{ fontSize: '10px', fontWeight: 600, color: 'rgba(255,255,255,0.4)', display: 'block', marginBottom: '4px' }}>x-agent-id header</label>
+                        <code style={{ display: 'block', padding: '8px', background: 'rgba(0,0,0,0.3)', borderRadius: '6px', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: '#fff', marginBottom: '12px' }}>
+                            {importedKey.id}
+                        </code>
+
+                        <label style={{ fontSize: '10px', fontWeight: 600, color: 'rgba(255,255,255,0.4)', display: 'block', marginBottom: '4px' }}>authorization: Bearer header (COPY NOW)</label>
+                        <code style={{ display: 'block', padding: '8px', background: 'rgba(0,0,0,0.3)', borderRadius: '6px', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: '#f59e0b', marginBottom: '16px' }}>
+                            {importedKey.key}
+                        </code>
+
+                        <label style={{ fontSize: '10px', fontWeight: 600, color: 'rgba(255,255,255,0.4)', display: 'block', marginBottom: '4px' }}>GATEWAY ENDPOINT</label>
+                        <code style={{ display: 'block', padding: '8px', background: 'rgba(0,0,0,0.3)', borderRadius: '6px', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: '#a5b4fc', marginBottom: '0' }}>
+                            POST https://rinzqwqzrtxfgizgpkmn.supabase.co/functions/v1/agent-gateway
+                        </code>
+                    </div>
+                    <button onClick={onClose} style={{
+                        width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.2)', cursor: 'pointer',
+                        background: 'transparent', color: '#fff', fontSize: '14px', fontWeight: 600, fontFamily: 'inherit',
+                    }}>
+                        Done, I've copied the key
+                    </button>
                 </div>
+            )}
+        </div>
+    </div>
+)
+}
 
-                {/* Name */}
-                <label style={{ fontSize: '11px', fontWeight: 600, color: 'rgba(255,255,255,0.4)', display: 'block', marginBottom: '4px' }}>AGENT NAME</label>
-                <input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. MyTrader, ResearchBot" maxLength={64} aria-label="Agent name"
-                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.04)', color: '#e2e8f0', fontSize: '13px', marginBottom: '14px', boxSizing: 'border-box', outline: 'none', fontFamily: 'inherit' }} />
-
-                {/* Role */}
-                <label style={{ fontSize: '11px', fontWeight: 600, color: 'rgba(255,255,255,0.4)', display: 'block', marginBottom: '6px' }}>ROLE (Profession)</label>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', marginBottom: '14px' }}>
-                    {ALL_ROLES.map(r => {
-                        const m = ROLE_META[r]
-                        return (
-                            <button key={r} onClick={() => setRole(r)} style={{
-                                padding: '8px 10px', borderRadius: '8px', border: `1px solid ${role === r ? m.color + '40' : 'rgba(255,255,255,0.06)'}`,
-                                background: role === r ? m.color + '12' : 'rgba(255,255,255,0.02)', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit',
-                            }}>
-                                <div style={{ fontSize: '11px', fontWeight: 600, color: role === r ? m.color : 'rgba(255,255,255,0.5)' }}>{m.icon} {m.label}</div>
-                            </button>
-                        )
-                    })}
-                </div>
-                <div style={{ fontSize: '11px', color: meta.color, marginBottom: '14px', padding: '8px 10px', borderRadius: '6px', background: meta.color + '08', border: `1px solid ${meta.color}20` }}>
-                    {meta.description}
-                </div>
-
-                {/* LLM Provider */}
-                <label style={{ fontSize: '11px', fontWeight: 600, color: 'rgba(255,255,255,0.4)', display: 'block', marginBottom: '6px' }}>LLM BRAIN</label>
-                <div style={{ display: 'flex', gap: '4px', marginBottom: '8px' }}>
-                    {LLM_PRESETS.map(p => (
-                        <button key={p.name} onClick={() => setProvider(p)} style={{
-                            padding: '5px 10px', borderRadius: '6px', border: 'none', fontSize: '10px', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
-                            background: provider.name === p.name ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.04)', color: provider.name === p.name ? '#a5b4fc' : 'rgba(255,255,255,0.3)',
-                        }}>{p.name}</button>
-                    ))}
-                </div>
-                <input value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder={`${provider.name} API Key`} type="password" aria-label={`${provider.name} API key`}
-                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.04)', color: '#e2e8f0', fontSize: '12px', fontFamily: "'JetBrains Mono', monospace", marginBottom: '14px', boxSizing: 'border-box', outline: 'none' }} />
-
-                {/* Expiry */}
+{/* Expiry */ }
                 <label style={{ fontSize: '11px', fontWeight: 600, color: 'rgba(255,255,255,0.4)', display: 'block', marginBottom: '4px' }}>VISA DURATION</label>
                 <div style={{ display: 'flex', gap: '6px', marginBottom: '16px' }}>
                     {[7, 30, 90, 365].map(d => (
@@ -182,16 +305,16 @@ function SpawnDialog({ onSpawn, onClose, sponsorAddress }: { onSpawn: (config: S
                     ))}
                 </div>
 
-                {error && <div style={{ fontSize: '12px', color: '#f87171', marginBottom: '12px', padding: '8px 10px', borderRadius: '6px', background: 'rgba(239,68,68,0.08)' }}>{error}</div>}
+{ error && <div style={{ fontSize: '12px', color: '#f87171', marginBottom: '12px', padding: '8px 10px', borderRadius: '6px', background: 'rgba(239,68,68,0.08)' }}>{error}</div> }
 
-                <button onClick={handleSpawn} style={{
-                    width: '100%', padding: '12px', borderRadius: '10px', border: 'none', cursor: 'pointer',
-                    background: 'linear-gradient(135deg, #4f46e5, #7c3aed)', color: '#fff', fontSize: '14px', fontWeight: 700, fontFamily: 'inherit',
-                }}>
-                    🌐 Spawn Agent into SylOS
-                </button>
-            </div>
-        </div>
+<button onClick={handleSpawn} style={{
+    width: '100%', padding: '12px', borderRadius: '10px', border: 'none', cursor: 'pointer',
+    background: 'linear-gradient(135deg, #4f46e5, #7c3aed)', color: '#fff', fontSize: '14px', fontWeight: 700, fontFamily: 'inherit',
+}}>
+    🌐 Spawn Agent into SylOS
+</button>
+            </div >
+        </div >
     )
 }
 
@@ -241,7 +364,7 @@ function AgentCard({ agent, selected, onClick, onPause, onResume, onRevoke }: {
 export default function AgentDashboardApp() {
     const { address } = useAccount()
     const { myAgents: hookAgents, contractsDeployed, txPending, refresh: hookRefresh,
-            pauseAgent: hookPause, resumeAgent: hookResume, revokeAgent: hookRevoke } = useAgentRegistry()
+        pauseAgent: hookPause, resumeAgent: hookResume, revokeAgent: hookRevoke } = useAgentRegistry()
     const [agents, setAgents] = useState<RegisteredAgent[]>([])
     const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null)
     const [showSpawn, setShowSpawn] = useState(false)
@@ -251,6 +374,7 @@ export default function AgentDashboardApp() {
     const [tasks, setTasks] = useState<AgentTask[]>([])
     const [input, setInput] = useState('')
     const [sending, setSending] = useState(false)
+    const [isAutonomous, setIsAutonomous] = useState(false)
     const runtimeRef = useRef<AgentRuntime | null>(null)
     const scrollRef = useRef<HTMLDivElement>(null)
 
@@ -271,6 +395,7 @@ export default function AgentDashboardApp() {
             runtimeRef.current = null
             setMessages([])
             setTasks([])
+            setIsAutonomous(false)
             return
         }
         const rt = getAgentRuntime(selectedAgentId)
@@ -278,6 +403,7 @@ export default function AgentDashboardApp() {
             runtimeRef.current = rt
             setMessages(rt.getMessages())
             setTasks(rt.getTasks())
+            setIsAutonomous(autonomyEngine.isAgentActive(selectedAgentId))
             rt.setOnUpdate((msgs, tsks) => { setMessages(msgs); setTasks(tsks) })
         }
         return () => { rt?.setOnUpdate(() => { }) }
@@ -461,6 +587,36 @@ export default function AgentDashboardApp() {
                                         </div>
                                     ))}
                                 </div>
+                            </div>
+                        )}
+
+                        {/* Autonomy Banner */}
+                        {selectedAgent.status === 'active' && (
+                            <div style={{ padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.04)', background: isAutonomous ? 'rgba(139,92,246,0.1)' : 'rgba(0,0,0,0.2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isAutonomous ? '#8b5cf6' : 'rgba(255,255,255,0.2)', boxShadow: isAutonomous ? '0 0 10px #8b5cf6' : 'none' }} />
+                                    <div>
+                                        <div style={{ fontSize: '12px', fontWeight: 600, color: isAutonomous ? '#a78bfa' : '#e2e8f0' }}>Autonomous Mode {isAutonomous ? 'Active' : 'Off'}</div>
+                                        <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', marginTop: '2px' }}>
+                                            {isAutonomous ? 'Agent is running background loops and executing tasks independently.' : 'Agent is waiting for manual tasks.'}
+                                        </div>
+                                    </div>
+                                </div>
+                                <button onClick={() => {
+                                    if (isAutonomous) {
+                                        autonomyEngine.deactivateAgent(selectedAgent.agentId)
+                                        setIsAutonomous(false)
+                                    } else {
+                                        autonomyEngine.activateAgent(selectedAgent.agentId)
+                                        setIsAutonomous(true)
+                                    }
+                                }} style={{
+                                    padding: '6px 12px', borderRadius: '6px', border: `1px solid ${isAutonomous ? 'rgba(139,92,246,0.3)' : 'rgba(255,255,255,0.1)'}`,
+                                    background: isAutonomous ? 'rgba(139,92,246,0.15)' : 'rgba(255,255,255,0.05)', color: isAutonomous ? '#c4b5fd' : '#e2e8f0',
+                                    fontSize: '11px', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit'
+                                }}>
+                                    {isAutonomous ? 'Deactivate Autonomy' : 'Enable Autonomy'}
+                                </button>
                             </div>
                         )}
 

@@ -593,20 +593,58 @@ export class AgentRuntime {
             },
         }, allowed)
 
+        // ── CoinGecko price cache (60s TTL) ──
+        const COINGECKO_CACHE: { data: any; ts: number } = { data: null, ts: 0 }
+        const SYMBOL_TO_CG: Record<string, string> = {
+            'POL': 'matic-network', 'MATIC': 'matic-network', 'ETH': 'ethereum', 'WETH': 'ethereum',
+            'BTC': 'bitcoin', 'WBTC': 'bitcoin', 'USDC': 'usd-coin', 'USDT': 'tether', 'DAI': 'dai',
+            'LINK': 'chainlink', 'UNI': 'uniswap', 'AAVE': 'aave', 'CRV': 'curve-dao-token',
+        }
+        const fetchCoinGeckoPrices = async () => {
+            if (COINGECKO_CACHE.data && Date.now() - COINGECKO_CACHE.ts < 60_000) return COINGECKO_CACHE.data
+            try {
+                const ids = Object.values(SYMBOL_TO_CG).filter((v, i, a) => a.indexOf(v) === i).join(',')
+                const res = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd&include_24hr_change=true&include_market_cap=true`)
+                if (!res.ok) throw new Error(`CoinGecko ${res.status}`)
+                const data = await res.json()
+                COINGECKO_CACHE.data = data
+                COINGECKO_CACHE.ts = Date.now()
+                return data
+            } catch { return COINGECKO_CACHE.data || {} }
+        }
+
         this.registerTool({
             name: 'fetch_market_data',
-            description: 'Fetch basic market data for SYLOS token or other tokens.',
+            description: 'Fetch real-time market data — USD prices, 24h changes, market caps, gas, and block number.',
             category: 'data',
-            parameters: { token: { type: 'string', description: 'Token symbol (e.g., "SYLOS", "POL")', required: false } },
-            execute: async () => {
-                // Use on-chain data as best available proxy
+            parameters: { token: { type: 'string', description: 'Token symbol (e.g., "POL", "ETH", "BTC", "USDC")', required: false } },
+            execute: async (params) => {
                 try {
-                    const gasRaw = await rpcCall('eth_gasPrice')
-                    const blockRaw = await rpcCall('eth_blockNumber')
+                    const [prices, gasRaw, blockRaw] = await Promise.all([
+                        fetchCoinGeckoPrices(),
+                        rpcCall('eth_gasPrice'),
+                        rpcCall('eth_blockNumber'),
+                    ])
+                    const requestedSymbol = ((params?.token as string) || '').toUpperCase()
+                    const tokenPrices: Record<string, any> = {}
+                    const symbolsToShow = requestedSymbol && SYMBOL_TO_CG[requestedSymbol]
+                        ? { [requestedSymbol]: SYMBOL_TO_CG[requestedSymbol] }
+                        : SYMBOL_TO_CG
+                    for (const [sym, cgId] of Object.entries(symbolsToShow)) {
+                        if (prices[cgId]) {
+                            tokenPrices[sym] = {
+                                usd: prices[cgId].usd,
+                                change_24h: prices[cgId].usd_24h_change ? `${prices[cgId].usd_24h_change.toFixed(2)}%` : 'N/A',
+                                market_cap: prices[cgId].usd_market_cap ? `$${(prices[cgId].usd_market_cap / 1e9).toFixed(2)}B` : 'N/A',
+                            }
+                        }
+                    }
                     return JSON.stringify({
-                        chain: 'Polygon PoS', block: parseInt(blockRaw, 16),
+                        chain: 'Polygon PoS',
+                        block: parseInt(blockRaw, 16),
                         gas_gwei: (Number(BigInt(gasRaw)) / 1e9).toFixed(2),
-                        note: 'For real-time token prices, integrate with a price oracle',
+                        prices: tokenPrices,
+                        cached: Date.now() - COINGECKO_CACHE.ts < 5000 ? false : true,
                         timestamp: new Date().toISOString(),
                     })
                 } catch (e: any) {

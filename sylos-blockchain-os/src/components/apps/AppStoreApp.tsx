@@ -32,25 +32,58 @@ interface DApp {
 }
 
 // ─── dApp Catalog ──────────────────────────────────
-const CATEGORIES = ['All', 'DeFi', 'Tools', 'Social', 'Games', 'Media', 'Dev']
+const CATEGORIES = ['All', 'Agent Skills', 'Data Connectivity', 'Finance', 'System']
 
+// Agents operate via functions, not graphical interfaces.
+// The "App Store" in SylOS is for protocol upgrades and agent skills.
 const DAPPS: DApp[] = [
-    { id: 'uniswap', name: 'Uniswap', description: 'Decentralized token exchange with automated liquidity pools and concentrated liquidity positions', developer: 'Uniswap Labs', category: 'DeFi', icon: <Zap size={22} />, color: '#ff007a', url: 'https://app.uniswap.org', rating: 4.9, version: '4.2.1', size: '2.4 MB', verified: true, featured: true, permissions: ['Wallet Access', 'Token Approvals'] },
-    { id: 'aave', name: 'Aave', description: 'Non-custodial lending and borrowing protocol with flash loans and rate switching', developer: 'Aave DAO', category: 'DeFi', icon: <Shield size={22} />, color: '#b6509e', url: 'https://app.aave.com', rating: 4.8, version: '3.1.0', size: '1.8 MB', verified: true, featured: true, permissions: ['Wallet Access', 'Token Approvals', 'Lending Operations'] },
-    { id: 'opensea', name: 'OpenSea', description: 'Discover, collect, and sell extraordinary NFTs across multiple blockchains', developer: 'OpenSea Inc', category: 'Social', icon: <Globe size={22} />, color: '#2081e2', url: 'https://opensea.io', rating: 4.5, version: '2.0.0', size: '3.1 MB', verified: true, permissions: ['Wallet Access', 'NFT Approvals'] },
-    { id: 'lens', name: 'Lens Protocol', description: 'Composable decentralized social graph — own your social connections and content', developer: 'Lens Foundation', category: 'Social', icon: <MessageSquare size={22} />, color: '#00501e', url: 'https://hey.xyz', rating: 4.6, version: '2.5.0', size: '1.5 MB', verified: true, featured: true, permissions: ['Wallet Access', 'Profile Management'] },
-    { id: 'curve', name: 'Curve Finance', description: 'Efficient stablecoin exchange designed for low slippage and low fee trading', developer: 'Curve DAO', category: 'DeFi', icon: <BarChart3 size={22} />, color: '#0060ff', url: 'https://curve.fi', rating: 4.7, version: '2.8.3', size: '2.0 MB', verified: true, permissions: ['Wallet Access', 'Token Approvals'] },
-    { id: 'quickswap', name: 'QuickSwap', description: 'Native Polygon DEX with dragon\'s lair staking and competitive swap fees', developer: 'QuickSwap Team', category: 'DeFi', icon: <Zap size={22} />, color: '#418099', url: 'https://quickswap.exchange', rating: 4.4, version: '3.0.1', size: '1.7 MB', verified: true, permissions: ['Wallet Access', 'Token Approvals'] },
-    { id: 'polygonscan', name: 'Polygonscan', description: 'Polygon PoS block explorer — verify transactions, contracts, and on-chain data', developer: 'Etherscan', category: 'Tools', icon: <Search size={22} />, color: '#8247e5', url: 'https://polygonscan.com', rating: 4.8, version: '1.0.0', size: '0.5 MB', verified: true, permissions: ['Read-Only'] },
-    { id: 'chainlink', name: 'Chainlink', description: 'Decentralized oracle network powering real-world data feeds and cross-chain messaging', developer: 'Chainlink Labs', category: 'Dev', icon: <Code size={22} />, color: '#375bd2', url: 'https://chain.link', rating: 4.9, version: '1.2.0', size: '0.8 MB', verified: true, permissions: ['Read-Only'] },
-    { id: 'snapshot', name: 'Snapshot', description: 'Off-chain governance voting — create proposals, delegate votes, and track results', developer: 'Snapshot Labs', category: 'Tools', icon: <BookOpen size={22} />, color: '#f3b04e', url: 'https://snapshot.org', rating: 4.6, version: '0.9.0', size: '0.6 MB', verified: true, permissions: ['Wallet Access', 'Signature Requests'] },
-    { id: 'zapper', name: 'Zapper', description: 'Multi-chain DeFi portfolio tracker — monitor positions, claim airdrops, and bridge assets', developer: 'Zapper Fi', category: 'Tools', icon: <BarChart3 size={22} />, color: '#784ffe', url: 'https://zapper.xyz', rating: 4.5, version: '4.1.0', size: '1.2 MB', verified: true, permissions: ['Wallet Access'] },
-    { id: 'mirror', name: 'Mirror', description: 'Decentralized publishing platform — write, mint writing NFTs, and fund projects', developer: 'Mirror Protocol', category: 'Media', icon: <Newspaper size={22} />, color: '#007aff', url: 'https://mirror.xyz', rating: 4.4, version: '1.3.0', size: '0.9 MB', verified: true, permissions: ['Wallet Access', 'Signature Requests'] },
-    { id: 'sound', name: 'Sound.xyz', description: 'Web3 music platform — discover artists, collect limited edition songs as NFTs', developer: 'Sound.xyz Inc', category: 'Media', icon: <Music size={22} />, color: '#1db954', url: 'https://sound.xyz', rating: 4.3, version: '2.0.0', size: '1.1 MB', verified: false, permissions: ['Wallet Access', 'NFT Minting'] },
-    { id: 'polymarket', name: 'Polymarket', description: 'Information markets — trade on real-world event outcomes with provable accuracy', developer: 'Polymarket Inc', category: 'Games', icon: <Gamepad2 size={22} />, color: '#00b4d8', url: 'https://polymarket.com', rating: 4.7, version: '2.1.0', size: '1.4 MB', verified: true, permissions: ['Wallet Access', 'Trading'] },
-    { id: 'arweave', name: 'Arweave', description: 'Permanent decentralized storage — store data forever with a single payment', developer: 'Arweave Foundation', category: 'Dev', icon: <Cloud size={22} />, color: '#ff6b00', url: 'https://arweave.org', rating: 4.5, version: '1.0.0', size: '0.7 MB', verified: true, permissions: ['Read-Only'] },
-    { id: 'remix', name: 'Remix IDE', description: 'Browser-based Solidity IDE — write, compile, deploy, and debug smart contracts', developer: 'Ethereum Foundation', category: 'Dev', icon: <Code size={22} />, color: '#5b34a5', url: 'https://remix.ethereum.org', rating: 4.8, version: '0.31.0', size: '4.2 MB', verified: true, permissions: ['Wallet Access', 'Contract Deployment'] },
-    { id: 'debank', name: 'DeBank', description: 'Multi-chain DeFi portfolio dashboard with social profiles and whale tracking', developer: 'DeBank Inc', category: 'DeFi', icon: <Calculator size={22} />, color: '#fe8737', url: 'https://debank.com', rating: 4.6, version: '5.0.0', size: '1.6 MB', verified: true, permissions: ['Wallet Access'] },
+    {
+        id: 'sylos_market_oracle',
+        name: 'SylOS Market Oracle',
+        description: 'Provides agents with real-time CoinGecko price data, token pairs, and market cap information for accurate trading and analysis.',
+        developer: 'SylOS Core',
+        category: 'Data Connectivity',
+        icon: <BarChart3 size={22} />,
+        color: '#818cf8',
+        url: '#',
+        rating: 5.0,
+        version: '1.2.0',
+        size: '12 KB',
+        verified: true,
+        featured: true,
+        permissions: ['Network Request']
+    },
+    {
+        id: 'sylos_xmtp_client',
+        name: 'XMTP Messaging Client',
+        description: 'End-to-end encrypted messaging protocol allowing agents to negotiate and communicate securely across the network.',
+        developer: 'SylOS Foundation',
+        category: 'System',
+        icon: <MessageSquare size={22} />,
+        color: '#10b981',
+        url: '#',
+        rating: 4.9,
+        version: '2.0.1',
+        size: '34 KB',
+        verified: true,
+        featured: true,
+        permissions: ['Wallet Signatures', 'Network Request']
+    },
+    {
+        id: 'quickswap_router',
+        name: 'QuickSwap V3 Router',
+        description: 'Direct smart contract integration for agents to execute token swaps on Polygon without UI overhead.',
+        developer: 'SylOS Core',
+        category: 'Finance',
+        icon: <Zap size={22} />,
+        color: '#418099',
+        url: '#',
+        rating: 4.8,
+        version: '1.0.5',
+        size: '18 KB',
+        verified: true,
+        permissions: ['Wallet Access', 'Token Approvals']
+    }
 ]
 
 // ─── Styles ─────────────────────────────────────────
