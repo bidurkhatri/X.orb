@@ -4,7 +4,7 @@
 
 import React, { Component, ErrorInfo, ReactNode } from 'react'
 import { AlertTriangle, RefreshCw, Home, Bug } from 'lucide-react'
-import { errorLogger, ErrorInfo as SylosErrorInfo, LoggedError } from '../utils/errorHandler'
+import { errorLogger, ErrorInfo as SylosErrorInfo } from '../utils/errorHandler'
 import { envManager } from '../utils/environment'
 
 interface Props {
@@ -44,7 +44,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     const errorId = this.logError(error, errorInfo)
-    
+
     this.setState({
       errorInfo,
       errorId
@@ -92,7 +92,6 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   private reportCriticalError(error: Error, errorInfo: ErrorInfo, errorId: string) {
-    // In a real app, this would send to a monitoring service
     console.error(`Critical error reported (ID: ${errorId})`, {
       error: error.message,
       stack: error.stack,
@@ -103,8 +102,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
   private handleRetry = () => {
     this.setState({ isRetrying: true })
-    
-    // Add a small delay to prevent immediate retries
+
     this.retryTimeoutId = setTimeout(() => {
       this.setState({
         hasError: false,
@@ -126,21 +124,16 @@ export class ErrorBoundary extends Component<Props, State> {
 
   public render() {
     if (this.state.hasError) {
-      // Custom fallback UI
       if (this.props.fallback) {
         return this.props.fallback
       }
-
-      // Default error UI based on level
       return this.getDefaultErrorUI()
     }
-
     return this.props.children
   }
 
   private getDefaultErrorUI() {
     const { level = 'component' } = this.props
-
     switch (level) {
       case 'critical':
         return this.getCriticalErrorUI()
@@ -153,37 +146,28 @@ export class ErrorBoundary extends Component<Props, State> {
 
   private getCriticalErrorUI() {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-900 to-red-700">
-        <div className="text-center p-8 bg-white/10 backdrop-blur-lg rounded-2xl max-w-md">
-          <Bug className="w-16 h-16 text-red-300 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-white mb-2">
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #7f1d1d, #991b1b)', fontFamily: "'Inter', system-ui, sans-serif" }}>
+        <div style={{ textAlign: 'center', padding: '32px', background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(20px)', borderRadius: '16px', maxWidth: '480px' }}>
+          <Bug style={{ width: '64px', height: '64px', color: '#fca5a5', margin: '0 auto 16px' }} />
+          <h1 style={{ fontSize: '24px', fontWeight: 700, color: '#fff', marginBottom: '8px' }}>
             Critical System Error
           </h1>
-          <p className="text-red-200 mb-6">
+          <p style={{ color: '#fecaca', marginBottom: '24px' }}>
             Something went wrong. Please restart the application.
           </p>
-          <div className="space-y-3">
-            <button
-              onClick={this.handleReload}
-              className="w-full py-3 px-4 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold transition-colors"
-            >
+          {this.state.error && (
+            <p style={{ color: '#fecaca', fontSize: '13px', marginBottom: '16px', padding: '12px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px', wordBreak: 'break-word' }}>
+              {this.state.error.message}
+            </p>
+          )}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <button onClick={this.handleReload} style={{ width: '100%', padding: '12px 16px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', fontSize: '14px', fontFamily: 'inherit' }}>
               Restart Application
             </button>
-            <button
-              onClick={this.handleGoHome}
-              className="w-full py-3 px-4 bg-white/20 hover:bg-white/30 text-white rounded-lg font-semibold transition-colors"
-            >
+            <button onClick={this.handleGoHome} style={{ width: '100%', padding: '12px 16px', background: 'rgba(255,255,255,0.2)', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', fontSize: '14px', fontFamily: 'inherit' }}>
               Go to Home
             </button>
           </div>
-          {envManager.isDevelopment() && this.state.error && (
-            <details className="mt-4 text-left">
-              <summary className="text-red-200 cursor-pointer">Error Details</summary>
-              <pre className="text-xs text-red-200 mt-2 p-2 bg-black/20 rounded overflow-auto">
-                {this.state.error.stack}
-              </pre>
-            </details>
-          )}
         </div>
       </div>
     )
@@ -191,35 +175,36 @@ export class ErrorBoundary extends Component<Props, State> {
 
   private getPageErrorUI() {
     return (
-      <div className="h-screen flex items-center justify-center bg-sylos-dark">
-        <div className="text-center p-8 max-w-md">
-          <AlertTriangle className="w-16 h-16 text-yellow-400 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-white mb-2">
+      <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#060918', fontFamily: "'Inter', system-ui, sans-serif" }}>
+        <div style={{ textAlign: 'center', padding: '32px', maxWidth: '480px' }}>
+          <AlertTriangle style={{ width: '64px', height: '64px', color: '#facc15', margin: '0 auto 16px' }} />
+          <h1 style={{ fontSize: '24px', fontWeight: 700, color: '#fff', marginBottom: '8px' }}>
             Page Error
           </h1>
-          <p className="text-gray-300 mb-6">
-            We encountered an error loading this page. Please try again.
+          <p style={{ color: '#94a3b8', marginBottom: '16px' }}>
+            We encountered an error loading this page.
           </p>
-          <div className="space-y-3">
+          {this.state.error && (
+            <p style={{ color: '#f87171', fontSize: '13px', marginBottom: '24px', padding: '12px', background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.15)', borderRadius: '8px', wordBreak: 'break-word', fontFamily: "'JetBrains Mono', monospace" }}>
+              {this.state.error.message}
+            </p>
+          )}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             {this.props.enableRetry !== false && (
               <button
                 onClick={this.handleRetry}
                 disabled={this.state.isRetrying}
-                className="w-full py-3 px-4 bg-sylos-primary hover:bg-sylos-primary/80 disabled:opacity-50 text-white rounded-lg font-semibold transition-colors flex items-center justify-center gap-2"
+                style={{ width: '100%', padding: '12px 16px', background: '#6366f1', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', fontSize: '14px', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', opacity: this.state.isRetrying ? 0.5 : 1 }}
               >
-                {this.state.isRetrying ? (
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                ) : (
-                  <RefreshCw className="w-4 h-4" />
-                )}
+                <RefreshCw style={{ width: '16px', height: '16px' }} />
                 Try Again
               </button>
             )}
             <button
               onClick={this.handleGoHome}
-              className="w-full py-3 px-4 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-semibold transition-colors flex items-center justify-center gap-2"
+              style={{ width: '100%', padding: '12px 16px', background: '#475569', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', fontSize: '14px', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
             >
-              <Home className="w-4 h-4" />
+              <Home style={{ width: '16px', height: '16px' }} />
               Go Home
             </button>
           </div>
@@ -230,35 +215,28 @@ export class ErrorBoundary extends Component<Props, State> {
 
   private getComponentErrorUI() {
     return (
-      <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-        <div className="flex items-center gap-2 text-red-800 mb-2">
-          <AlertTriangle className="w-5 h-5" />
-          <span className="font-semibold">Component Error</span>
+      <div style={{ padding: '16px', background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.15)', borderRadius: '12px', fontFamily: "'Inter', system-ui, sans-serif" }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#f87171', marginBottom: '8px' }}>
+          <AlertTriangle style={{ width: '20px', height: '20px' }} />
+          <span style={{ fontWeight: 600, fontSize: '14px' }}>Component Error</span>
         </div>
-        <p className="text-red-600 text-sm mb-3">
+        <p style={{ color: '#94a3b8', fontSize: '13px', marginBottom: '12px' }}>
           This component encountered an error and couldn't render properly.
         </p>
+        {this.state.error && (
+          <p style={{ color: '#f87171', fontSize: '12px', marginBottom: '12px', fontFamily: "'JetBrains Mono', monospace", wordBreak: 'break-word' }}>
+            {this.state.error.message}
+          </p>
+        )}
         {this.props.enableRetry !== false && (
           <button
             onClick={this.handleRetry}
             disabled={this.state.isRetrying}
-            className="text-sm py-2 px-3 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white rounded transition-colors flex items-center gap-2"
+            style={{ padding: '8px 12px', background: '#6366f1', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 600, cursor: 'pointer', fontSize: '13px', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: '6px', opacity: this.state.isRetrying ? 0.5 : 1 }}
           >
-            {this.state.isRetrying ? (
-              <RefreshCw className="w-3 h-3 animate-spin" />
-            ) : (
-              <RefreshCw className="w-3 h-3" />
-            )}
+            <RefreshCw style={{ width: '14px', height: '14px' }} />
             Retry
           </button>
-        )}
-        {envManager.isDevelopment() && this.state.error && (
-          <details className="mt-2">
-            <summary className="text-xs text-red-500 cursor-pointer">Details</summary>
-            <pre className="text-xs text-red-400 mt-1 p-1 bg-red-100 rounded overflow-auto">
-              {this.state.error.message}
-            </pre>
-          </details>
         )}
       </div>
     )
@@ -275,9 +253,9 @@ export function withErrorBoundary<P extends object>(
       <Component {...props} />
     </ErrorBoundary>
   )
-  
+
   WrappedComponent.displayName = `withErrorBoundary(${Component.displayName || Component.name})`
-  
+
   return WrappedComponent
 }
 

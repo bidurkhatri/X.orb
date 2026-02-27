@@ -58,7 +58,8 @@ export const OptimizedLazyComponents = {
     {
       componentName: 'Desktop',
       fallback: () => <div className="flex items-center justify-center h-full">Loading Desktop...</div>,
-      preload: true
+      preload: true,
+      timeout: 30000
     }
   ),
   LockScreen: createOptimizedLazyComponent(
