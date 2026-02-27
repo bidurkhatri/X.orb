@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import { useSettings } from '../hooks/useSettings'
+import { useIsMobile } from '../hooks/useIsMobile'
 import Taskbar from './Taskbar'
 import AppWindow from './AppWindow'
 import DesktopIcon from './DesktopIcon'
@@ -141,6 +142,7 @@ function SpotlightSearch({ apps, onOpen, onClose }: { apps: AppDef[]; onOpen: (a
   const [selectedIdx, setSelectedIdx] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
   const ref = useRef<HTMLDivElement>(null)
+  const isMobile = useIsMobile()
 
   useEffect(() => { inputRef.current?.focus() }, [])
   useEffect(() => {
@@ -160,7 +162,7 @@ function SpotlightSearch({ apps, onOpen, onClose }: { apps: AppDef[]; onOpen: (a
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 200, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: '14vh', background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(16px)' }}>
-      <div ref={ref} style={{ width: '520px', borderRadius: '18px', overflow: 'hidden', background: 'rgba(15,19,40,0.98)', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 24px 80px rgba(0,0,0,0.6), 0 0 60px rgba(99,102,241,0.08)', animation: 'windowOpen 0.2s cubic-bezier(0.16, 1, 0.3, 1)' }}>
+      <div ref={ref} style={{ width: isMobile ? 'calc(100vw - 32px)' : '520px', borderRadius: '18px', overflow: 'hidden', background: 'rgba(15,19,40,0.98)', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 24px 80px rgba(0,0,0,0.6), 0 0 60px rgba(99,102,241,0.08)', animation: 'windowOpen 0.2s cubic-bezier(0.16, 1, 0.3, 1)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
           <Search size={18} color="rgba(255,255,255,0.3)" />
           <input ref={inputRef} value={query} onChange={e => setQuery(e.target.value)} placeholder="Search apps, actions, commands..." onKeyDown={e => {
@@ -346,6 +348,7 @@ const WALLPAPERS = [
 
 function WallpaperPicker({ onSelect, onClose }: { onSelect: (id: string) => void; onClose: () => void }) {
   const ref = useRef<HTMLDivElement>(null)
+  const isMobile = useIsMobile()
   useEffect(() => {
     const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) onClose() }
     document.addEventListener('mousedown', h)
@@ -356,7 +359,7 @@ function WallpaperPicker({ onSelect, onClose }: { onSelect: (id: string) => void
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(8px)' }}>
-      <div ref={ref} style={{ width: '480px', borderRadius: '18px', overflow: 'hidden', background: 'rgba(15,19,40,0.98)', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 24px 80px rgba(0,0,0,0.6)', animation: 'windowOpen 0.2s cubic-bezier(0.16, 1, 0.3, 1)' }}>
+      <div ref={ref} style={{ width: isMobile ? 'calc(100vw - 32px)' : '480px', borderRadius: '18px', overflow: 'hidden', background: 'rgba(15,19,40,0.98)', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 24px 80px rgba(0,0,0,0.6)', animation: 'windowOpen 0.2s cubic-bezier(0.16, 1, 0.3, 1)' }}>
         <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span style={{ fontSize: '14px', fontWeight: 700, color: '#fff' }}>Desktop Wallpaper</span>
           <kbd onClick={onClose} style={{ padding: '2px 8px', borderRadius: '6px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.3)', fontSize: '10px', cursor: 'pointer' }}>ESC</kbd>
@@ -383,6 +386,7 @@ function WallpaperPicker({ onSelect, onClose }: { onSelect: (id: string) => void
 /* ──── Keyboard Shortcuts Overlay ──── */
 function ShortcutsOverlay({ onClose }: { onClose: () => void }) {
   const ref = useRef<HTMLDivElement>(null)
+  const isMobile = useIsMobile()
   useEffect(() => {
     const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) onClose() }
     document.addEventListener('mousedown', h)
@@ -402,7 +406,7 @@ function ShortcutsOverlay({ onClose }: { onClose: () => void }) {
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(8px)' }}>
-      <div ref={ref} style={{ width: '380px', borderRadius: '18px', overflow: 'hidden', background: 'rgba(15,19,40,0.98)', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 24px 80px rgba(0,0,0,0.6)', animation: 'windowOpen 0.2s cubic-bezier(0.16, 1, 0.3, 1)' }}>
+      <div ref={ref} style={{ width: isMobile ? 'calc(100vw - 32px)' : '380px', borderRadius: '18px', overflow: 'hidden', background: 'rgba(15,19,40,0.98)', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 24px 80px rgba(0,0,0,0.6)', animation: 'windowOpen 0.2s cubic-bezier(0.16, 1, 0.3, 1)' }}>
         <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
           <span style={{ fontSize: '14px', fontWeight: 700, color: '#fff' }}>Keyboard Shortcuts</span>
         </div>

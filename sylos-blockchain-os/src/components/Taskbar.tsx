@@ -1,6 +1,7 @@
 import { Wifi, Battery, Volume2, Shield, Cpu, HardDrive, Bell, Search, Lock, Bot, Terminal as TerminalIcon, Settings, Zap, Users } from 'lucide-react'
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useSettings } from '../hooks/useSettings'
+import { useIsMobile } from '../hooks/useIsMobile'
 
 interface TaskbarProps {
   openApps: Array<{ id: string; title: string; icon: React.ReactNode; minimized: boolean }>
@@ -15,6 +16,7 @@ interface TaskbarProps {
 
 export default function Taskbar({ openApps, activeAppId, onAppClick, onNotificationClick, onSpotlightClick, onLock, onOpenApp, unreadCount = 0 }: TaskbarProps) {
   const settings = useSettings()
+  const isMobile = useIsMobile()
   const [currentTime, setCurrentTime] = useState(new Date())
   const [showStartMenu, setShowStartMenu] = useState(false)
   const [showSystemTray, setShowSystemTray] = useState(false)
@@ -127,13 +129,14 @@ export default function Taskbar({ openApps, activeAppId, onAppClick, onNotificat
         {/* ─── Start Menu ─── */}
         {showStartMenu && (
           <div role="menu" aria-label="Start menu" onKeyDown={e => { if (e.key === 'Escape') setShowStartMenu(false) }} style={{
-            position: 'absolute', bottom: '56px', left: 0, width: '300px',
+            position: 'absolute', bottom: '56px', left: isMobile ? '-10px' : 0, width: isMobile ? '100vw' : '300px',
             background: 'rgba(8, 10, 28, 0.95)',
             border: '1px solid rgba(255,255,255,0.08)',
-            borderRadius: '18px', padding: '8px',
+            borderRadius: isMobile ? '24px 24px 0 0' : '18px', padding: '8px',
             backdropFilter: 'blur(40px) saturate(180%)',
             boxShadow: '0 32px 100px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.04), 0 0 60px rgba(99,102,241,0.06)',
             animation: 'slideUp 0.2s ease',
+            zIndex: 1000,
           }}>
             {/* Header */}
             <div style={{
@@ -204,9 +207,11 @@ export default function Taskbar({ openApps, activeAppId, onAppClick, onNotificat
                 ><Lock size={11} /> Lock</button>
               </div>
               <div style={{ padding: '6px 14px 4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <Zap size={9} /> Chain 137 · v1.0.0 · Up {uptime}
-                </span>
+                {!isMobile && (
+                  <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <Zap size={9} /> Chain 137 · v1.0.0 · Up {uptime}
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -269,7 +274,7 @@ export default function Taskbar({ openApps, activeAppId, onAppClick, onNotificat
       {/* ─── Right: System Tray ─── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
         {/* Active agents indicator */}
-        {agentCount > 0 && (
+        {!isMobile && agentCount > 0 && (
           <div style={{
             display: 'flex', alignItems: 'center', gap: '4px',
             padding: '4px 8px', borderRadius: '8px',

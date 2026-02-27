@@ -526,6 +526,21 @@ select:focus {
 }
 
 /* ═══════════════════════════════════════
+   MOBILE RESPONSIVENESS & TOUCH TARGETS
+   ═══════════════════════════════════════ */
+
+@media (max-width: 768px) {
+  /* Ensure all interactive elements have sufficient touch area on mobile */
+  button, 
+  [role="button"],
+  input,
+  select,
+  textarea {
+    min-height: 44px;
+  }
+}
+
+/* ═══════════════════════════════════════
    PRINT
    ═══════════════════════════════════════ */
 

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { X, Minus, Maximize2, Minimize2 } from 'lucide-react'
 import { useSettings } from '../hooks/useSettings'
+import { useIsMobile } from '../hooks/useIsMobile'
 
 interface AppWindowProps {
   title: string
@@ -18,6 +19,7 @@ const MIN_H = 300
 
 export default function AppWindow({ title, icon, children, onClose, onMinimize, isActive, onFocus }: AppWindowProps) {
   const settings = useSettings()
+  const isMobile = useIsMobile()
   const [isMaximized, setIsMaximized] = useState(false)
   const [position, setPosition] = useState(() => ({
     x: Math.min(100 + Math.random() * 120, window.innerWidth - 880),
@@ -34,6 +36,7 @@ export default function AppWindow({ title, icon, children, onClose, onMinimize, 
   const preSnapRef = useRef<{ x: number; y: number; w: number; h: number } | null>(null)
 
   const handleMouseDown = (e: React.MouseEvent) => {
+    if (isMobile) return // Disable dragging on mobile
     if (isMaximized) {
       // Un-maximize on drag start, position window so cursor is in the title bar center
       const pctX = (e.clientX - position.x) / size.w
@@ -138,12 +141,12 @@ export default function AppWindow({ title, icon, children, onClose, onMinimize, 
     setIsMaximized(!isMaximized)
   }
 
-  const windowStyle: React.CSSProperties = isMaximized
+  const windowStyle: React.CSSProperties = isMaximized || isMobile
     ? { top: 0, left: 0, right: 0, bottom: TASKBAR_H, width: '100%', height: `calc(100% - ${TASKBAR_H}px)` }
     : { top: position.y, left: position.x, width: `${size.w}px`, height: `${size.h}px` }
 
   const resizeHandle = (dir: string, cursor: string, style: React.CSSProperties) => (
-    !isMaximized && <div onMouseDown={e => startResize(e, dir)} style={{ position: 'absolute', zIndex: 2, cursor, ...style }} />
+    !isMaximized && !isMobile && <div onMouseDown={e => startResize(e, dir)} style={{ position: 'absolute', zIndex: 2, cursor, ...style }} />
   )
 
   return (
@@ -251,41 +254,45 @@ export default function AppWindow({ title, icon, children, onClose, onMinimize, 
             </button>
 
             {/* Minimize */}
-            <button
-              onClick={e => { e.stopPropagation(); onMinimize() }}
-              onMouseEnter={() => setTitleHovered('min')}
-              onMouseLeave={() => setTitleHovered('all')}
-              aria-label={`Minimize ${title}`}
-              style={{
-                width: '13px', height: '13px', borderRadius: '50%', border: 'none', cursor: 'pointer',
-                background: titleHovered ? '#fbbf24' : 'rgba(255,255,255,0.12)',
-                transition: 'all 0.15s', padding: 0,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                boxShadow: titleHovered === 'min' ? '0 0 8px rgba(251,191,36,0.4)' : 'none',
-              }}
-            >
-              {titleHovered && <Minus size={8} color="#92400e" strokeWidth={3} />}
-            </button>
+            {!isMobile && (
+              <button
+                onClick={e => { e.stopPropagation(); onMinimize() }}
+                onMouseEnter={() => setTitleHovered('min')}
+                onMouseLeave={() => setTitleHovered('all')}
+                aria-label={`Minimize ${title}`}
+                style={{
+                  width: '13px', height: '13px', borderRadius: '50%', border: 'none', cursor: 'pointer',
+                  background: titleHovered ? '#fbbf24' : 'rgba(255,255,255,0.12)',
+                  transition: 'all 0.15s', padding: 0,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  boxShadow: titleHovered === 'min' ? '0 0 8px rgba(251,191,36,0.4)' : 'none',
+                }}
+              >
+                {titleHovered && <Minus size={8} color="#92400e" strokeWidth={3} />}
+              </button>
+            )}
 
             {/* Maximize */}
-            <button
-              onClick={e => { e.stopPropagation(); toggleMaximize() }}
-              onMouseEnter={() => setTitleHovered('max')}
-              onMouseLeave={() => setTitleHovered('all')}
-              aria-label={isMaximized ? 'Restore' : 'Maximize'}
-              style={{
-                width: '13px', height: '13px', borderRadius: '50%', border: 'none', cursor: 'pointer',
-                background: titleHovered ? '#34d399' : 'rgba(255,255,255,0.12)',
-                transition: 'all 0.15s', padding: 0,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                boxShadow: titleHovered === 'max' ? '0 0 8px rgba(52,211,153,0.4)' : 'none',
-              }}
-            >
-              {titleHovered && (isMaximized
-                ? <Minimize2 size={7} color="#065f46" strokeWidth={3} />
-                : <Maximize2 size={7} color="#065f46" strokeWidth={3} />
-              )}
-            </button>
+            {!isMobile && (
+              <button
+                onClick={e => { e.stopPropagation(); toggleMaximize() }}
+                onMouseEnter={() => setTitleHovered('max')}
+                onMouseLeave={() => setTitleHovered('all')}
+                aria-label={isMaximized ? 'Restore' : 'Maximize'}
+                style={{
+                  width: '13px', height: '13px', borderRadius: '50%', border: 'none', cursor: 'pointer',
+                  background: titleHovered ? '#34d399' : 'rgba(255,255,255,0.12)',
+                  transition: 'all 0.15s', padding: 0,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  boxShadow: titleHovered === 'max' ? '0 0 8px rgba(52,211,153,0.4)' : 'none',
+                }}
+              >
+                {titleHovered && (isMaximized
+                  ? <Minimize2 size={7} color="#065f46" strokeWidth={3} />
+                  : <Maximize2 size={7} color="#065f46" strokeWidth={3} />
+                )}
+              </button>
+            )}
           </div>
 
           {/* Center: app name + icon */}
