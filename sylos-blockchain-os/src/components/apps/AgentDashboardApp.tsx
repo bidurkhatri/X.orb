@@ -22,8 +22,7 @@ import { ROLE_META, type AgentRole, getReputationColor, getReputationTier } from
 import { useAgentRegistry } from '@/hooks/useAgentContracts'
 import { useAccount } from 'wagmi'
 
-// Singleton autonomy engine
-const autonomyEngine = new AgentAutonomyEngine()
+// Singleton autonomy engine is imported
 
 /* ═══════════════════════════════
    ═══  LLM PRESETS  ════════════
