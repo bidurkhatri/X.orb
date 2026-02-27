@@ -63,8 +63,6 @@ const CATEGORIES = [
   { id: 'system', label: 'System', icon: '⚙' },
 ] as const
 
-const DEFAULT_FAVORITES = ['wallet', 'ai-agents', 'community', 'tokens', 'terminal', 'settings']
-
 /* ──── Functional Terminal ──── */
 function TerminalApp() {
   const [lines, setLines] = useState<string[]>([
@@ -526,7 +524,7 @@ function DesktopInner() {
   ], [])
 
   const favorites = useMemo(() => {
-    const favIds = DEFAULT_FAVORITES
+    const favIds = ['wallet', 'ai-agents', 'community', 'tokens', 'terminal', 'settings']
     return favIds.map(id => apps.find(a => a.id === id)).filter(Boolean) as AppDef[]
   }, [apps])
 
