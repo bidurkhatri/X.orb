@@ -196,15 +196,13 @@ contract MetaTransactionPaymaster is EIP712, AccessControl, ReentrancyGuard {
      * @dev Handle payment processing
      * @param user User address
      * @param token Payment token
-     * @param gasPrice Gas price
-     * @param gasLimit Gas limit
      * @param paymentAmount Payment amount
      */
     function _handlePayment(
         address user,
         address token,
-        uint256 gasPrice,
-        uint256 gasLimit,
+        uint256 /* gasPrice */,
+        uint256 /* gasLimit */,
         uint256 paymentAmount
     ) internal returns (uint256 payment) {
         if (token == address(0)) {

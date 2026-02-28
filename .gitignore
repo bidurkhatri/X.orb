@@ -10,10 +10,10 @@ build/
 out/
 *.tsbuildinfo
 
-# Environment
+# Environment — block ALL .env variants (not just .local)
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
 
 # IDE
 .idea/
@@ -44,3 +44,13 @@ smart-contracts/typechain-types/
 *.log
 .browser_screenshots/
 test-dist/
+
+# Error logs committed by mistake
+smart-contracts/error.log
+smart-contracts/error.txt
+smart-contracts/compile_log.txt
+smart-contracts/contracts/error.log
+
+# Abandoned directories
+sylos-mobile-new/
+

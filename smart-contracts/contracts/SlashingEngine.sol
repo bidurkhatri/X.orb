@@ -359,6 +359,7 @@ interface IAgentRegistrySlash {
         address sessionWallet;
         uint256 totalActions;
         uint256 lastActiveAt;
+        string identityCID;
     }
 
     function getAgent(bytes32 agentId) external view returns (AgentRecord memory);

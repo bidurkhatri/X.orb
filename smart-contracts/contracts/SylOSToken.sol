@@ -16,6 +16,8 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
  * - Role-based access control
  * - Tax/fee mechanism for transactions
  * - Automatic liquidity provision support
+ * 
+ * Compatible with OpenZeppelin v5 (_update hook pattern)
  */
 contract SylOSToken is ERC20, ERC20Burnable, ERC20Pausable, AccessControl, ReentrancyGuard {
 
@@ -38,12 +40,19 @@ contract SylOSToken is ERC20, ERC20Burnable, ERC20Pausable, AccessControl, Reent
     mapping(address => uint256) public lastTransactionBlock;
     uint256 public constant TRANSACTION_DELAY = 1; // blocks
 
+    // Tax exemptions
+    mapping(address => bool) public isTaxExempt;
+    
+    // Internal flag to prevent recursive tax
+    bool private _inTaxTransfer;
+
     // Events
     event TaxCollected(address indexed from, address indexed to, uint256 amount, uint256 tax);
     event TaxRateUpdated(uint256 oldRate, uint256 newRate);
     event TaxWalletUpdated(address indexed oldWallet, address indexed newWallet);
     event LiquidityShareUpdated(uint256 oldShare, uint256 newShare);
     event LiquidityWalletUpdated(address indexed oldWallet, address indexed newWallet);
+    event TaxExemptionUpdated(address indexed account, bool exempt);
 
     constructor(
         string memory name,
@@ -71,6 +80,12 @@ contract SylOSToken is ERC20, ERC20Burnable, ERC20Pausable, AccessControl, Reent
         // Setup tax and liquidity wallets
         taxWallet = taxWallet_;
         liquidityWallet = liquidityWallet_;
+
+        // Exempt internal wallets from tax
+        isTaxExempt[admin] = true;
+        isTaxExempt[taxWallet_] = true;
+        isTaxExempt[liquidityWallet_] = true;
+        isTaxExempt[address(this)] = true;
     }
 
     /**
@@ -107,68 +122,58 @@ contract SylOSToken is ERC20, ERC20Burnable, ERC20Pausable, AccessControl, Reent
     }
 
     /**
-     * @dev Override required by Solidity for multiple inheritance
+     * @dev Override _update — the OZ v5 unified transfer hook.
+     * Replaces the old _beforeTokenTransfer and _transfer patterns.
+     * Handles: anti-bot delay, pausable enforcement, and tax collection.
      */
-    function _beforeTokenTransfer(
-        address from,
-        address to,
-        uint256 amount
-    ) internal override(ERC20, ERC20Pausable) {
-        super._beforeTokenTransfer(from, to, amount);
-        
-        // Anti-bot protection
+    function _update(address from, address to, uint256 value) internal virtual override(ERC20, ERC20Pausable) {
+        // Anti-bot protection (skip for mint/burn)
         if (from != address(0) && to != address(0)) {
             require(
-                block.number >= lastTransactionBlock[to].add(TRANSACTION_DELAY),
+                block.number >= lastTransactionBlock[to] + TRANSACTION_DELAY,
                 "Transaction too frequent"
             );
             lastTransactionBlock[to] = block.number;
         }
-    }
 
-    /**
-     * @dev Transfer with tax collection - protected against reentrancy
-     */
-    function _transfer(address from, address to, uint256 amount) internal virtual override whenNotPaused {
-        require(from != address(0), "Transfer from zero address");
-        require(to != address(0), "Transfer to zero address");
-        require(amount > 0, "Transfer amount must be greater than 0");
-        require(from != to, "Cannot transfer to self");
-        require(amount <= balanceOf(from), "Insufficient balance");
-
-        // Check for contract interactions
-        if (isContract(to)) {
-            require(!paused(), "Contract interactions paused");
-        }
-
-        // Calculate and collect tax
-        uint256 tax = 0;
-        uint256 transferAmount = amount;
-        
-        if (taxRate > 0 && amount > 100) { // Minimum threshold to avoid dust attacks
-            tax = (amount * taxRate) / 10000;
+        // Tax logic: only on regular transfers (not mints/burns), and not during internal tax transfers
+        if (
+            from != address(0) && 
+            to != address(0) && 
+            !_inTaxTransfer && 
+            taxRate > 0 && 
+            value > 100 && 
+            !isTaxExempt[from] && 
+            !isTaxExempt[to]
+        ) {
+            uint256 tax = (value * taxRate) / 10000;
+            require(tax < value, "Invalid tax calculation");
             
-            // Prevent tax from being too high
-            require(tax < amount, "Invalid tax calculation");
-            
-            transferAmount = amount - tax;
-            
-            // Split tax between liquidity and general tax wallet
+            uint256 transferAmount = value - tax;
             uint256 liquidityTax = (tax * liquidityTaxShare) / 1000;
             uint256 generalTax = tax - liquidityTax;
 
-            // State updates before external calls (Checks-Effects-Interactions pattern)
             totalTaxesCollected += tax;
-            
-            // Perform transfers (external calls)
-            super._transfer(from, liquidityWallet, liquidityTax);
-            super._transfer(from, taxWallet, generalTax);
-            
-            emit TaxCollected(from, to, amount, tax);
+
+            // Perform the main transfer
+            super._update(from, to, transferAmount);
+
+            // Internal tax transfers (flag prevents recursion)
+            _inTaxTransfer = true;
+            if (liquidityTax > 0) {
+                super._update(from, liquidityWallet, liquidityTax);
+            }
+            if (generalTax > 0) {
+                super._update(from, taxWallet, generalTax);
+            }
+            _inTaxTransfer = false;
+
+            emit TaxCollected(from, to, value, tax);
+            return; // Already handled
         }
 
-        // Transfer remaining amount
-        super._transfer(from, to, transferAmount);
+        // Non-taxed path (mints, burns, exempt transfers, internal tax splits)
+        super._update(from, to, value);
     }
 
     /**
@@ -230,6 +235,15 @@ contract SylOSToken is ERC20, ERC20Burnable, ERC20Pausable, AccessControl, Reent
     }
 
     /**
+     * @dev Set tax exemption for an address
+     */
+    function setTaxExempt(address account, bool exempt) external onlyRole(TAX_MANAGER_ROLE) {
+        require(account != address(0), "Invalid address");
+        isTaxExempt[account] = exempt;
+        emit TaxExemptionUpdated(account, exempt);
+    }
+
+    /**
      * @dev Withdraw accumulated taxes (emergency function) - protected against reentrancy
      * @param amount Amount of tokens to withdraw
      */
@@ -241,8 +255,10 @@ contract SylOSToken is ERC20, ERC20Burnable, ERC20Pausable, AccessControl, Reent
         // State updates before external calls (Checks-Effects-Interactions pattern)
         totalTaxesCollected -= amount;
         
-        // Perform transfer (external call)
-        super._transfer(address(this), msg.sender, amount);
+        // Perform transfer
+        _inTaxTransfer = true;
+        _transfer(address(this), msg.sender, amount);
+        _inTaxTransfer = false;
     }
 
     /**
