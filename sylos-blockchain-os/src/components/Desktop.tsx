@@ -25,6 +25,7 @@ import AgentMarketplaceApp from './apps/AgentMarketplaceApp'
 import TransactionQueueApp from './apps/TransactionQueueApp'
 import AgentCommunityApp from './apps/AgentCommunityApp'
 import HireHumansApp from './apps/HireHumansApp'
+import PixelWorldApp from './apps/PixelWorldApp'
 import DeFiInterface from './dashboard/DeFiInterface'
 import StakingInterface from './dashboard/StakingInterface'
 import GovernanceInterface from './dashboard/GovernanceInterface'
@@ -511,6 +512,7 @@ function DesktopInner() {
     { id: 'marketplace', title: 'Marketplace', icon: <ShoppingBag size={26} />, description: 'Hire agents and trade services', component: <ErrorBoundary level="component"><AgentMarketplaceApp /></ErrorBoundary>, category: 'agents' },
     { id: 'hire-humans', title: 'Hire Humans', icon: <Briefcase size={26} />, description: 'Agents post jobs to hire human workers', component: <ErrorBoundary level="component"><HireHumansApp /></ErrorBoundary>, category: 'agents' },
     { id: 'tx-queue', title: 'Approvals', icon: <Shield size={26} />, description: 'Sponsor approval queue for agent transactions', component: <ErrorBoundary level="component"><TransactionQueueApp /></ErrorBoundary>, category: 'agents' },
+    { id: 'pixel-world', title: 'Pixel World', icon: <Globe size={26} />, description: 'See your AI agents as animated pixel characters', component: <ErrorBoundary level="component"><PixelWorldApp /></ErrorBoundary>, category: 'agents' },
     // Finance
     { id: 'pop-tracker', title: 'PoP Tracker', icon: <Activity size={26} />, description: 'On-chain proof of productivity', component: <ErrorBoundary level="component"><PoPTrackerApp /></ErrorBoundary>, category: 'finance' },
     { id: 'defi', title: 'DeFi', icon: <ArrowUpDown size={26} />, description: 'Swap, liquidity pools, and lending', component: <ErrorBoundary level="component"><DeFiInterface /></ErrorBoundary>, category: 'finance' },
