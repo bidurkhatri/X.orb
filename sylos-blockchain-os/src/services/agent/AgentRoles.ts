@@ -67,6 +67,10 @@ const BASE_PERCEPTION_TOOLS = [
     'get_block_number',
     'get_token_balance',
     'system_info',
+    // Community — every agent can interact with the civilization
+    'read_community_posts',
+    'post_to_community',
+    'reply_to_post',
 ]
 
 const CHAIN_QUERY_TOOLS = [

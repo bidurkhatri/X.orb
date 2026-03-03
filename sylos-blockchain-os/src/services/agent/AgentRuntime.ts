@@ -23,6 +23,7 @@ import { agentRegistry, type RegisteredAgent, type LLMProvider } from './AgentRe
 import { agentWalletManager, type TransactionProposal } from './AgentSessionWallet'
 import { citizenIdentity } from './CitizenIdentity'
 import { PermissionChecker, ROLE_PERMISSIONS, type AgentRole } from './AgentRoles'
+import { eventBus } from '../EventBus'
 import { CONTRACTS, CHAIN } from '@/config/contracts'
 
 /* ═══════════════════════════════
@@ -982,6 +983,127 @@ export class AgentRuntime {
                         bytecode_size: Math.floor((code.length - 2) / 2),
                         total_supply: supply.toFixed(2),
                     })
+                } catch (e: any) {
+                    return JSON.stringify({ error: e.message })
+                }
+            },
+        }, allowed)
+
+        // ── COMMUNITY INTERACTION ──
+
+        this.registerTool({
+            name: 'read_community_posts',
+            description: 'Read recent posts from the SylOS community. Can filter by channel.',
+            category: 'os',
+            parameters: {
+                channel: { type: 'string', description: 'Channel to read: general, trading, tech, governance (default: all)', required: false },
+                limit: { type: 'number', description: 'Number of posts to return (default 10)', required: false },
+            },
+            execute: async (params) => {
+                try {
+                    const raw = localStorage.getItem('sylos_community_posts')
+                    const posts = raw ? JSON.parse(raw) : []
+                    const channel = params['channel'] as string | undefined
+                    const limit = (params['limit'] as number) || 10
+                    const filtered = channel ? posts.filter((p: any) => p.channelId === channel) : posts
+                    return JSON.stringify({
+                        channel: channel || 'all',
+                        total: filtered.length,
+                        posts: filtered.slice(0, limit).map((p: any) => ({
+                            id: p.id, title: p.title, body: p.body?.slice(0, 200),
+                            author: p.authorName, role: p.authorRole, channel: p.channelId,
+                            upvotes: p.upvotes, downvotes: p.downvotes, replies: p.replyCount || 0,
+                            time: new Date(p.createdAt).toISOString(),
+                        })),
+                    })
+                } catch {
+                    return JSON.stringify({ channel: 'all', total: 0, posts: [] })
+                }
+            },
+        }, allowed)
+
+        this.registerTool({
+            name: 'post_to_community',
+            description: 'Create a new post in the SylOS community forum. The post will appear under your agent identity.',
+            category: 'os',
+            parameters: {
+                channel: { type: 'string', description: 'Channel: general, trading, tech, governance', required: true },
+                title: { type: 'string', description: 'Post title', required: true },
+                body: { type: 'string', description: 'Post content (markdown supported)', required: true },
+                tags: { type: 'string', description: 'Comma-separated tags', required: false },
+            },
+            execute: async (params) => {
+                const post = {
+                    id: `post_agent_${Date.now()}_${this.agent.agentId.slice(-4)}`,
+                    channelId: params['channel'] as string || 'general',
+                    authorId: this.agent.agentId,
+                    authorName: this.agent.name,
+                    authorRole: this.agent.role,
+                    authorReputation: this.agent.reputation,
+                    title: params['title'] as string,
+                    body: params['body'] as string,
+                    upvotes: 0, downvotes: 0, votedBy: {},
+                    replyCount: 0, replies: [],
+                    pinned: false,
+                    tags: (params['tags'] as string || '').split(',').map((t: string) => t.trim()).filter(Boolean),
+                    createdAt: Date.now(),
+                }
+
+                try {
+                    const existing = JSON.parse(localStorage.getItem('sylos_community_posts') || '[]')
+                    existing.unshift(post)
+                    localStorage.setItem('sylos_community_posts', JSON.stringify(existing.slice(0, 200)))
+                } catch { /* */ }
+
+                eventBus.emit('community:post_created', this.agent.agentId, this.agent.name, post)
+
+                citizenIdentity.recordAction(this.agent.agentId, {
+                    type: 'TASK_COMPLETED',
+                    description: `Posted "${post.title}" in #${post.channelId}`,
+                    timestamp: Date.now(),
+                    metadata: { postId: post.id, channel: post.channelId },
+                    reputationDelta: 2,
+                    financialImpact: '0',
+                })
+
+                return JSON.stringify({ success: true, post_id: post.id, channel: post.channelId, title: post.title })
+            },
+        }, allowed)
+
+        this.registerTool({
+            name: 'reply_to_post',
+            description: 'Reply to an existing community post.',
+            category: 'os',
+            parameters: {
+                post_id: { type: 'string', description: 'ID of the post to reply to', required: true },
+                body: { type: 'string', description: 'Reply content', required: true },
+            },
+            execute: async (params) => {
+                const postId = params['post_id'] as string
+                const body = params['body'] as string
+
+                try {
+                    const posts = JSON.parse(localStorage.getItem('sylos_community_posts') || '[]')
+                    const postIdx = posts.findIndex((p: any) => p.id === postId)
+                    if (postIdx === -1) return JSON.stringify({ error: 'Post not found' })
+
+                    const reply = {
+                        id: `reply_agent_${Date.now()}`,
+                        postId, authorId: this.agent.agentId,
+                        authorName: this.agent.name, authorRole: this.agent.role,
+                        body, upvotes: 0, downvotes: 0, votedBy: {},
+                        createdAt: Date.now(),
+                    }
+
+                    posts[postIdx].replies = [...(posts[postIdx].replies || []), reply]
+                    posts[postIdx].replyCount = (posts[postIdx].replyCount || 0) + 1
+                    localStorage.setItem('sylos_community_posts', JSON.stringify(posts))
+
+                    eventBus.emit('community:reply_created', this.agent.agentId, this.agent.name, {
+                        ...reply, postTitle: posts[postIdx].title,
+                    })
+
+                    return JSON.stringify({ success: true, reply_id: reply.id, post_id: postId, post_title: posts[postIdx].title })
                 } catch (e: any) {
                     return JSON.stringify({ error: e.message })
                 }

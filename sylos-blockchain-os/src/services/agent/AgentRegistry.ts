@@ -361,6 +361,38 @@ class AgentRegistryService {
     }
 
     /**
+     * Permanently delete an agent from the registry.
+     * Only works on revoked or expired agents — active ones must be revoked first.
+     */
+    deleteAgent(agentId: string, callerAddress: string): void {
+        const agent = this.getAgent(agentId)
+        if (!agent) throw new Error(`Agent ${agentId} not found`)
+        if (agent.sponsorAddress.toLowerCase() !== callerAddress.toLowerCase()) {
+            throw new Error('Only the sponsor can delete this agent')
+        }
+        if (agent.status === 'active' || agent.status === 'paused') {
+            throw new Error('Cannot delete an active/paused agent. Revoke it first.')
+        }
+
+        this.agents.delete(agentId)
+        this.saveToStorage()
+
+        // Clean up from Supabase
+        Promise.resolve(supabase.from('agents').delete().eq('agent_id', agentId)).then(() => {
+            console.log(`[AgentRegistry] Agent deleted from Supabase: ${agentId}`)
+        }).catch(() => { /* graceful */ })
+
+        // Clean localStorage keys for this agent
+        try {
+            localStorage.removeItem(`sylos_agent_messages_${agentId}`)
+            localStorage.removeItem(`sylos_agent_tasks_${agentId}`)
+            localStorage.removeItem(`sylos_agent_config_${agentId}`)
+        } catch { /* */ }
+
+        console.log(`[AgentRegistry] Agent permanently deleted: ${agent.name} (${agentId})`)
+    }
+
+    /**
      * Renew an agent's visa (extend expiry).
      */
     renewAgent(agentId: string, callerAddress: string, additionalDays: number = 30): RegisteredAgent {
