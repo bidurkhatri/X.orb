@@ -47,6 +47,9 @@ export type EventType =
   // System
   | 'system:notification'
   | 'system:error'
+  // IDE
+  | 'ide:file_created'
+  | 'ide:file_updated'
 
 export interface SylOSEvent<T = any> {
   id: string

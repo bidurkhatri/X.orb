@@ -1106,6 +1106,180 @@ export class AgentRuntime {
                 }
             },
         }, allowed)
+
+        // ── DEVELOPER / IDE TOOLS ──
+        // These let agents actually write, read, and run code in the SylOS IDE.
+
+        this.registerTool({
+            name: 'generate_code',
+            description: 'Write or update a code file in the SylOS IDE virtual filesystem. The file will appear in the IDE file tree immediately. Use this whenever you need to create code, scripts, games, tools, or any text file.',
+            category: 'os',
+            parameters: {
+                path: { type: 'string', description: 'File path including name, e.g. /games/tic-tac-toe.py or /scripts/hello.js', required: true },
+                language: { type: 'string', description: 'Language: javascript, typescript, python, solidity, json, markdown, html, css', required: true },
+                code: { type: 'string', description: 'The full source code content to write', required: true },
+                description: { type: 'string', description: 'Brief description of what this file does', required: false },
+            },
+            execute: async (params) => {
+                const path = (params.path as string).startsWith('/') ? params.path as string : `/${params.path}`
+                const language = params.language as string || 'javascript'
+                const code = params.code as string
+                const now = Date.now()
+
+                try {
+                    const raw = localStorage.getItem('sylos_vfs')
+                    const files: any[] = raw ? JSON.parse(raw) : []
+                    const existingIdx = files.findIndex((f: any) => f.path === path)
+
+                    const vfile = {
+                        path,
+                        content: code,
+                        language,
+                        author: this.agent.agentId,
+                        authorName: this.agent.name,
+                        createdAt: existingIdx >= 0 ? files[existingIdx].createdAt : now,
+                        updatedAt: now,
+                    }
+
+                    if (existingIdx >= 0) {
+                        files[existingIdx] = vfile
+                    } else {
+                        files.push(vfile)
+                    }
+
+                    localStorage.setItem('sylos_vfs', JSON.stringify(files))
+
+                    // Notify the IDE via EventBus
+                    eventBus.emit('ide:file_created', this.agent.agentId, this.agent.name, {
+                        path, language, author: this.agent.name,
+                    })
+
+                    citizenIdentity.recordAction(this.agent.agentId, {
+                        type: 'TASK_COMPLETED',
+                        description: `Wrote code file: ${path} (${language})`,
+                        timestamp: now,
+                        metadata: { path, language, size: code.length },
+                        reputationDelta: 3,
+                        financialImpact: '0',
+                    })
+
+                    return JSON.stringify({
+                        success: true,
+                        action: existingIdx >= 0 ? 'updated' : 'created',
+                        path,
+                        language,
+                        size_bytes: code.length,
+                        message: `File ${path} has been ${existingIdx >= 0 ? 'updated' : 'created'} in the IDE. Open the IDE app to view it.`,
+                    })
+                } catch (e: any) {
+                    return JSON.stringify({ error: e.message })
+                }
+            },
+        }, allowed)
+
+        this.registerTool({
+            name: 'list_code_files',
+            description: 'List all files in the SylOS IDE virtual filesystem.',
+            category: 'os',
+            parameters: {
+                folder: { type: 'string', description: 'Optional folder prefix to filter, e.g. /games/', required: false },
+            },
+            execute: async (params) => {
+                try {
+                    const raw = localStorage.getItem('sylos_vfs')
+                    const files: any[] = raw ? JSON.parse(raw) : []
+                    const folder = params.folder as string || ''
+                    const filtered = folder ? files.filter((f: any) => f.path.startsWith(folder)) : files
+                    return JSON.stringify({
+                        total: filtered.length,
+                        files: filtered.map((f: any) => ({
+                            path: f.path,
+                            language: f.language,
+                            author: f.authorName,
+                            size: f.content?.length || 0,
+                            updated: new Date(f.updatedAt).toISOString(),
+                        })),
+                    })
+                } catch {
+                    return JSON.stringify({ total: 0, files: [] })
+                }
+            },
+        }, allowed)
+
+        this.registerTool({
+            name: 'read_code_file',
+            description: 'Read the full content of a file from the SylOS IDE.',
+            category: 'os',
+            parameters: {
+                path: { type: 'string', description: 'File path to read, e.g. /games/tic-tac-toe.py', required: true },
+            },
+            execute: async (params) => {
+                try {
+                    const raw = localStorage.getItem('sylos_vfs')
+                    const files: any[] = raw ? JSON.parse(raw) : []
+                    const file = files.find((f: any) => f.path === params.path)
+                    if (!file) return JSON.stringify({ error: `File not found: ${params.path}` })
+                    return JSON.stringify({
+                        path: file.path,
+                        language: file.language,
+                        author: file.authorName,
+                        content: file.content,
+                        size: file.content?.length || 0,
+                    })
+                } catch (e: any) {
+                    return JSON.stringify({ error: e.message })
+                }
+            },
+        }, allowed)
+
+        this.registerTool({
+            name: 'execute_code',
+            description: 'Execute JavaScript code in the SylOS browser sandbox and return the output. Use this to run and test code you have written. Only JavaScript is supported for execution.',
+            category: 'os',
+            parameters: {
+                code: { type: 'string', description: 'JavaScript code to execute', required: true },
+            },
+            execute: async (params) => {
+                const code = params.code as string
+                try {
+                    const logs: string[] = []
+                    const fakeConsole = {
+                        log: (...args: any[]) => logs.push(args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ')),
+                        error: (...args: any[]) => logs.push('[ERROR] ' + args.map(a => String(a)).join(' ')),
+                        warn: (...args: any[]) => logs.push('[WARN] ' + args.map(a => String(a)).join(' ')),
+                    }
+
+                    // Execute in a sandboxed function scope
+                    const fn = new Function('console', code)
+                    const result = fn(fakeConsole)
+
+                    const output = logs.join('\n')
+                    const resultStr = result !== undefined ? String(result) : ''
+
+                    citizenIdentity.recordAction(this.agent.agentId, {
+                        type: 'TOOL_CALL',
+                        description: `Executed JavaScript code (${code.length} bytes)`,
+                        timestamp: Date.now(),
+                        metadata: { codeSize: code.length, outputLines: logs.length },
+                        reputationDelta: 1,
+                        financialImpact: '0',
+                    })
+
+                    return JSON.stringify({
+                        success: true,
+                        stdout: output || '(no output)',
+                        return_value: resultStr,
+                        execution_time_ms: 0,
+                    })
+                } catch (e: any) {
+                    return JSON.stringify({
+                        success: false,
+                        error: e.message,
+                        error_type: e.constructor?.name || 'Error',
+                    })
+                }
+            },
+        }, allowed)
     }
 
     /**
@@ -1114,7 +1288,9 @@ export class AgentRuntime {
      */
     private registerTool(tool: AgentTool, allowedTools: Set<string>) {
         // Some tools are universally available regardless of role allowlist
-        const universalTools = ['system_info', 'math_calculate', 'alert_user']
+        const universalTools = ['system_info', 'math_calculate', 'alert_user',
+            'generate_code', 'list_code_files', 'read_code_file', 'execute_code',
+            'read_community_posts', 'post_to_community', 'reply_to_post']
         if (allowedTools.has(tool.name) || universalTools.includes(tool.name)) {
             this.tools.push(tool)
         }
