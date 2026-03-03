@@ -27,11 +27,11 @@ export default function MessagesApp() {
         try {
             const provider = new BrowserProvider(window.ethereum as any)
             const signer = await provider.getSigner()
-            const xmtp = await Client.create(signer as any, { env: 'production' })
+            const xmtp = await Client.create(signer as any, { env: 'dev' })
             setClient(xmtp)
             const convos = await xmtp.conversations.list()
             setConversations(convos)
-            toast.success('XMTP Connected')
+            toast.success('Void Chat Connected')
         } catch (err: any) {
             toast.error(`XMTP failed: ${err.message}`)
         } finally {
@@ -89,7 +89,7 @@ export default function MessagesApp() {
                     <MessageCircle size={32} color="#818cf8" />
                 </div>
                 <div>
-                    <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#fff', margin: '0 0 8px 0' }}>XMTP Decentralized Chat</h2>
+                    <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#fff', margin: '0 0 8px 0' }}>Void Chat</h2>
                     <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.35)', margin: 0, maxWidth: '360px' }}>Enable end-to-end encrypted wallet-to-wallet messaging via XMTP</p>
                 </div>
                 <button onClick={initXmtp} disabled={isInit} style={{
@@ -98,7 +98,7 @@ export default function MessagesApp() {
                     fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: '8px', opacity: isInit ? 0.5 : 1,
                 }}>
                     {isInit ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <Key size={16} />}
-                    {isInit ? 'Provisioning Keys...' : 'Enable XMTP'}
+                    {isInit ? 'Provisioning Keys...' : 'Enable Void Chat'}
                 </button>
             </div>
         )

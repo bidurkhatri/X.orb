@@ -17,6 +17,10 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import Editor from '@monaco-editor/react'
 import { eventBus } from '@/services/EventBus'
+import { Terminal } from '@xterm/xterm'
+import { FitAddon } from '@xterm/addon-fit'
+import '@xterm/xterm/css/xterm.css'
+import { executionEngine } from '@/services/agent/ExecutionEngine'
 
 /* ═══════════════════════════════
    ═══  VIRTUAL FS  ═══════════════
@@ -186,6 +190,13 @@ const AgentIDEApp: React.FC = () => {
     const [newFileName, setNewFileName] = useState('')
     const newFileRef = useRef<HTMLInputElement>(null)
 
+    // Terminal state
+    const [isExecuting, setIsExecuting] = useState(false)
+    const terminalRef = useRef<HTMLDivElement>(null)
+    const xtermRef = useRef<Terminal | null>(null)
+    const fitAddonRef = useRef<FitAddon | null>(null)
+    const [showTerminal, setShowTerminal] = useState(false)
+
     // Save to localStorage whenever files change
     useEffect(() => { saveVFS(files) }, [files])
 
@@ -193,6 +204,35 @@ const AgentIDEApp: React.FC = () => {
     useEffect(() => {
         if (showNewFile && newFileRef.current) newFileRef.current.focus()
     }, [showNewFile])
+
+    // ── Terminal Initialization ──
+    useEffect(() => {
+        if (showTerminal && terminalRef.current && !xtermRef.current) {
+            const term = new Terminal({
+                theme: { background: '#1e1e2e', foreground: '#cdd6f4', cursor: '#cdd6f4' },
+                fontFamily: 'JetBrains Mono, Consolas, monospace',
+                fontSize: 13,
+                convertEol: true
+            })
+            const fitAddon = new FitAddon()
+            term.loadAddon(fitAddon)
+            term.open(terminalRef.current)
+            fitAddon.fit()
+
+            term.writeln('\x1b[38;2;137;180;250m[SylOS Execution Environment]\x1b[0m Ready.')
+
+            xtermRef.current = term
+            fitAddonRef.current = fitAddon
+
+            executionEngine.setLogCallback((str) => {
+                if (xtermRef.current) xtermRef.current.write(str)
+            })
+
+            const resizeObs = new ResizeObserver(() => fitAddon.fit())
+            resizeObs.observe(terminalRef.current)
+            return () => resizeObs.disconnect()
+        }
+    }, [showTerminal])
 
     // ── EventBus: listen for agent-generated code ──
     useEffect(() => {
@@ -238,6 +278,25 @@ const AgentIDEApp: React.FC = () => {
     const getActiveFile = useCallback(() => {
         return files.find(f => f.path === activeTab) || null
     }, [files, activeTab])
+
+    const runCode = async () => {
+        const activeFile = getActiveFile()
+        if (!activeFile) return
+        setShowTerminal(true)
+        setIsExecuting(true)
+
+        // Wait for terminal to render and fit before executing
+        setTimeout(async () => {
+            if (xtermRef.current) {
+                xtermRef.current.writeln(`\r\n\x1b[32m--- Execution started: ${activeFile.path} ---\x1b[0m`)
+            }
+            await executionEngine.execute(activeFile.content, activeFile.language)
+            if (xtermRef.current) {
+                xtermRef.current.writeln(`\x1b[32m--- Execution finished ---\x1b[0m\r\n`)
+            }
+            setIsExecuting(false)
+        }, 100)
+    }
 
     const handleContentChange = useCallback((value: string | undefined) => {
         if (!value) return
@@ -446,14 +505,25 @@ const AgentIDEApp: React.FC = () => {
                         <>
                             {/* File info bar */}
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '3px 12px', background: '#181825', borderBottom: '1px solid #313244', fontSize: 11 }}>
-                                <span style={{ color: '#6c7086' }}>{activeFile.path}</span>
+                                <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+                                    <span style={{ color: '#6c7086' }}>{activeFile.path}</span>
+                                    {(activeFile.language === 'python' || activeFile.language === 'javascript' || activeFile.language === 'typescript') && (
+                                        <button
+                                            onClick={runCode}
+                                            disabled={isExecuting}
+                                            style={{ background: isExecuting ? '#45475a' : '#a6e3a1', color: isExecuting ? '#a6adc8' : '#11111b', border: 'none', padding: '2px 8px', borderRadius: 4, fontSize: 10, fontWeight: 600, cursor: isExecuting ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
+                                        >
+                                            {isExecuting ? '⏳ RUNNING...' : '▶ RUN'}
+                                        </button>
+                                    )}
+                                </div>
                                 <span style={{ color: '#585b70' }}>
-                                    {activeFile.author === 'user' ? '👤 You' : activeFile.author === 'system' ? '🖥️ System' : `🤖 ${activeFile.authorName}`}
+                                    {activeFile.author === 'user' ? '👤  You' : activeFile.author === 'system' ? '🖥️ System' : `🤖 ${activeFile.authorName}`}
                                     {' · '}
                                     {new Date(activeFile.updatedAt).toLocaleTimeString()}
                                 </span>
                             </div>
-                            <div style={{ flex: 1 }}>
+                            <div style={{ flex: 1, overflow: 'hidden' }}>
                                 <Editor
                                     theme="vs-dark"
                                     language={activeFile.language}
@@ -471,6 +541,28 @@ const AgentIDEApp: React.FC = () => {
                                     }}
                                 />
                             </div>
+
+                            {/* Terminal Panel */}
+                            {showTerminal && (
+                                <div style={{ height: 250, borderTop: '1px solid #313244', display: 'flex', flexDirection: 'column', background: '#1e1e2e' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 12px', background: '#181825', borderBottom: '1px solid #313244', fontSize: 11 }}>
+                                        <span style={{ color: '#a6adc8', fontWeight: 600, textTransform: 'uppercase' }}>Terminal</span>
+                                        <div style={{ display: 'flex', gap: 12 }}>
+                                            <span
+                                                style={{ cursor: 'pointer', color: '#cdd6f4' }}
+                                                onClick={() => xtermRef.current?.clear()}
+                                                title="Clear Terminal"
+                                            >🗑️</span>
+                                            <span
+                                                style={{ cursor: 'pointer', color: '#f38ba8' }}
+                                                onClick={() => setShowTerminal(false)}
+                                                title="Close Terminal"
+                                            >✕</span>
+                                        </div>
+                                    </div>
+                                    <div ref={terminalRef} style={{ flex: 1, padding: '8px', overflow: 'hidden' }} />
+                                </div>
+                            )}
                         </>
                     ) : (
                         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#585b70' }}>

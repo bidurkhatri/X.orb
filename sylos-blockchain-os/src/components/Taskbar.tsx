@@ -77,7 +77,7 @@ export default function Taskbar({ openApps, activeAppId, onAppClick, onNotificat
 
   return (
     <div role="toolbar" aria-label="Taskbar" style={{
-      position: 'relative', zIndex: 50, height: '52px',
+      position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 50, height: '52px',
       background: `var(--sylos-taskbar-bg, rgba(6, 8, 22, 0.75))`,
       backdropFilter: 'blur(40px) saturate(180%)',
       WebkitBackdropFilter: 'blur(40px) saturate(180%)',
@@ -220,55 +220,59 @@ export default function Taskbar({ openApps, activeAppId, onAppClick, onNotificat
 
       {/* ─── Center: App Dock ─── */}
       <div style={{
-        position: 'absolute', left: '50%', transform: 'translateX(-50%)',
-        display: 'flex', alignItems: 'center', gap: '2px',
-        padding: openApps.length > 0 ? '4px 6px' : '0',
-        borderRadius: '14px',
-        background: openApps.length > 0 ? 'rgba(255,255,255,0.03)' : 'transparent',
-        border: openApps.length > 0 ? '1px solid rgba(255,255,255,0.04)' : 'none',
-        maxWidth: '60vw',
-        overflowX: 'auto',
-        scrollbarWidth: 'none',
+        flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: '0 20px', overflow: 'hidden'
       }}>
-        {openApps.map(app => (
-          <button
-            key={app.id}
-            onClick={() => onAppClick(app.id)}
-            title={app.title}
-            style={{
-              display: 'flex', alignItems: 'center', gap: '6px',
-              padding: '5px 12px', borderRadius: '10px', border: 'none', cursor: 'pointer',
-              fontFamily: 'inherit', fontSize: '11px', fontWeight: 500,
-              transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-              background: activeAppId === app.id
-                ? 'linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(139, 92, 246, 0.15))'
-                : 'transparent',
-              color: activeAppId === app.id ? '#e0e7ff' : app.minimized ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.4)',
-              position: 'relative',
-              whiteSpace: 'nowrap',
-              opacity: app.minimized ? 0.6 : 1,
-            }}
-            onMouseEnter={e => {
-              if (activeAppId !== app.id) e.currentTarget.style.background = 'rgba(255,255,255,0.06)'
-            }}
-            onMouseLeave={e => {
-              if (activeAppId !== app.id) e.currentTarget.style.background = 'transparent'
-            }}
-          >
-            <div style={{ width: '16px', height: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{app.icon}</div>
-            <span>{app.title}</span>
-            {/* Bottom indicator */}
-            <div style={{
-              position: 'absolute', bottom: '-3px', left: '50%', transform: 'translateX(-50%)',
-              width: activeAppId === app.id ? '16px' : '4px', height: '3px', borderRadius: '2px',
-              background: activeAppId === app.id
-                ? `linear-gradient(90deg, ${settings.accentColor}, ${settings.accentColor}cc)`
-                : 'rgba(255,255,255,0.15)',
-              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-              boxShadow: activeAppId === app.id ? `0 0 8px ${settings.accentColor}66` : 'none',
-            }} />
-          </button>
-        ))}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: '2px',
+          padding: openApps.length > 0 ? '4px 6px' : '0',
+          borderRadius: '14px',
+          background: openApps.length > 0 ? 'rgba(255,255,255,0.03)' : 'transparent',
+          border: openApps.length > 0 ? '1px solid rgba(255,255,255,0.04)' : 'none',
+          maxWidth: '100%',
+          overflowX: 'auto',
+          scrollbarWidth: 'none',
+        }}>
+          {openApps.map(app => (
+            <button
+              key={app.id}
+              onClick={() => onAppClick(app.id)}
+              title={app.title}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '6px',
+                padding: '5px 12px', borderRadius: '10px', border: 'none', cursor: 'pointer',
+                fontFamily: 'inherit', fontSize: '11px', fontWeight: 500,
+                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                background: activeAppId === app.id
+                  ? 'linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(139, 92, 246, 0.15))'
+                  : 'transparent',
+                color: activeAppId === app.id ? '#e0e7ff' : app.minimized ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.4)',
+                position: 'relative',
+                whiteSpace: 'nowrap',
+                opacity: app.minimized ? 0.6 : 1,
+              }}
+              onMouseEnter={e => {
+                if (activeAppId !== app.id) e.currentTarget.style.background = 'rgba(255,255,255,0.06)'
+              }}
+              onMouseLeave={e => {
+                if (activeAppId !== app.id) e.currentTarget.style.background = 'transparent'
+              }}
+            >
+              <div style={{ width: '16px', height: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{app.icon}</div>
+              <span>{app.title}</span>
+              {/* Bottom indicator */}
+              <div style={{
+                position: 'absolute', bottom: '-3px', left: '50%', transform: 'translateX(-50%)',
+                width: activeAppId === app.id ? '16px' : '4px', height: '3px', borderRadius: '2px',
+                background: activeAppId === app.id
+                  ? `linear-gradient(90deg, ${settings.accentColor}, ${settings.accentColor}cc)`
+                  : 'rgba(255,255,255,0.15)',
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                boxShadow: activeAppId === app.id ? `0 0 8px ${settings.accentColor}66` : 'none',
+              }} />
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* ─── Right: System Tray ─── */}

@@ -284,6 +284,17 @@ export function useAgentRegistry() {
     }
   }, [address, writeContract, refresh])
 
+  const deleteAgent = useCallback(async (agentId: string) => {
+    if (contractsDeployed) {
+      // In a real deployed contract, deleting might be a separate function or handled off-chain.
+      // For now, if contracts are deployed, we might just hide it locally or call a hypothetical delete fn.
+      throw new Error("Cannot delete agents when connected to on-chain registry.")
+    } else {
+      localRegistry.deleteAgent(agentId, address || '0x0')
+      refresh()
+    }
+  }, [address, contractsDeployed, refresh])
+
   const topUpStake = useCallback(async (agentId: string, amount: bigint) => {
     if (contractsDeployed) {
       writeContract({
@@ -322,6 +333,7 @@ export function useAgentRegistry() {
     pauseAgent,
     resumeAgent,
     revokeAgent,
+    deleteAgent,
     topUpStake,
   }
 }

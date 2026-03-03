@@ -522,7 +522,7 @@ function DesktopInner() {
     { id: 'governance', title: 'Governance', icon: <Vote size={26} />, description: 'Civilization proposals and voting', component: <ErrorBoundary level="component"><GovernanceInterface /></ErrorBoundary>, category: 'finance' },
     { id: 'identity', title: 'Identity', icon: <Fingerprint size={26} />, description: 'Decentralized identity (DID)', component: <ErrorBoundary level="component"><IdentityInterface /></ErrorBoundary>, category: 'finance' },
     // Social
-    { id: 'messages', title: 'Messages', icon: <MessageCircle size={26} />, description: 'XMTP encrypted wallet-to-wallet chat', component: <ErrorBoundary level="component"><MessagesApp /></ErrorBoundary>, category: 'social' },
+    { id: 'void-chat', title: 'Void Chat', icon: <MessageCircle size={24} />, description: 'XMTP encrypted wallet-to-wallet chat', component: <ErrorBoundary level="component"><MessagesApp /></ErrorBoundary>, category: 'social' },
     // System
     { id: 'files', title: 'Files', icon: <FolderOpen size={26} />, description: 'IPFS-backed encrypted storage', component: <ErrorBoundary level="component"><FileManagerApp /></ErrorBoundary>, category: 'system' },
     { id: 'browser', title: 'Browser', icon: <Globe size={26} />, description: 'Sandboxed Web3 browser with tabs', component: <ErrorBoundary level="component"><WebBrowserApp /></ErrorBoundary>, category: 'system' },

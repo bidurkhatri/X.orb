@@ -307,9 +307,9 @@ function SpawnDialog({ onSpawn, onClose, sponsorAddress }: {
    ═══  AGENT SIDEBAR CARD  ═════
    ═══════════════════════════════ */
 
-function AgentCard({ agent, selected, onClick, onPause, onResume, onRevoke }: {
+function AgentCard({ agent, selected, onClick, onPause, onResume, onRevoke, onDelete }: {
     agent: RegisteredAgent; selected: boolean; onClick: () => void;
-    onPause: () => void; onResume: () => void; onRevoke: () => void;
+    onPause: () => void; onResume: () => void; onRevoke: () => void; onDelete?: () => void;
 }) {
     const meta = ROLE_META[agent.role]
     const tierColor = getReputationColor(agent.reputationTier)
@@ -336,6 +336,7 @@ function AgentCard({ agent, selected, onClick, onPause, onResume, onRevoke }: {
                     {agent.status === 'active' && <button onClick={e => { e.stopPropagation(); onPause() }} aria-label={`Pause ${agent.name}`} style={{ padding: '3px 8px', borderRadius: '4px', border: '1px solid rgba(245,158,11,0.2)', background: 'rgba(245,158,11,0.08)', color: '#f59e0b', fontSize: '9px', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 }}>⏸ Pause</button>}
                     {agent.status === 'paused' && <button onClick={e => { e.stopPropagation(); onResume() }} aria-label={`Resume ${agent.name}`} style={{ padding: '3px 8px', borderRadius: '4px', border: '1px solid rgba(34,197,94,0.2)', background: 'rgba(34,197,94,0.08)', color: '#22c55e', fontSize: '9px', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 }}>▶ Resume</button>}
                     {agent.status !== 'revoked' && <button onClick={e => { e.stopPropagation(); if (confirm('Revoke this agent? This is permanent and will slash its stake.')) onRevoke() }} aria-label={`Revoke ${agent.name}`} style={{ padding: '3px 8px', borderRadius: '4px', border: '1px solid rgba(239,68,68,0.2)', background: 'rgba(239,68,68,0.08)', color: '#f87171', fontSize: '9px', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 }}>☠ Revoke</button>}
+                    {(agent.status === 'revoked' || agent.status === 'expired') && onDelete && <button onClick={e => { e.stopPropagation(); if (confirm('Permanently delete this agent?')) onDelete() }} aria-label={`Delete ${agent.name}`} style={{ padding: '3px 8px', borderRadius: '4px', border: '1px solid rgba(239,68,68,0.4)', background: 'rgba(239,68,68,0.15)', color: '#fca5a5', fontSize: '9px', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 }}>🗑 Delete</button>}
                 </div>
             )}
         </div>
@@ -348,7 +349,7 @@ function AgentCard({ agent, selected, onClick, onPause, onResume, onRevoke }: {
 
 export default function AgentDashboardApp() {
     const { address } = useAccount()
-    const { myAgents, pauseAgent: hookPause, resumeAgent: hookResume, revokeAgent: hookRevoke } = useAgentRegistry()
+    const { myAgents, pauseAgent: hookPause, resumeAgent: hookResume, revokeAgent: hookRevoke, deleteAgent: hookDelete } = useAgentRegistry()
     const [agents, setAgents] = useState<RegisteredAgent[]>([])
     const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null)
     const [showSpawn, setShowSpawn] = useState(false)
@@ -445,6 +446,14 @@ export default function AgentDashboardApp() {
         } catch (e: any) { alert(e.message) }
     }
 
+    const handleDelete = async (id: string) => {
+        try {
+            await hookDelete(id)
+            refreshAgents()
+            if (selectedAgentId === id) setSelectedAgentId(null)
+        } catch (e: any) { alert(e.message) }
+    }
+
     const selectedAgent = agents.find(a => a.agentId === selectedAgentId)
     const selectedMeta = selectedAgent ? ROLE_META[selectedAgent.role] : null
     const stats = runtimeRef.current?.getStats()
@@ -502,6 +511,7 @@ export default function AgentDashboardApp() {
                             onPause={() => handlePause(a.agentId)}
                             onResume={() => handleResume(a.agentId)}
                             onRevoke={() => handleRevoke(a.agentId)}
+                            onDelete={() => handleDelete(a.agentId)}
                         />
                     ))}
                 </div>

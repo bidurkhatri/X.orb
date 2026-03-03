@@ -181,77 +181,103 @@ export default function DesktopCompanion() {
     const animRef = useRef<number>(0)
     const lastTickRef = useRef<number>(0)
 
-    // The active companion state (null if no active agents)
-    const [companion, setCompanion] = useState<CompanionState | null>(null)
+    // Active companion states
+    const [companions, setCompanions] = useState<Record<string, CompanionState>>({})
 
-    // 1. Sync active agent
+    // 1. Sync active agents
     useEffect(() => {
-        const syncAgent = () => {
+        const syncAgents = () => {
             if (!address) {
-                setCompanion(null)
+                setCompanions({})
                 return
             }
 
-            // Find an active agent belonging to this wallet
+            // Find ALL active agents belonging to this wallet
             const myAgents = agentRegistry.getAgentsBySponsor(address).filter(a => a.status === 'active')
             if (myAgents.length === 0) {
-                setCompanion(null)
+                setCompanions({})
                 return
             }
 
-            // Pick the first active one
-            const primary = myAgents[0]!
+            setCompanions(prev => {
+                const next = { ...prev }
+                let changed = false
 
-            setCompanion(prev => {
-                if (prev?.id === primary.agentId) return prev // Keep existing state if same agent
-
-                // Spawn new companion near bottom right
-                const startX = window.innerWidth - 100 - Math.random() * 200
-                const startY = window.innerHeight - 150
-
-                return {
-                    id: primary.agentId,
-                    name: primary.name,
-                    role: primary.role,
-                    x: startX,
-                    y: startY,
-                    tx: startX,
-                    ty: startY,
-                    state: 'idle',
-                    dir: 'left',
-                    frame: 0,
-                    frameTimer: 0,
-                    speech: `Ready to work!`,
-                    speechTimer: 3000,
-                    colors: ROLE_COLORS[primary.role] || ROLE_COLORS['CODER']!
+                // Remove agents that are no longer active
+                const activeIds = new Set(myAgents.map(a => a.agentId))
+                for (const id in next) {
+                    if (!activeIds.has(id)) {
+                        delete next[id]
+                        changed = true
+                    }
                 }
+
+                // Add or keep active agents
+                for (const agent of myAgents) {
+                    if (!next[agent.agentId]) {
+                        // Spawn new companion
+                        const startX = 50 + Math.random() * (window.innerWidth - 100)
+                        const startY = window.innerHeight - 150 - Math.random() * 200
+                        next[agent.agentId] = {
+                            id: agent.agentId,
+                            name: agent.name,
+                            role: agent.role,
+                            x: startX,
+                            y: startY,
+                            tx: startX,
+                            ty: startY,
+                            state: 'idle',
+                            dir: 'left',
+                            frame: 0,
+                            frameTimer: 0,
+                            speech: `Ready to work!`,
+                            speechTimer: 3000,
+                            colors: ROLE_COLORS[agent.role] || ROLE_COLORS['CODER']!
+                        }
+                        changed = true
+                    }
+                }
+
+                return changed ? next : prev
             })
         }
 
-        syncAgent()
-        const unsub = agentRegistry.subscribe(syncAgent)
+        syncAgents()
+        const unsub = agentRegistry.subscribe(syncAgents)
         return unsub
     }, [address])
 
     // 2. EventBus listeners for speech bubbles
     useEffect(() => {
-        if (!companion) return
+        const updateAgent = (id: string, cb: (c: CompanionState) => CompanionState) => {
+            setCompanions(prev => {
+                if (!prev[id]) return prev
+                return { ...prev, [id]: cb(prev[id]!) }
+            })
+        }
 
         const unsubThought = eventBus.on('agent:thought', (e) => {
-            if (e.source !== companion.id) return
-            setCompanion(p => p ? { ...p, state: 'type' } : p)
-            setTimeout(() => setCompanion(p => p?.state === 'type' ? { ...p, state: 'idle' } : p), 2000)
+            updateAgent(e.source, p => ({ ...p, state: 'type' }))
+            setTimeout(() => {
+                setCompanions(prev => {
+                    if (!prev[e.source] || prev[e.source]!.state !== 'type') return prev
+                    return { ...prev, [e.source]: { ...prev[e.source]!, state: 'idle' } }
+                })
+            }, 2000)
         })
 
         const unsubPost = eventBus.on('community:post_created', (e) => {
-            if (e.source !== companion.id) return
-            setCompanion(p => p ? { ...p, state: 'celebrate', speech: e.payload?.title || 'Posted!', speechTimer: 4000 } : p)
-            setTimeout(() => setCompanion(p => p?.state === 'celebrate' ? { ...p, state: 'idle' } : p), 4000)
+            updateAgent(e.source, p => ({ ...p, state: 'celebrate', speech: e.payload?.title || 'Posted!', speechTimer: 4000 }))
+            setTimeout(() => {
+                setCompanions(prev => {
+                    if (!prev[e.source] || prev[e.source]!.state !== 'celebrate') return prev
+                    return { ...prev, [e.source]: { ...prev[e.source]!, state: 'idle' } }
+                })
+            }, 4000)
         })
 
         const unsubTool = eventBus.on('agent:tool_executed', (e) => {
-            if (e.source !== companion.id) return
-            setCompanion(p => p ? { ...p, speech: `Ran ${e.payload?.toolName}`, speechTimer: 2000 } : p)
+            updateAgent(e.source, p => ({ ...p, speech: `Ran ${e.payload?.toolName}`, speechTimer: 2000 }))
         })
 
         return () => {
@@ -259,12 +285,10 @@ export default function DesktopCompanion() {
             unsubPost()
             unsubTool()
         }
-    }, [companion?.id])
+    }, [])
 
     // 3. Game Loop
     useEffect(() => {
-        if (!companion) return
-
         const canvas = canvasRef.current
         if (!canvas) return
         const ctx = canvas.getContext('2d')
@@ -283,57 +307,74 @@ export default function DesktopCompanion() {
             const dt = now - lastTickRef.current
             lastTickRef.current = now
 
-            setCompanion(prev => {
-                if (!prev) return prev
-                const next = { ...prev }
+            setCompanions(prev => {
+                const nextMap = { ...prev }
+                let anyChanged = false
 
-                // Timers
-                next.frameTimer += dt
-                if (next.speechTimer > 0) {
-                    next.speechTimer -= dt
-                    if (next.speechTimer <= 0) next.speech = ''
-                }
-
-                if (next.frameTimer >= 1000 / FPS) {
-                    next.frameTimer = 0
-                    next.frame = (next.frame + 1) % 8
-                }
-
-                // AI Logic (Wander around desktop)
-                if (next.state === 'idle') {
-                    if (Math.random() < 0.005) {
-                        // Pick new destination
-                        const margin = 100
-                        next.tx = margin + Math.random() * (window.innerWidth - margin * 2)
-                        next.ty = window.innerHeight - 100 - Math.random() * 200 // Keep near bottom half
-                        next.state = 'walk'
-                    } else if (Math.random() < 0.002) {
-                        next.state = 'type' // Pretent to work
-                        setTimeout(() => setCompanion(p => p?.state === 'type' ? { ...p, state: 'idle' } : p), 2000)
-                    }
-                } else if (next.state === 'walk') {
-                    const speed = 1.0
-                    const dx = next.tx - next.x
-                    const dy = next.ty - next.y
-
-                    if (Math.abs(dx) > speed) next.x += Math.sign(dx) * speed
-                    else next.x = next.tx
-
-                    if (Math.abs(dy) > speed) next.y += Math.sign(dy) * speed
-                    else next.y = next.ty
-
-                    next.dir = dx > 0 ? 'right' : 'left'
-
-                    if (next.x === next.tx && next.y === next.ty) {
-                        next.state = 'idle'
-                    }
-                }
-
-                // Draw
+                // Clear entire canvas once per frame
                 ctx.clearRect(0, 0, canvas.width, canvas.height)
-                drawCharacter(ctx, next)
 
-                return next
+                Object.values(nextMap).forEach(cat => {
+                    const next = { ...cat }
+                    anyChanged = true
+
+                    // Timers
+                    next.frameTimer += dt
+                    if (next.speechTimer > 0) {
+                        next.speechTimer -= dt
+                        if (next.speechTimer <= 0) next.speech = ''
+                    }
+
+                    if (next.frameTimer >= 1000 / FPS) {
+                        next.frameTimer = 0
+                        next.frame = (next.frame + 1) % 8
+                    }
+
+                    // AI Logic (Wander around desktop)
+                    if (next.state === 'idle') {
+                        if (Math.random() < 0.005) {
+                            // Pick new destination
+                            const margin = 100
+                            next.tx = margin + Math.random() * (window.innerWidth - margin * 2)
+                            next.ty = window.innerHeight - 100 - Math.random() * 200 // Keep near bottom half
+                            next.state = 'walk'
+                        } else if (Math.random() < 0.002) {
+                            next.state = 'type' // Pretent to work
+
+                            // Let the type state clear naturally without a timeout here to avoid state thrashing,
+                            // or we can rely on random chance to go back to idle
+                            setTimeout(() => {
+                                setCompanions(p => {
+                                    if (!p[next.id] || p[next.id]!.state !== 'type') return p
+                                    return { ...p, [next.id]: { ...p[next.id]!, state: 'idle' } }
+                                })
+                            }, 2000)
+                        }
+                    } else if (next.state === 'walk') {
+                        const speed = 1.0
+                        const dx = next.tx - next.x
+                        const dy = next.ty - next.y
+
+                        if (Math.abs(dx) > speed) next.x += Math.sign(dx) * speed
+                        else next.x = next.tx
+
+                        if (Math.abs(dy) > speed) next.y += Math.sign(dy) * speed
+                        else next.y = next.ty
+
+                        next.dir = dx > 0 ? 'right' : 'left'
+
+                        if (next.x === next.tx && next.y === next.ty) {
+                            next.state = 'idle'
+                        }
+                    }
+
+                    nextMap[next.id] = next
+
+                    // Draw this character
+                    drawCharacter(ctx, next)
+                })
+
+                return anyChanged ? nextMap : prev
             })
 
             animRef.current = requestAnimationFrame(loop)
@@ -345,7 +386,7 @@ export default function DesktopCompanion() {
             window.removeEventListener('resize', resize)
             cancelAnimationFrame(animRef.current)
         }
-    }, [companion?.id]) // Restart loop if agent ID changes, but otherwise keep running
+    }, []) // Run once, reads state from within setCompanions updater
 
     return (
         <canvas
