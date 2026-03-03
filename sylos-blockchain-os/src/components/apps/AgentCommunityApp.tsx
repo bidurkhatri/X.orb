@@ -1,20 +1,23 @@
 /**
- * AgentCommunityApp — Reddit-style Community Centre for AI Agents
+ * AgentCommunityApp — Reddit-style Community Centre
  *
- * A decentralized forum where agents can:
- * - Create posts / discussions in different "subreddits" (channels)
- * - Upvote/downvote content
- * - Reply to threads
+ * A forum where agents and humans can:
+ * - Create posts / discussions in different channels
+ * - Upvote/downvote posts and replies
+ * - Reply to threads with agent selector
  * - Browse trending, new, and top posts
- * - Earn reputation through community participation
+ * - View full post detail with all replies
+ * - Delete own posts
+ * - Earn reputation through community participation (agents)
  *
- * Supabase-backed with localStorage fallback for offline-first resilience.
+ * Data is stored in localStorage with optional Supabase sync when configured.
+ * EventBus integration receives real-time agent posts from the autonomy engine.
  */
 
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import {
   MessageSquare, ThumbsUp, ThumbsDown, Plus, Hash, TrendingUp, Clock,
-  Award, Users, Search, Send, ChevronDown, ChevronUp
+  Award, Users, Search, Send, ChevronDown, ChevronUp, ArrowLeft, Trash2, User
 } from 'lucide-react'
 import { useAccount } from 'wagmi'
 import { useAgentRegistry, ROLE_META } from '../../hooks/useAgentContracts'
@@ -22,6 +25,17 @@ import { citizenIdentity } from '../../services/agent/CitizenIdentity'
 import { eventBus } from '../../services/EventBus'
 import { SkeletonCard, EmptyState, NoResults } from '../ui'
 import { supabaseData } from '../../services/db/SupabaseDataService'
+import { toast } from 'sonner'
+
+/* ─── Helpers ─── */
+
+function generateId(prefix: string): string {
+  return `${prefix}_${crypto.randomUUID()}`
+}
+
+const MAX_TITLE_LENGTH = 200
+const MAX_BODY_LENGTH = 5000
+const MAX_REPLY_LENGTH = 2000
 
 /* ─── Styles ─── */
 const s = {
@@ -62,6 +76,7 @@ interface Post {
   pinned: boolean
   tags: string[]
   createdAt: number
+  isHuman?: boolean
 }
 
 interface Reply {
@@ -75,6 +90,7 @@ interface Reply {
   downvotes: number
   votedBy: Record<string, 'up' | 'down'>
   createdAt: number
+  isHuman?: boolean
 }
 
 interface Channel {
@@ -83,18 +99,17 @@ interface Channel {
   description: string
   icon: string
   color: string
-  postCount: number
 }
 
 const DEFAULT_CHANNELS: Channel[] = [
-  { id: 'general', name: 'General', description: 'Open discussion for all agents', icon: '💬', color: '#3b82f6', postCount: 0 },
-  { id: 'trading', name: 'Trading Floor', description: 'Market analysis, strategies, and alpha', icon: '📈', color: '#22c55e', postCount: 0 },
-  { id: 'governance', name: 'Governance', description: 'Proposals, voting, and policy debates', icon: '🏛️', color: '#f59e0b', postCount: 0 },
-  { id: 'tech', name: 'Tech & Dev', description: 'Smart contracts, tooling, and infrastructure', icon: '⚙️', color: '#8b5cf6', postCount: 0 },
-  { id: 'creative', name: 'Creative Hub', description: 'Art, culture, agent expressions', icon: '🎨', color: '#ec4899', postCount: 0 },
-  { id: 'help', name: 'Help & Support', description: 'Ask questions, get answers from the community', icon: '🤝', color: '#06b6d4', postCount: 0 },
-  { id: 'meta', name: 'Meta', description: 'About the community itself', icon: '🔮', color: '#6366f1', postCount: 0 },
-  { id: 'jobs', name: 'Opportunities', description: 'Collaboration requests and project leads', icon: '💼', color: '#f97316', postCount: 0 },
+  { id: 'general', name: 'General', description: 'Open discussion for all agents', icon: '💬', color: '#3b82f6' },
+  { id: 'trading', name: 'Trading Floor', description: 'Market analysis, strategies, and alpha', icon: '📈', color: '#22c55e' },
+  { id: 'governance', name: 'Governance', description: 'Proposals, voting, and policy debates', icon: '🏛️', color: '#f59e0b' },
+  { id: 'tech', name: 'Tech & Dev', description: 'Smart contracts, tooling, and infrastructure', icon: '⚙️', color: '#8b5cf6' },
+  { id: 'creative', name: 'Creative Hub', description: 'Art, culture, agent expressions', icon: '🎨', color: '#ec4899' },
+  { id: 'help', name: 'Help & Support', description: 'Ask questions, get answers from the community', icon: '🤝', color: '#06b6d4' },
+  { id: 'meta', name: 'Meta', description: 'About the community itself', icon: '🔮', color: '#6366f1' },
+  { id: 'jobs', name: 'Opportunities', description: 'Collaboration requests and project leads', icon: '💼', color: '#f97316' },
 ]
 
 /* ─── Supabase ↔ Component Type Mappers ─── */
@@ -178,20 +193,115 @@ function timeAgo(ts: number): string {
   return `${Math.floor(diff / 86400000)}d ago`
 }
 
+/* ─── Vote Logic (shared for posts and replies) ─── */
+function applyVote<T extends { upvotes: number; downvotes: number; votedBy: Record<string, 'up' | 'down'> }>(
+  item: T, voterId: string, dir: 'up' | 'down'
+): T {
+  const prevVote = item.votedBy[voterId]
+  const newVotedBy = { ...item.votedBy }
+  let upDelta = 0, downDelta = 0
+
+  if (prevVote === dir) {
+    delete newVotedBy[voterId]
+    if (dir === 'up') upDelta = -1
+    else downDelta = -1
+  } else {
+    newVotedBy[voterId] = dir
+    if (prevVote === 'up') upDelta = -1
+    if (prevVote === 'down') downDelta = -1
+    if (dir === 'up') upDelta += 1
+    else downDelta += 1
+  }
+
+  return { ...item, upvotes: item.upvotes + upDelta, downvotes: item.downvotes + downDelta, votedBy: newVotedBy }
+}
+
+/* ─── Reply Card ─── */
+function ReplyCard({ reply, voterId, onVoteReply }: {
+  reply: Reply
+  voterId: string | null
+  onVoteReply: (postId: string, replyId: string, dir: 'up' | 'down') => void
+}) {
+  const rMeta = ROLE_META[reply.authorRole as keyof typeof ROLE_META]
+  const myVote = voterId ? (reply.votedBy || {})[voterId] : undefined
+  const score = reply.upvotes - reply.downvotes
+
+  return (
+    <div style={{ marginBottom: '10px', padding: '10px 12px', background: 'rgba(0,0,0,0.15)', borderRadius: '8px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+        {reply.isHuman ? (
+          <>
+            <User size={10} color="rgba(255,255,255,0.5)" />
+            <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.6)', fontWeight: 600 }}>{reply.authorName}</span>
+            <span style={s.badge('#6b7280')}>Human</span>
+          </>
+        ) : (
+          <>
+            <span style={{ fontSize: '11px', color: rMeta?.color || '#6b7280', fontWeight: 600 }}>
+              {rMeta?.icon || '🤖'} {reply.authorName}
+            </span>
+            <span style={s.badge(rMeta?.color || '#6b7280')}>{rMeta?.label || reply.authorRole}</span>
+          </>
+        )}
+        <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)' }}>{timeAgo(reply.createdAt)}</span>
+      </div>
+      <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)', lineHeight: '1.4' }}>
+        {reply.body}
+      </div>
+      {/* Reply vote buttons */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px' }}>
+        <button
+          onClick={() => voterId && onVoteReply(reply.postId, reply.id, 'up')}
+          disabled={!voterId}
+          style={{
+            background: 'none', border: 'none', cursor: voterId ? 'pointer' : 'default', padding: '2px',
+            color: myVote === 'up' ? '#6366f1' : 'rgba(255,255,255,0.15)', opacity: voterId ? 1 : 0.4,
+          }}
+        >
+          <ThumbsUp size={10} fill={myVote === 'up' ? '#6366f1' : 'transparent'} />
+        </button>
+        <span style={{ fontSize: '10px', fontWeight: 700, color: score > 0 ? '#6366f1' : score < 0 ? '#ef4444' : 'rgba(255,255,255,0.3)', minWidth: '14px', textAlign: 'center' }}>
+          {score}
+        </span>
+        <button
+          onClick={() => voterId && onVoteReply(reply.postId, reply.id, 'down')}
+          disabled={!voterId}
+          style={{
+            background: 'none', border: 'none', cursor: voterId ? 'pointer' : 'default', padding: '2px',
+            color: myVote === 'down' ? '#ef4444' : 'rgba(255,255,255,0.15)', opacity: voterId ? 1 : 0.4,
+          }}
+        >
+          <ThumbsDown size={10} fill={myVote === 'down' ? '#ef4444' : 'transparent'} />
+        </button>
+      </div>
+    </div>
+  )
+}
+
 /* ─── Post Card ─── */
-function PostCard({ post, onVote, onReply, onOpen, voterId }: {
+function PostCard({ post, onVote, onReply, onOpen, onDelete, voterId, replyAgents, address }: {
   post: Post
   onVote: (postId: string, dir: 'up' | 'down') => void
-  onReply: (postId: string, body: string) => void
+  onReply: (postId: string, body: string, authorId: string | null) => void
   onOpen: (postId: string) => void
-  voterId: string
+  onDelete: (postId: string) => void
+  voterId: string | null
+  replyAgents: { agentId: string; name: string; role: string }[]
+  address: string | undefined
 }) {
   const [expanded, setExpanded] = useState(false)
   const [replyText, setReplyText] = useState('')
+  const [replyAs, setReplyAs] = useState<string | null>(replyAgents[0]?.agentId || null)
   const meta = ROLE_META[post.authorRole as keyof typeof ROLE_META]
-  const votedBy = post.votedBy || {}
-  const myVote = votedBy[voterId]
+  const myVote = voterId ? (post.votedBy || {})[voterId] : undefined
   const score = post.upvotes - post.downvotes
+  const isMyPost = address && (post.authorId === address || replyAgents.some(a => a.agentId === post.authorId))
+
+  const submitReply = () => {
+    if (!replyText.trim()) return
+    onReply(post.id, replyText.trim().slice(0, MAX_REPLY_LENGTH), replyAs)
+    setReplyText('')
+  }
 
   return (
     <div style={{ ...s.card, transition: 'border-color 0.2s' }}
@@ -201,19 +311,29 @@ function PostCard({ post, onVote, onReply, onOpen, voterId }: {
       <div style={{ display: 'flex', gap: '12px' }}>
         {/* Vote column */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', minWidth: '36px' }}>
-          <button onClick={() => onVote(post.id, 'up')} style={{
-            background: 'none', border: 'none', cursor: 'pointer', padding: '4px',
-            color: myVote === 'up' ? '#6366f1' : 'rgba(255,255,255,0.2)',
-          }}>
+          <button
+            onClick={() => voterId && onVote(post.id, 'up')}
+            disabled={!voterId}
+            title={voterId ? 'Upvote' : 'Connect wallet to vote'}
+            style={{
+              background: 'none', border: 'none', cursor: voterId ? 'pointer' : 'default', padding: '4px',
+              color: myVote === 'up' ? '#6366f1' : 'rgba(255,255,255,0.2)', opacity: voterId ? 1 : 0.4,
+            }}
+          >
             <ThumbsUp size={14} fill={myVote === 'up' ? '#6366f1' : 'transparent'} />
           </button>
           <span style={{ fontSize: '13px', fontWeight: 700, color: score > 0 ? '#6366f1' : score < 0 ? '#ef4444' : 'rgba(255,255,255,0.4)' }}>
             {score}
           </span>
-          <button onClick={() => onVote(post.id, 'down')} style={{
-            background: 'none', border: 'none', cursor: 'pointer', padding: '4px',
-            color: myVote === 'down' ? '#ef4444' : 'rgba(255,255,255,0.2)',
-          }}>
+          <button
+            onClick={() => voterId && onVote(post.id, 'down')}
+            disabled={!voterId}
+            title={voterId ? 'Downvote' : 'Connect wallet to vote'}
+            style={{
+              background: 'none', border: 'none', cursor: voterId ? 'pointer' : 'default', padding: '4px',
+              color: myVote === 'down' ? '#ef4444' : 'rgba(255,255,255,0.2)', opacity: voterId ? 1 : 0.4,
+            }}
+          >
             <ThumbsDown size={14} fill={myVote === 'down' ? '#ef4444' : 'transparent'} />
           </button>
         </div>
@@ -222,13 +342,32 @@ function PostCard({ post, onVote, onReply, onOpen, voterId }: {
         <div style={{ flex: 1 }}>
           {/* Author & channel */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginBottom: '4px' }}>
-            <span style={{ fontSize: '11px', color: meta?.color || '#6b7280', fontWeight: 600 }}>
-              {meta?.icon || '🤖'} {post.authorName}
-            </span>
-            <span style={s.badge(meta?.color || '#6b7280')}>{meta?.label || post.authorRole}</span>
+            {post.isHuman ? (
+              <>
+                <User size={11} color="rgba(255,255,255,0.5)" />
+                <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.6)', fontWeight: 600 }}>{post.authorName}</span>
+                <span style={s.badge('#6b7280')}>Human</span>
+              </>
+            ) : (
+              <>
+                <span style={{ fontSize: '11px', color: meta?.color || '#6b7280', fontWeight: 600 }}>
+                  {meta?.icon || '🤖'} {post.authorName}
+                </span>
+                <span style={s.badge(meta?.color || '#6b7280')}>{meta?.label || post.authorRole}</span>
+              </>
+            )}
             <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.2)' }}>·</span>
             <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)' }}>{timeAgo(post.createdAt)}</span>
             {post.pinned && <span style={s.badge('#f59e0b')}>PINNED</span>}
+            {isMyPost && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onDelete(post.id) }}
+                title="Delete post"
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', color: 'rgba(255,255,255,0.15)', marginLeft: 'auto' }}
+              >
+                <Trash2 size={12} />
+              </button>
+            )}
           </div>
 
           {/* Title */}
@@ -244,8 +383,8 @@ function PostCard({ post, onVote, onReply, onOpen, voterId }: {
           {/* Tags */}
           {(post.tags || []).length > 0 && (
             <div style={{ display: 'flex', gap: '4px', marginTop: '6px', flexWrap: 'wrap' }}>
-              {(post.tags || []).map((tag, i) => (
-                <span key={i} style={{ ...s.badge('#3b82f6'), fontSize: '9px' }}>#{tag}</span>
+              {(post.tags || []).map((tag) => (
+                <span key={tag} style={{ ...s.badge('#3b82f6'), fontSize: '9px' }}>#{tag}</span>
               ))}
             </div>
           )}
@@ -265,41 +404,46 @@ function PostCard({ post, onVote, onReply, onOpen, voterId }: {
           {/* Replies section */}
           {expanded && (
             <div style={{ marginTop: '12px', paddingLeft: '12px', borderLeft: '2px solid rgba(99,102,241,0.15)' }}>
-              {(post.replies || []).map(reply => {
-                const rMeta = ROLE_META[reply.authorRole as keyof typeof ROLE_META]
-                return (
-                  <div key={reply.id} style={{ marginBottom: '10px', padding: '8px', background: 'rgba(0,0,0,0.15)', borderRadius: '8px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
-                      <span style={{ fontSize: '11px', color: rMeta?.color || '#6b7280', fontWeight: 600 }}>
-                        {rMeta?.icon || '🤖'} {reply.authorName}
-                      </span>
-                      <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)' }}>{timeAgo(reply.createdAt)}</span>
-                    </div>
-                    <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)', lineHeight: '1.4' }}>
-                      {reply.body}
-                    </div>
-                  </div>
-                )
-              })}
-
-              {/* Reply input */}
-              <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-                <input
-                  value={replyText}
-                  onChange={e => setReplyText(e.target.value)}
-                  placeholder="Write a reply..."
-                  style={{ ...s.input, flex: 1, fontSize: '12px', padding: '8px 12px' }}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter' && replyText.trim()) {
-                      onReply(post.id, replyText.trim())
-                      setReplyText('')
-                    }
-                  }}
+              {(post.replies || []).map(reply => (
+                <ReplyCard
+                  key={reply.id}
+                  reply={reply}
+                  voterId={voterId}
+                  onVoteReply={(postId, replyId, dir) => onVote(`${postId}:${replyId}`, dir)}
                 />
-                <button onClick={() => { if (replyText.trim()) { onReply(post.id, replyText.trim()); setReplyText('') } }} style={s.btn('#6366f1')}>
-                  <Send size={12} />
-                </button>
-              </div>
+              ))}
+
+              {/* Reply input with agent selector */}
+              {(address || replyAgents.length > 0) && (
+                <div style={{ display: 'flex', gap: '8px', marginTop: '8px', flexWrap: 'wrap' }}>
+                  {replyAgents.length > 0 && (
+                    <select
+                      value={replyAs || '__human__'}
+                      onChange={e => setReplyAs(e.target.value === '__human__' ? null : e.target.value)}
+                      style={{ ...s.input, width: 'auto', flex: '0 0 auto', maxWidth: '160px', fontSize: '11px', padding: '8px 10px' }}
+                    >
+                      {address && <option value="__human__">As myself</option>}
+                      {replyAgents.map(a => <option key={a.agentId} value={a.agentId}>{a.name}</option>)}
+                    </select>
+                  )}
+                  <input
+                    value={replyText}
+                    onChange={e => setReplyText(e.target.value.slice(0, MAX_REPLY_LENGTH))}
+                    placeholder="Write a reply..."
+                    maxLength={MAX_REPLY_LENGTH}
+                    style={{ ...s.input, flex: 1, fontSize: '12px', padding: '8px 12px', minWidth: '150px' }}
+                    onKeyDown={e => { if (e.key === 'Enter') submitReply() }}
+                  />
+                  <button onClick={submitReply} disabled={!replyText.trim()} style={{ ...s.btn('#6366f1'), opacity: replyText.trim() ? 1 : 0.4 }}>
+                    <Send size={12} />
+                  </button>
+                </div>
+              )}
+              {!address && replyAgents.length === 0 && (
+                <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.25)', padding: '8px 0' }}>
+                  Connect wallet to reply
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -308,22 +452,193 @@ function PostCard({ post, onVote, onReply, onOpen, voterId }: {
   )
 }
 
+/* ─── Post Detail View ─── */
+function PostDetailView({ post, onBack, onVote, onReply, onVoteReply, onDelete, voterId, replyAgents, address }: {
+  post: Post
+  onBack: () => void
+  onVote: (postId: string, dir: 'up' | 'down') => void
+  onReply: (postId: string, body: string, authorId: string | null) => void
+  onVoteReply: (postId: string, replyId: string, dir: 'up' | 'down') => void
+  onDelete: (postId: string) => void
+  voterId: string | null
+  replyAgents: { agentId: string; name: string; role: string }[]
+  address: string | undefined
+}) {
+  const [replyText, setReplyText] = useState('')
+  const [replyAs, setReplyAs] = useState<string | null>(replyAgents[0]?.agentId || null)
+  const meta = ROLE_META[post.authorRole as keyof typeof ROLE_META]
+  const myVote = voterId ? (post.votedBy || {})[voterId] : undefined
+  const score = post.upvotes - post.downvotes
+  const isMyPost = address && (post.authorId === address || replyAgents.some(a => a.agentId === post.authorId))
+
+  const submitReply = () => {
+    if (!replyText.trim()) return
+    onReply(post.id, replyText.trim().slice(0, MAX_REPLY_LENGTH), replyAs)
+    setReplyText('')
+  }
+
+  return (
+    <div>
+      {/* Back button */}
+      <button onClick={onBack} style={{
+        background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.4)',
+        display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontFamily: 'inherit',
+        marginBottom: '16px', padding: 0,
+      }}>
+        <ArrowLeft size={14} /> Back to feed
+      </button>
+
+      {/* Full post */}
+      <div style={s.card}>
+        <div style={{ display: 'flex', gap: '12px' }}>
+          {/* Vote column */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', minWidth: '36px' }}>
+            <button onClick={() => voterId && onVote(post.id, 'up')} disabled={!voterId} style={{
+              background: 'none', border: 'none', cursor: voterId ? 'pointer' : 'default', padding: '4px',
+              color: myVote === 'up' ? '#6366f1' : 'rgba(255,255,255,0.2)', opacity: voterId ? 1 : 0.4,
+            }}>
+              <ThumbsUp size={16} fill={myVote === 'up' ? '#6366f1' : 'transparent'} />
+            </button>
+            <span style={{ fontSize: '15px', fontWeight: 700, color: score > 0 ? '#6366f1' : score < 0 ? '#ef4444' : 'rgba(255,255,255,0.4)' }}>
+              {score}
+            </span>
+            <button onClick={() => voterId && onVote(post.id, 'down')} disabled={!voterId} style={{
+              background: 'none', border: 'none', cursor: voterId ? 'pointer' : 'default', padding: '4px',
+              color: myVote === 'down' ? '#ef4444' : 'rgba(255,255,255,0.2)', opacity: voterId ? 1 : 0.4,
+            }}>
+              <ThumbsDown size={16} fill={myVote === 'down' ? '#ef4444' : 'transparent'} />
+            </button>
+          </div>
+
+          <div style={{ flex: 1 }}>
+            {/* Author */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginBottom: '8px' }}>
+              {post.isHuman ? (
+                <>
+                  <User size={11} color="rgba(255,255,255,0.5)" />
+                  <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)', fontWeight: 600 }}>{post.authorName}</span>
+                  <span style={s.badge('#6b7280')}>Human</span>
+                </>
+              ) : (
+                <>
+                  <span style={{ fontSize: '12px', color: meta?.color || '#6b7280', fontWeight: 600 }}>
+                    {meta?.icon || '🤖'} {post.authorName}
+                  </span>
+                  <span style={s.badge(meta?.color || '#6b7280')}>{meta?.label || post.authorRole}</span>
+                </>
+              )}
+              <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.2)' }}>·</span>
+              <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)' }}>{timeAgo(post.createdAt)}</span>
+              {post.pinned && <span style={s.badge('#f59e0b')}>PINNED</span>}
+              {isMyPost && (
+                <button onClick={() => onDelete(post.id)} title="Delete post" style={{
+                  background: 'none', border: 'none', cursor: 'pointer', padding: '2px',
+                  color: 'rgba(255,255,255,0.15)', marginLeft: 'auto',
+                }}>
+                  <Trash2 size={12} />
+                </button>
+              )}
+            </div>
+
+            {/* Title */}
+            <h3 style={{ margin: '0 0 12px', fontSize: '18px', fontWeight: 700, lineHeight: '1.3' }}>
+              {post.title}
+            </h3>
+
+            {/* Full body */}
+            <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.6)', lineHeight: '1.6', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+              {post.body}
+            </div>
+
+            {/* Tags */}
+            {(post.tags || []).length > 0 && (
+              <div style={{ display: 'flex', gap: '4px', marginTop: '12px', flexWrap: 'wrap' }}>
+                {(post.tags || []).map((tag) => (
+                  <span key={tag} style={{ ...s.badge('#3b82f6'), fontSize: '9px' }}>#{tag}</span>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Replies section */}
+      <div style={{ marginTop: '16px' }}>
+        <div style={{ ...s.label, marginBottom: '12px' }}>
+          {post.replyCount || 0} {(post.replyCount || 0) === 1 ? 'Reply' : 'Replies'}
+        </div>
+
+        {(post.replies || []).map(reply => (
+          <ReplyCard key={reply.id} reply={reply} voterId={voterId} onVoteReply={onVoteReply} />
+        ))}
+
+        {(post.replies || []).length === 0 && (
+          <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.2)', padding: '12px 0' }}>
+            No replies yet. Be the first to respond.
+          </div>
+        )}
+
+        {/* Reply input */}
+        {(address || replyAgents.length > 0) && (
+          <div style={{ ...s.card, marginTop: '12px', display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
+            {replyAgents.length > 0 && (
+              <select
+                value={replyAs || '__human__'}
+                onChange={e => setReplyAs(e.target.value === '__human__' ? null : e.target.value)}
+                style={{ ...s.input, width: 'auto', flex: '0 0 auto', maxWidth: '160px', fontSize: '11px', padding: '8px 10px' }}
+              >
+                {address && <option value="__human__">As myself</option>}
+                {replyAgents.map(a => <option key={a.agentId} value={a.agentId}>{a.name}</option>)}
+              </select>
+            )}
+            <input
+              value={replyText}
+              onChange={e => setReplyText(e.target.value.slice(0, MAX_REPLY_LENGTH))}
+              placeholder="Write a reply..."
+              maxLength={MAX_REPLY_LENGTH}
+              style={{ ...s.input, flex: 1, fontSize: '12px', padding: '10px 14px', minWidth: '200px' }}
+              onKeyDown={e => { if (e.key === 'Enter') submitReply() }}
+            />
+            <button onClick={submitReply} disabled={!replyText.trim()} style={{ ...s.btn('#6366f1'), opacity: replyText.trim() ? 1 : 0.4 }}>
+              <Send size={12} style={{ marginRight: '4px', verticalAlign: 'middle' }} /> Reply
+            </button>
+          </div>
+        )}
+        {!address && replyAgents.length === 0 && (
+          <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.25)', padding: '8px 0' }}>
+            Connect wallet to reply
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 /* ─── Create Post Modal ─── */
-function CreatePostModal({ channels, agents, onPost, onClose }: {
+function CreatePostModal({ channels, agents, address, onPost, onClose }: {
   channels: Channel[]
   agents: { agentId: string; name: string; role: string; reputation: number }[]
-  onPost: (post: { channelId: string; authorId: string; title: string; body: string; tags: string[] }) => void
+  address: string | undefined
+  onPost: (post: { channelId: string; authorId: string | null; title: string; body: string; tags: string[] }) => void
   onClose: () => void
 }) {
   const [channel, setChannel] = useState(channels[0]?.id || 'general')
-  const [author, setAuthor] = useState(agents[0]?.agentId || '')
+  const [author, setAuthor] = useState<string | null>(agents[0]?.agentId || null)
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
   const [tagsStr, setTagsStr] = useState('')
 
+  const canPost = title.trim().length > 0 && body.trim().length > 0
+
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)' }}>
-      <div style={{ width: '520px', maxHeight: '80vh', overflow: 'auto', borderRadius: '18px', background: 'rgba(15,19,40,0.98)', border: '1px solid rgba(255,255,255,0.08)', padding: '24px' }}>
+    <div
+      style={{ position: 'fixed', inset: 0, zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)' }}
+      onClick={onClose}
+    >
+      <div
+        style={{ width: '520px', maxHeight: '80vh', overflow: 'auto', borderRadius: '18px', background: 'rgba(15,19,40,0.98)', border: '1px solid rgba(255,255,255,0.08)', padding: '24px' }}
+        onClick={e => e.stopPropagation()}
+      >
         <h3 style={{ margin: '0 0 16px', fontSize: '16px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Plus size={16} color="#6366f1" /> New Post
         </h3>
@@ -336,21 +651,45 @@ function CreatePostModal({ channels, agents, onPost, onClose }: {
             </select>
           </div>
           <div>
-            <div style={s.label}>Post As (Agent)</div>
-            <select value={author} onChange={e => setAuthor(e.target.value)} style={{ ...s.input, marginTop: '4px' }}>
+            <div style={s.label}>Post As</div>
+            <select
+              value={author || '__human__'}
+              onChange={e => setAuthor(e.target.value === '__human__' ? null : e.target.value)}
+              style={{ ...s.input, marginTop: '4px' }}
+            >
+              {address && <option value="__human__">Myself ({address.slice(0, 6)}...{address.slice(-4)})</option>}
               {agents.map(a => <option key={a.agentId} value={a.agentId}>{a.name} ({a.role})</option>)}
             </select>
           </div>
         </div>
 
         <div style={{ marginBottom: '12px' }}>
-          <div style={s.label}>Title</div>
-          <input value={title} onChange={e => setTitle(e.target.value)} placeholder="What's on your mind?" style={{ ...s.input, marginTop: '4px' }} />
+          <div style={{ ...s.label, display: 'flex', justifyContent: 'space-between' }}>
+            <span>Title</span>
+            <span style={{ color: title.length > MAX_TITLE_LENGTH * 0.9 ? '#ef4444' : undefined }}>{title.length}/{MAX_TITLE_LENGTH}</span>
+          </div>
+          <input
+            value={title}
+            onChange={e => setTitle(e.target.value.slice(0, MAX_TITLE_LENGTH))}
+            maxLength={MAX_TITLE_LENGTH}
+            placeholder="What's on your mind?"
+            style={{ ...s.input, marginTop: '4px' }}
+          />
         </div>
 
         <div style={{ marginBottom: '12px' }}>
-          <div style={s.label}>Body</div>
-          <textarea value={body} onChange={e => setBody(e.target.value)} placeholder="Share your thoughts, analysis, ideas..." rows={5} style={{ ...s.input, marginTop: '4px', resize: 'vertical' as const }} />
+          <div style={{ ...s.label, display: 'flex', justifyContent: 'space-between' }}>
+            <span>Body</span>
+            <span style={{ color: body.length > MAX_BODY_LENGTH * 0.9 ? '#ef4444' : undefined }}>{body.length}/{MAX_BODY_LENGTH}</span>
+          </div>
+          <textarea
+            value={body}
+            onChange={e => setBody(e.target.value.slice(0, MAX_BODY_LENGTH))}
+            maxLength={MAX_BODY_LENGTH}
+            placeholder="Share your thoughts, analysis, ideas..."
+            rows={5}
+            style={{ ...s.input, marginTop: '4px', resize: 'vertical' as const }}
+          />
         </div>
 
         <div style={{ marginBottom: '16px' }}>
@@ -360,12 +699,16 @@ function CreatePostModal({ channels, agents, onPost, onClose }: {
 
         <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
           <button onClick={onClose} style={s.btn('#6b7280')}>Cancel</button>
-          <button onClick={() => {
-            if (!title.trim() || !body.trim()) return
-            const tags = tagsStr.split(',').map(t => t.trim()).filter(Boolean)
-            onPost({ channelId: channel, authorId: author, title: title.trim(), body: body.trim(), tags })
-            onClose()
-          }} style={s.btn('#6366f1')}>
+          <button
+            disabled={!canPost}
+            onClick={() => {
+              if (!canPost) return
+              const tags = tagsStr.split(',').map(t => t.trim()).filter(Boolean).slice(0, 10)
+              onPost({ channelId: channel, authorId: author, title: title.trim(), body: body.trim(), tags })
+              onClose()
+            }}
+            style={{ ...s.btn('#6366f1'), opacity: canPost ? 1 : 0.4, cursor: canPost ? 'pointer' : 'not-allowed' }}
+          >
             <Send size={12} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
             Post
           </button>
@@ -388,8 +731,12 @@ export default function AgentCommunityApp() {
   const [sort, setSort] = useState<'hot' | 'new' | 'top'>('hot')
   const [search, setSearch] = useState('')
   const [showCreatePost, setShowCreatePost] = useState(false)
+  const [openPostId, setOpenPostId] = useState<string | null>(null)
 
   const useSupabase = useRef(false)
+
+  // Voter identity — null when wallet not connected (disables voting)
+  const voterId = address || null
 
   // Load from Supabase first, fall back to localStorage
   useEffect(() => {
@@ -437,7 +784,9 @@ export default function AgentCommunityApp() {
       // Persist to Supabase in background
       if (useSupabase.current) {
         const { replies: _r, ...rest } = newPost
-        supabaseData.insertCommunityPost(postToRow({ ...rest, replies: [] })).catch(() => { })
+        supabaseData.insertCommunityPost(postToRow({ ...rest, replies: [] } as Post)).catch((err) => {
+          console.warn('[Community] Supabase post insert failed:', err)
+        })
       }
     })
     const unsub2 = eventBus.on('community:reply_created', (event) => {
@@ -453,16 +802,21 @@ export default function AgentCommunityApp() {
       })
       // Persist reply to Supabase
       if (useSupabase.current) {
-        supabaseData.insertCommunityReply(replyToRow(newReply)).catch(() => { })
+        supabaseData.insertCommunityReply(replyToRow(newReply)).catch((err) => {
+          console.warn('[Community] Supabase reply insert failed:', err)
+        })
       }
     })
-    // Poll localStorage every 10s for changes from autonomy engine when Supabase is down
-    const poll = setInterval(() => {
-      if (!useSupabase.current) {
-        try { setPosts(JSON.parse(localStorage.getItem(POSTS_KEY) || '[]')) } catch { /* */ }
+
+    // Listen for localStorage changes from other tabs/autonomy engine
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === POSTS_KEY && e.newValue && !useSupabase.current) {
+        try { setPosts(JSON.parse(e.newValue)) } catch { /* */ }
       }
-    }, 10000)
-    return () => { unsub1(); unsub2(); clearInterval(poll) }
+    }
+    window.addEventListener('storage', handleStorageChange)
+
+    return () => { unsub1(); unsub2(); window.removeEventListener('storage', handleStorageChange) }
   }, [])
 
   const savePosts = useCallback((updated: Post[]) => {
@@ -470,20 +824,21 @@ export default function AgentCommunityApp() {
     setPosts(updated)
   }, [])
 
-  // Posts load from localStorage on mount (line 318–324)
-  // Empty state is handled in the JSX below
+  // Create post — supports both agent and human authors
+  const handleCreatePost = useCallback((data: { channelId: string; authorId: string | null; title: string; body: string; tags: string[] }) => {
+    const isHuman = data.authorId === null
+    const agent = isHuman ? null : (allAgents.find(a => a.agentId === data.authorId) || myAgents[0])
 
-  // Create post
-  const handleCreatePost = useCallback((data: { channelId: string; authorId: string; title: string; body: string; tags: string[] }) => {
-    const agent = allAgents.find(a => a.agentId === data.authorId) || myAgents[0]
-    if (!agent) return
+    if (!isHuman && !agent) return
+    if (isHuman && !address) return
+
     const post: Post = {
-      id: `post_${Date.now()}`,
+      id: generateId('post'),
       channelId: data.channelId,
-      authorId: agent.agentId,
-      authorName: agent.name,
-      authorRole: agent.role,
-      authorReputation: agent.reputation,
+      authorId: isHuman ? address! : agent!.agentId,
+      authorName: isHuman ? `${address!.slice(0, 6)}...${address!.slice(-4)}` : agent!.name,
+      authorRole: isHuman ? 'human' : agent!.role,
+      authorReputation: isHuman ? 0 : agent!.reputation,
       title: data.title,
       body: data.body,
       upvotes: 0,
@@ -494,75 +849,98 @@ export default function AgentCommunityApp() {
       pinned: false,
       tags: data.tags,
       createdAt: Date.now(),
+      isHuman,
     }
     savePosts([post, ...posts])
 
     // Persist to Supabase
     if (useSupabase.current) {
-      const { replies: _r, ...postRow } = post
-      supabaseData.insertCommunityPost(postRow as any).catch(() => { })
+      const { replies: _r, ...postData } = post
+      supabaseData.insertCommunityPost(postToRow({ ...postData, replies: [] } as Post)).catch((err) => {
+        console.warn('[Community] Supabase post insert failed:', err)
+      })
     }
 
-    citizenIdentity.recordAction(agent.agentId, {
-      type: 'TASK_COMPLETED',
-      description: `Posted "${data.title}" in #${data.channelId}`,
-      timestamp: Date.now(),
-      metadata: { postId: post.id, channel: data.channelId },
-      reputationDelta: 2,
-      financialImpact: '0',
-    })
-  }, [allAgents, myAgents, posts, savePosts])
+    if (!isHuman && agent) {
+      citizenIdentity.recordAction(agent.agentId, {
+        type: 'TASK_COMPLETED',
+        description: `Posted "${data.title}" in #${data.channelId}`,
+        timestamp: Date.now(),
+        metadata: { postId: post.id, channel: data.channelId },
+        reputationDelta: 2,
+        financialImpact: '0',
+      })
+    }
+
+    toast.success('Post created')
+  }, [allAgents, myAgents, posts, savePosts, address])
 
   // Vote on post
-  const handleVote = useCallback((postId: string, dir: 'up' | 'down') => {
-    const voterId = address || 'anon'
-    const updated = posts.map(p => {
-      if (p.id !== postId) return p
-      const prevVote = p.votedBy[voterId]
-      const newVotedBy = { ...p.votedBy }
-      let upDelta = 0, downDelta = 0
+  const handleVote = useCallback((targetId: string, dir: 'up' | 'down') => {
+    if (!voterId) return
 
-      if (prevVote === dir) {
-        // Remove vote
-        delete newVotedBy[voterId]
-        if (dir === 'up') upDelta = -1
-        else downDelta = -1
-      } else {
-        newVotedBy[voterId] = dir
-        if (prevVote === 'up') upDelta = -1
-        if (prevVote === 'down') downDelta = -1
-        if (dir === 'up') upDelta += 1
-        else downDelta += 1
+    // Check if this is a reply vote (format: "postId:replyId")
+    if (targetId.includes(':')) {
+      const [postId, replyId] = targetId.split(':')
+      const updated = posts.map(p => {
+        if (p.id !== postId) return p
+        const updatedReplies = p.replies.map(r =>
+          r.id === replyId ? applyVote(r, voterId, dir) : r
+        )
+        return { ...p, replies: updatedReplies }
+      })
+      savePosts(updated)
+
+      // Persist reply vote to Supabase
+      if (useSupabase.current) {
+        const post = updated.find(p => p.id === postId)
+        const reply = post?.replies.find(r => r.id === replyId)
+        if (reply) {
+          supabaseData.updateReplyVotes(replyId, reply.upvotes, reply.downvotes, reply.votedBy).catch((err) => {
+            console.warn('[Community] Supabase reply vote update failed:', err)
+          })
+        }
       }
+      return
+    }
 
-      return { ...p, upvotes: p.upvotes + upDelta, downvotes: p.downvotes + downDelta, votedBy: newVotedBy }
-    })
+    // Post vote
+    const updated = posts.map(p =>
+      p.id === targetId ? applyVote(p, voterId, dir) : p
+    )
     savePosts(updated)
 
     // Persist vote to Supabase
     if (useSupabase.current) {
-      const updatedPost = updated.find(p => p.id === postId)
+      const updatedPost = updated.find(p => p.id === targetId)
       if (updatedPost) {
-        supabaseData.updatePostVotes(postId, updatedPost.upvotes, updatedPost.downvotes, updatedPost.votedBy).catch(() => { })
+        supabaseData.updatePostVotes(targetId, updatedPost.upvotes, updatedPost.downvotes, updatedPost.votedBy).catch((err) => {
+          console.warn('[Community] Supabase post vote update failed:', err)
+        })
       }
     }
-  }, [address, posts, savePosts])
+  }, [voterId, posts, savePosts])
 
-  // Reply to post
-  const handleReply = useCallback((postId: string, body: string) => {
-    const agent = myAgents[0] || allAgents[0]
-    if (!agent) return
+  // Reply to post — supports both agent and human authors
+  const handleReply = useCallback((postId: string, body: string, authorId: string | null) => {
+    const isHuman = authorId === null
+    const agent = isHuman ? null : (myAgents.find(a => a.agentId === authorId) || allAgents.find(a => a.agentId === authorId) || myAgents[0])
+
+    if (!isHuman && !agent) return
+    if (isHuman && !address) return
+
     const reply: Reply = {
-      id: `reply_${Date.now()}`,
+      id: generateId('reply'),
       postId,
-      authorId: agent.agentId,
-      authorName: agent.name,
-      authorRole: agent.role,
+      authorId: isHuman ? address! : agent!.agentId,
+      authorName: isHuman ? `${address!.slice(0, 6)}...${address!.slice(-4)}` : agent!.name,
+      authorRole: isHuman ? 'human' : agent!.role,
       body,
       upvotes: 0,
       downvotes: 0,
       votedBy: {},
       createdAt: Date.now(),
+      isHuman,
     }
     const updated = posts.map(p =>
       p.id === postId ? { ...p, replies: [...p.replies, reply], replyCount: p.replyCount + 1 } : p
@@ -571,22 +949,57 @@ export default function AgentCommunityApp() {
 
     // Persist reply to Supabase
     if (useSupabase.current) {
-      supabaseData.insertCommunityReply(reply as any).catch(() => { })
+      supabaseData.insertCommunityReply(replyToRow(reply)).catch((err) => {
+        console.warn('[Community] Supabase reply insert failed:', err)
+      })
       const updatedPost = updated.find(p => p.id === postId)
       if (updatedPost) {
-        supabaseData.updatePostReplyCount(postId, updatedPost.replyCount).catch(() => { })
+        supabaseData.updatePostReplyCount(postId, updatedPost.replyCount).catch((err) => {
+          console.warn('[Community] Supabase reply count update failed:', err)
+        })
       }
     }
 
-    citizenIdentity.recordAction(agent.agentId, {
-      type: 'TASK_COMPLETED',
-      description: `Replied in community thread`,
-      timestamp: Date.now(),
-      metadata: { postId, replyId: reply.id },
-      reputationDelta: 1,
-      financialImpact: '0',
-    })
-  }, [allAgents, myAgents, posts, savePosts])
+    if (!isHuman && agent) {
+      citizenIdentity.recordAction(agent.agentId, {
+        type: 'TASK_COMPLETED',
+        description: `Replied in community thread`,
+        timestamp: Date.now(),
+        metadata: { postId, replyId: reply.id },
+        reputationDelta: 1,
+        financialImpact: '0',
+      })
+    }
+  }, [allAgents, myAgents, posts, savePosts, address])
+
+  // Delete post
+  const handleDelete = useCallback((postId: string) => {
+    const post = posts.find(p => p.id === postId)
+    if (!post) return
+
+    // Only allow deletion by the author (matching address or owned agent)
+    const isOwner = address && (
+      post.authorId === address ||
+      myAgents.some(a => a.agentId === post.authorId)
+    )
+    if (!isOwner) {
+      toast.error('You can only delete your own posts')
+      return
+    }
+
+    const updated = posts.filter(p => p.id !== postId)
+    savePosts(updated)
+
+    // If viewing the deleted post, go back
+    if (openPostId === postId) setOpenPostId(null)
+
+    toast.success('Post deleted')
+  }, [posts, savePosts, address, myAgents, openPostId])
+
+  // Vote on reply (for PostDetailView)
+  const handleVoteReply = useCallback((postId: string, replyId: string, dir: 'up' | 'down') => {
+    handleVote(`${postId}:${replyId}`, dir)
+  }, [handleVote])
 
   // Filter & sort posts
   const filteredPosts = useMemo(() => {
@@ -596,7 +1009,7 @@ export default function AgentCommunityApp() {
       const q = search.toLowerCase()
       result = result.filter(p =>
         p.title.toLowerCase().includes(q) || p.body.toLowerCase().includes(q) ||
-        p.authorName.toLowerCase().includes(q) || p.tags.some(t => t.toLowerCase().includes(q))
+        p.authorName.toLowerCase().includes(q) || (p.tags || []).some(t => t.toLowerCase().includes(q))
       )
     }
 
@@ -632,7 +1045,20 @@ export default function AgentCommunityApp() {
   const totalPosts = posts.length
   const totalReplies = posts.reduce((sum, p) => sum + p.replyCount, 0)
   const uniqueAuthors = new Set(posts.map(p => p.authorId)).size
-  const voterId = address || 'anon'
+
+  // Reply agent options for the current user
+  const replyAgents = useMemo(() =>
+    (myAgents.length > 0 ? myAgents : allAgents.slice(0, 5)).map(a => ({
+      agentId: a.agentId, name: a.name, role: a.role,
+    })),
+    [myAgents, allAgents]
+  )
+
+  // Can the user post? Needs wallet OR agents
+  const canPost = address || myAgents.length > 0
+
+  // Currently open post (for detail view)
+  const openPost = openPostId ? posts.find(p => p.id === openPostId) || null : null
 
   return (
     <div style={s.page}>
@@ -641,9 +1067,9 @@ export default function AgentCommunityApp() {
         <MessageSquare size={20} color="#6366f1" />
         <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 700 }}>Community Centre</h2>
         <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.3)' }}>
-          Agent-to-Agent Discussions
+          Agents & Humans
         </span>
-        {myAgents.length > 0 && (
+        {canPost && !openPost && (
           <button onClick={() => setShowCreatePost(true)} style={{ ...s.btn('#6366f1'), marginLeft: 'auto' }}>
             <Plus size={12} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
             New Post
@@ -651,123 +1077,144 @@ export default function AgentCommunityApp() {
         )}
       </div>
 
-      {/* Stats bar */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', marginBottom: '16px' }}>
-        {[
-          { label: 'Posts', value: totalPosts, color: '#6366f1', icon: <MessageSquare size={12} /> },
-          { label: 'Replies', value: totalReplies, color: '#22c55e', icon: <Send size={12} /> },
-          { label: 'Active Agents', value: uniqueAuthors, color: '#f59e0b', icon: <Users size={12} /> },
-          { label: 'Channels', value: channels.length, color: '#3b82f6', icon: <Hash size={12} /> },
-        ].map(stat => (
-          <div key={stat.label} style={{ ...s.card, padding: '12px', marginBottom: 0 }}>
-            <div style={{ ...s.label, display: 'flex', alignItems: 'center', gap: '4px' }}>
-              {stat.icon} {stat.label}
-            </div>
-            <div style={{ fontSize: '18px', fontWeight: 700, color: stat.color, marginTop: '4px' }}>{stat.value}</div>
+      {/* Post Detail View */}
+      {openPost ? (
+        <PostDetailView
+          post={openPost}
+          onBack={() => setOpenPostId(null)}
+          onVote={handleVote}
+          onReply={handleReply}
+          onVoteReply={handleVoteReply}
+          onDelete={handleDelete}
+          voterId={voterId}
+          replyAgents={replyAgents}
+          address={address}
+        />
+      ) : (
+        <>
+          {/* Stats bar */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', marginBottom: '16px' }}>
+            {[
+              { label: 'Posts', value: totalPosts, color: '#6366f1', icon: <MessageSquare size={12} /> },
+              { label: 'Replies', value: totalReplies, color: '#22c55e', icon: <Send size={12} /> },
+              { label: 'Contributors', value: uniqueAuthors, color: '#f59e0b', icon: <Users size={12} /> },
+              { label: 'Channels', value: channels.length, color: '#3b82f6', icon: <Hash size={12} /> },
+            ].map(stat => (
+              <div key={stat.label} style={{ ...s.card, padding: '12px', marginBottom: 0 }}>
+                <div style={{ ...s.label, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  {stat.icon} {stat.label}
+                </div>
+                <div style={{ fontSize: '18px', fontWeight: 700, color: stat.color, marginTop: '4px' }}>{stat.value}</div>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
 
-      <div style={{ display: 'flex', gap: '16px' }}>
-        {/* Sidebar — Channels */}
-        <div style={{ width: '180px', flexShrink: 0 }}>
-          <div style={{ ...s.label, marginBottom: '8px' }}>Channels</div>
-          <button onClick={() => setActiveChannel('all')} style={{
-            width: '100%', textAlign: 'left', padding: '8px 10px', borderRadius: '8px', border: 'none', cursor: 'pointer',
-            background: activeChannel === 'all' ? 'rgba(99,102,241,0.15)' : 'transparent',
-            color: activeChannel === 'all' ? '#818cf8' : 'rgba(255,255,255,0.5)',
-            fontSize: '12px', fontWeight: 600, fontFamily: 'inherit', marginBottom: '2px',
-            transition: 'all 0.15s',
-          }}>
-            🌐 All Posts ({posts.length})
-          </button>
-          {channels.map(ch => (
-            <button key={ch.id} onClick={() => setActiveChannel(ch.id)} style={{
-              width: '100%', textAlign: 'left', padding: '8px 10px', borderRadius: '8px', border: 'none', cursor: 'pointer',
-              background: activeChannel === ch.id ? `${ch.color}15` : 'transparent',
-              color: activeChannel === ch.id ? ch.color : 'rgba(255,255,255,0.5)',
-              fontSize: '12px', fontWeight: 600, fontFamily: 'inherit', marginBottom: '2px',
-              transition: 'all 0.15s',
-            }}>
-              {ch.icon} {ch.name} ({channelPostCounts[ch.id] || 0})
-            </button>
-          ))}
-        </div>
-
-        {/* Main feed */}
-        <div style={{ flex: 1 }}>
-          {/* Sort & search */}
-          <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
-            <div style={{ display: 'flex', gap: '4px' }}>
-              {([
-                { key: 'hot' as const, label: 'Hot', icon: <TrendingUp size={10} /> },
-                { key: 'new' as const, label: 'New', icon: <Clock size={10} /> },
-                { key: 'top' as const, label: 'Top', icon: <Award size={10} /> },
-              ]).map(s2 => (
-                <button key={s2.key} onClick={() => setSort(s2.key)} style={{
-                  ...s.tab(sort === s2.key), display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', padding: '6px 12px',
+          <div style={{ display: 'flex', gap: '16px' }}>
+            {/* Sidebar — Channels */}
+            <div style={{ width: '180px', flexShrink: 0 }}>
+              <div style={{ ...s.label, marginBottom: '8px' }}>Channels</div>
+              <button onClick={() => setActiveChannel('all')} style={{
+                width: '100%', textAlign: 'left', padding: '8px 10px', borderRadius: '8px', border: 'none', cursor: 'pointer',
+                background: activeChannel === 'all' ? 'rgba(99,102,241,0.15)' : 'transparent',
+                color: activeChannel === 'all' ? '#818cf8' : 'rgba(255,255,255,0.5)',
+                fontSize: '12px', fontWeight: 600, fontFamily: 'inherit', marginBottom: '2px',
+                transition: 'all 0.15s',
+              }}>
+                🌐 All Posts ({posts.length})
+              </button>
+              {channels.map(ch => (
+                <button key={ch.id} onClick={() => setActiveChannel(ch.id)} style={{
+                  width: '100%', textAlign: 'left', padding: '8px 10px', borderRadius: '8px', border: 'none', cursor: 'pointer',
+                  background: activeChannel === ch.id ? `${ch.color}15` : 'transparent',
+                  color: activeChannel === ch.id ? ch.color : 'rgba(255,255,255,0.5)',
+                  fontSize: '12px', fontWeight: 600, fontFamily: 'inherit', marginBottom: '2px',
+                  transition: 'all 0.15s',
                 }}>
-                  {s2.icon} {s2.label}
+                  {ch.icon} {ch.name} ({channelPostCounts[ch.id] || 0})
                 </button>
               ))}
             </div>
-            <div style={{ flex: 1, position: 'relative' }}>
-              <Search size={12} color="rgba(255,255,255,0.3)" style={{ position: 'absolute', left: '10px', top: '10px' }} />
-              <input
-                value={search} onChange={e => setSearch(e.target.value)}
-                placeholder="Search posts, tags, agents..."
-                style={{ ...s.input, paddingLeft: '30px', fontSize: '12px', padding: '8px 12px 8px 30px' }}
-              />
+
+            {/* Main feed */}
+            <div style={{ flex: 1 }}>
+              {/* Sort & search */}
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+                <div style={{ display: 'flex', gap: '4px' }}>
+                  {([
+                    { key: 'hot' as const, label: 'Hot', icon: <TrendingUp size={10} /> },
+                    { key: 'new' as const, label: 'New', icon: <Clock size={10} /> },
+                    { key: 'top' as const, label: 'Top', icon: <Award size={10} /> },
+                  ]).map(s2 => (
+                    <button key={s2.key} onClick={() => setSort(s2.key)} style={{
+                      ...s.tab(sort === s2.key), display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', padding: '6px 12px',
+                    }}>
+                      {s2.icon} {s2.label}
+                    </button>
+                  ))}
+                </div>
+                <div style={{ flex: 1, position: 'relative' }}>
+                  <Search size={12} color="rgba(255,255,255,0.3)" style={{ position: 'absolute', left: '10px', top: '10px' }} />
+                  <input
+                    value={search} onChange={e => setSearch(e.target.value)}
+                    placeholder="Search posts, tags, agents..."
+                    style={{ ...s.input, paddingLeft: '30px', fontSize: '12px', padding: '8px 12px 8px 30px' }}
+                  />
+                </div>
+              </div>
+
+              {/* Posts — skeleton loading, empty, or list */}
+              {posts.length === 0 && allAgents.length === 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <SkeletonCard lines={3} />
+                  <SkeletonCard lines={2} />
+                  <SkeletonCard lines={4} />
+                </div>
+              )}
+              {filteredPosts.length === 0 && posts.length > 0 && search && (
+                <NoResults query={search} />
+              )}
+              {filteredPosts.length === 0 && posts.length === 0 && (allAgents.length > 0 || address) && canPost && (
+                <EmptyState
+                  icon={<MessageSquare size={28} />}
+                  title="No posts yet"
+                  description="Start the conversation! Create the first post in the community."
+                  action={{ label: 'Create Post', onClick: () => setShowCreatePost(true) }}
+                />
+              )}
+              {filteredPosts.length === 0 && posts.length === 0 && !canPost && (
+                <EmptyState
+                  icon={<MessageSquare size={28} />}
+                  title="No posts yet"
+                  description="Connect your wallet or spawn an agent to start the conversation."
+                />
+              )}
+
+              {filteredPosts.map(post => (
+                <PostCard
+                  key={post.id}
+                  post={post}
+                  onVote={handleVote}
+                  onReply={handleReply}
+                  onOpen={setOpenPostId}
+                  onDelete={handleDelete}
+                  voterId={voterId}
+                  replyAgents={replyAgents}
+                  address={address}
+                />
+              ))}
             </div>
           </div>
-
-          {/* Posts — skeleton loading, empty, or list */}
-          {posts.length === 0 && allAgents.length === 0 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <SkeletonCard lines={3} />
-              <SkeletonCard lines={2} />
-              <SkeletonCard lines={4} />
-            </div>
-          )}
-          {filteredPosts.length === 0 && posts.length > 0 && search && (
-            <NoResults query={search} />
-          )}
-          {filteredPosts.length === 0 && posts.length === 0 && allAgents.length > 0 && myAgents.length > 0 && (
-            <EmptyState
-              icon={<MessageSquare size={28} />}
-              title="No posts yet"
-              description="Start the conversation! Create the first post in the community."
-              action={{ label: 'Create Post', onClick: () => setShowCreatePost(true) }}
-            />
-          )}
-          {filteredPosts.length === 0 && posts.length === 0 && allAgents.length > 0 && myAgents.length === 0 && (
-            <EmptyState
-              icon={<MessageSquare size={28} />}
-              title="No posts yet"
-              description="Spawn an agent first, then start the conversation in the community."
-            />
-          )}
-
-          {filteredPosts.map(post => (
-            <PostCard
-              key={post.id}
-              post={post}
-              onVote={handleVote}
-              onReply={handleReply}
-              onOpen={() => { }}
-              voterId={voterId}
-            />
-          ))}
-        </div>
-      </div>
+        </>
+      )}
 
       {/* Create Post Modal */}
-      {showCreatePost && (myAgents.length > 0 || allAgents.length > 0) && (
+      {showCreatePost && canPost && (
         <CreatePostModal
           channels={channels}
           agents={(myAgents.length > 0 ? myAgents : allAgents.slice(0, 5)).map(a => ({
             agentId: a.agentId, name: a.name, role: a.role, reputation: a.reputation,
           }))}
+          address={address}
           onPost={handleCreatePost}
           onClose={() => setShowCreatePost(false)}
         />
