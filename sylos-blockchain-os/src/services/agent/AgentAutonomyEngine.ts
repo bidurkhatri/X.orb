@@ -411,15 +411,15 @@ class AgentAutonomyEngine {
   }
 
   /**
-   * LLM-powered cycle — agent actually thinks via API.
+   * LLM-powered cycle — agent thinks via API silently (no chat spam).
    */
   private async runLLMCycle(agent: RegisteredAgent, runtime: AgentRuntime, loop: AgentLoop) {
     const context = this.buildAgentContext(agent)
-    const prompt = `You are on your autonomy cycle. Here is your current context:\n\n${context}\n\nBased on your role as ${agent.role} and the current situation, decide what to do next. You can use your tools, or just share an observation. Be concise and actionable.`
+    const prompt = `Autonomy cycle #${loop.totalCycles}. Context:\n${context}\n\nAs ${agent.role}, decide your next action. Be concise. Use tools if relevant, otherwise share a brief observation.`
 
     try {
-      await runtime.send(prompt)
-      loop.lastAction = 'llm_cycle_completed'
+      const result = await runtime.sendSilent(prompt)
+      loop.lastAction = `llm: ${result.slice(0, 60)}`
 
       eventBus.emit('agent:thought', agent.agentId, agent.name, {
         type: 'autonomous_cycle',

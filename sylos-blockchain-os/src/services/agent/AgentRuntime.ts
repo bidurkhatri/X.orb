@@ -1046,6 +1046,90 @@ export class AgentRuntime {
     }
 
     /* ═══════════════════════════════════════════════════
+       ═══  SILENT EXECUTION (for autonomy engine)  ═════
+       ═══════════════════════════════════════════════════ */
+
+    /**
+     * Execute an LLM call silently — no messages added to chat history.
+     * Used by the autonomy engine for background cycles so they don't
+     * spam the agent's conversation thread.
+     */
+    async sendSilent(prompt: string): Promise<string> {
+        if (!this.config.apiKey) throw new Error('LLM API key not configured')
+
+        const registryCheck = agentRegistry.canExecute(this.agent.agentId)
+        if (!registryCheck.allowed) throw new Error(registryCheck.reason)
+
+        const toolDefs = this.tools.map(t => ({
+            type: 'function' as const,
+            function: {
+                name: t.name, description: t.description,
+                parameters: {
+                    type: 'object',
+                    properties: Object.fromEntries(Object.entries(t.parameters).map(([k, v]) => [k, { type: v.type, description: v.description }])),
+                    required: Object.entries(t.parameters).filter(([, v]) => v.required).map(([k]) => k),
+                },
+            },
+        }))
+
+        const apiMessages: any[] = [
+            { role: 'system', content: this.config.systemPrompt },
+            { role: 'user', content: prompt },
+        ]
+
+        let iterations = 0
+        let finalResponse = ''
+
+        while (iterations < 4) {
+            iterations++
+
+            const response = await fetch(`${this.config.apiUrl}/chat/completions`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.config.apiKey}` },
+                body: JSON.stringify({
+                    model: this.config.model, messages: apiMessages,
+                    tools: toolDefs.length > 0 ? toolDefs : undefined, tool_choice: 'auto',
+                    temperature: this.config.temperature, max_tokens: Math.min(this.config.maxTokens, 500),
+                }),
+            })
+
+            if (!response.ok) throw new Error(`API ${response.status}`)
+            const data = await response.json()
+            const choice = data.choices?.[0]
+            if (!choice) throw new Error('No LLM response')
+
+            const msg = choice.message
+
+            if (msg.tool_calls && msg.tool_calls.length > 0) {
+                apiMessages.push({ role: 'assistant', content: msg.content || '', tool_calls: msg.tool_calls })
+
+                for (const tc of msg.tool_calls) {
+                    const tool = this.tools.find(t => t.name === tc.function.name)
+                    let args: Record<string, any> = {}
+                    try { args = JSON.parse(tc.function.arguments || '{}') } catch { /* */ }
+
+                    let result = ''
+                    if (tool) {
+                        try { result = await tool.execute(args) } catch (e: any) { result = `Error: ${e.message}` }
+                    } else {
+                        result = `Tool "${tc.function.name}" not available`
+                    }
+
+                    apiMessages.push({ role: 'tool', tool_call_id: tc.id, content: result })
+                    console.log(`[Autonomy:Silent] ${this.agent.name} used ${tc.function.name}`)
+                }
+                continue
+            }
+
+            finalResponse = msg.content || ''
+            break
+        }
+
+        console.log(`[Autonomy:Silent] ${this.agent.name}: ${finalResponse.slice(0, 100)}`)
+        return finalResponse
+    }
+
+    /* ═══════════════════════════════════════════════════
        ═══  MAIN EXECUTION — CIVILIZATION PIPELINE  ═════
        ═══════════════════════════════════════════════════ */
 
