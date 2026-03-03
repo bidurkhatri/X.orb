@@ -26,6 +26,7 @@ import TransactionQueueApp from './apps/TransactionQueueApp'
 import AgentCommunityApp from './apps/AgentCommunityApp'
 import HireHumansApp from './apps/HireHumansApp'
 import PixelWorldApp from './apps/PixelWorldApp'
+import AgentIDEApp from './apps/AgentIDEApp'
 import DeFiInterface from './dashboard/DeFiInterface'
 import StakingInterface from './dashboard/StakingInterface'
 import GovernanceInterface from './dashboard/GovernanceInterface'
@@ -527,6 +528,7 @@ function DesktopInner() {
     { id: 'notes', title: 'Notes', icon: <StickyNote size={26} />, description: 'Create, search, and pin notes', component: <ErrorBoundary level="component"><NotesApp /></ErrorBoundary>, category: 'system' },
     { id: 'activity-monitor', title: 'Activity', icon: <Cpu size={26} />, description: 'System processes & resource monitor', component: <ErrorBoundary level="component"><ActivityMonitorApp /></ErrorBoundary>, category: 'system' },
     { id: 'app-store', title: 'App Store', icon: <Store size={26} />, description: '16+ sandboxed Web3 dApps', component: <ErrorBoundary level="component"><AppStoreApp /></ErrorBoundary>, category: 'system' },
+    { id: 'ide', title: 'IDE', icon: <Terminal size={26} />, description: 'Monaco Editor — write and edit code in-browser', component: <ErrorBoundary level="component"><AgentIDEApp /></ErrorBoundary>, category: 'system' },
   ], [])
 
   const favorites = useMemo(() => {
