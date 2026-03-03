@@ -52,7 +52,7 @@
     "@web3auth/modal": "^9.7.0",
     "@web3auth/mpc-core-kit": "^3.5.0",
     "@web3auth/web3auth-wagmi-connector": "^7.0.0",
-    "@xmtp/xmtp-js": "^13.0.4",
+    "@xmtp/browser-sdk": "^6.4.0",
     "@xterm/addon-fit": "^0.11.0",
     "@xterm/xterm": "^6.0.0",
     "axios": "^1.6.0",

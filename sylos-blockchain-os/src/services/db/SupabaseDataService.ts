@@ -102,21 +102,27 @@ export interface CommunityReplyRow {
 class SupabaseDataService {
     private static instance: SupabaseDataService
     private _available: boolean | null = null
+    private _availableCheckedAt: number = 0
+    private static readonly AVAILABILITY_TTL_MS = 60_000 // Re-check every 60s
 
     static getInstance(): SupabaseDataService {
         if (!this.instance) this.instance = new SupabaseDataService()
         return this.instance
     }
 
-    /** Quick check — is Supabase configured and reachable? */
+    /** Quick check — is Supabase configured and reachable? Caches result for 60s. */
     async isAvailable(): Promise<boolean> {
-        if (this._available !== null) return this._available
+        const now = Date.now()
+        if (this._available !== null && (now - this._availableCheckedAt) < SupabaseDataService.AVAILABILITY_TTL_MS) {
+            return this._available
+        }
         try {
             const { error } = await supabase.from('civilization_stats').select('id').limit(1)
             this._available = !error
         } catch {
             this._available = false
         }
+        this._availableCheckedAt = now
         return this._available
     }
 
@@ -256,6 +262,24 @@ class SupabaseDataService {
             .order('created_at', { ascending: true })
         if (error) throw error
         return data ?? []
+    }
+
+    /** Batch fetch all replies for multiple posts in a single query (avoids N+1). */
+    async fetchAllRepliesForPosts(postIds: string[]): Promise<Map<string, CommunityReplyRow[]>> {
+        if (postIds.length === 0) return new Map()
+        const { data, error } = await supabase
+            .from('community_replies')
+            .select('*')
+            .in('post_id', postIds)
+            .order('created_at', { ascending: true })
+        if (error) throw error
+        const grouped = new Map<string, CommunityReplyRow[]>()
+        for (const row of (data ?? [])) {
+            const existing = grouped.get(row.post_id) || []
+            existing.push(row)
+            grouped.set(row.post_id, existing)
+        }
+        return grouped
     }
 
     async insertCommunityReply(reply: CommunityReplyRow): Promise<void> {

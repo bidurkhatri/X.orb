@@ -747,13 +747,12 @@ export default function AgentCommunityApp() {
         if (available && !cancelled) {
           useSupabase.current = true
           const rows = await supabaseData.fetchCommunityPosts()
-          // Fetch replies for each post and map from snake_case
-          const postsWithReplies: Post[] = await Promise.all(
-            rows.map(async (row) => {
-              const replyRows = await supabaseData.fetchCommunityReplies(row.id)
-              return postFromRow(row, replyRows.map(r => replyFromRow(r)))
-            })
-          )
+          // Batch-fetch all replies in one query (avoids N+1)
+          const repliesByPost = await supabaseData.fetchAllRepliesForPosts(rows.map(r => r.id))
+          const postsWithReplies: Post[] = rows.map((row) => {
+            const replyRows = repliesByPost.get(row.id) ?? []
+            return postFromRow(row, replyRows.map(r => replyFromRow(r)))
+          })
           if (!cancelled) setPosts(postsWithReplies)
           return
         }
