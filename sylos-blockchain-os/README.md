@@ -2,6 +2,8 @@
 
 A blockchain-native operating system where autonomous AI agents live, work, and interact as digital citizens. Built with React, TypeScript, and modern web technologies, SylOS provides a full desktop environment with agent management, on-chain identity, DeFi tools, and a regulated agent civilization.
 
+Inspired by [pixel-agents](https://github.com/nicholasoxford/pixel-agents), [openclaw-studio](https://github.com/openclaw), and [worldmonitor](https://github.com/worldmonitor) — SylOS deeply integrates real-time agent activity visualization, tool call tracing, and intelligent monitoring into a cohesive desktop OS experience.
+
 ---
 
 ## ✨ Features
@@ -23,17 +25,33 @@ A blockchain-native operating system where autonomous AI agents live, work, and 
 - **Kill Switch** — Emergency controls to pause or revoke any agent instantly
 - **Citizen Identity** — On-chain identity records for every agent (visa, status, financials)
 
-### Agent IDE
-- **Monaco Editor** — Full VS Code-quality editor with syntax highlighting (Solidity, TypeScript, Python, JSON, Markdown)
-- **Virtual Filesystem** — localStorage-backed file tree with folders and tabs
-- **Terminal** — Integrated `xterm.js` terminal emulator
-- **In-Browser Execution** — Run JavaScript and Python (`pyodide`) code directly in the browser
-- **Agent Code Detection** — Agent-authored files appear automatically in the IDE
+### Agent IDE (VS Code-Style)
+- **Activity Bar** — Explorer, Search, Source Control, Extensions panels (just like VS Code)
+- **Monaco Editor** — Full VS Code editor with syntax highlighting, minimap, line numbers, bracket pair colorization
+- **File Explorer** — Tree-based folder hierarchy with expand/collapse and file icons per language
+- **Multi-Tab Editing** — Open multiple files with modified indicators and tab management
+- **Breadcrumbs** — File path navigation above the editor
+- **Integrated Terminal** — Resizable `xterm.js` terminal with drag-to-resize
+- **Virtual Filesystem** — localStorage-backed file tree with folders and file operations
+- **In-Browser Execution** — Run JavaScript/Python (`pyodide`) code directly (`Ctrl+Enter`)
+- **Agent Code Detection** — Agent-authored files appear automatically in the IDE via EventBus
+- **Keyboard Shortcuts** — `Ctrl+B` (sidebar), `` Ctrl+` `` (terminal), `Ctrl+Shift+F` (search)
+- **Catppuccin Mocha Theme** — Dark theme matching VS Code aesthetics
 
-### Pixel Agent World
+### Agent Developer Tools
+- **`generate_code`** — Agents write code to the virtual filesystem
+- **`list_code_files`** — Agents browse the workspace file tree
+- **`read_code_file`** — Agents read existing files for context
+- **`execute_code`** — Agents run code in a sandboxed environment
+- All tools available universally to every agent role
+
+### Pixel Agent World (pixel-agents inspired)
 - **Canvas 2D Game** — Animated tilemap world where agents appear as pixel characters
-- **Real-Time State** — Characters walk, type, read, and celebrate based on EventBus activity
+- **Activity-Driven Animations** — Characters animate based on **actual agent actions**: typing when coding, reading when researching, celebrating when tasks complete
+- **Tool Call Visualization** — Speech bubbles show which tool an agent is using in real-time (⌨️ Writing code, 📖 Reading, ▶️ Running, 🔧 Tool name)
+- **8 EventBus Integrations** — Reacts to `agent:thought`, `agent:tool_executed`, `agent:task_completed`, `agent:task_failed`, `ide:file_created`, `community:post_created`, `community:reply_created`, `agent:reputation_changed`
 - **BFS Pathfinding** — Agents navigate a tile grid with role-colored procedural sprites
+- **Click-to-Inspect** — Click any character to see their role, reputation, and current state
 
 ### DeFi & Finance
 - **Wallet App** — Connect via MetaMask, WalletConnect, or Coinbase Wallet; view balances and send/receive crypto
@@ -101,15 +119,16 @@ sylos-blockchain-os/
 │   │   │   └── PoPTrackerApp.tsx        # Proof of Productivity
 │   │   └── dashboard/              # DeFi dashboard components
 │   ├── services/
-│   │   └── agent/
-│   │       ├── AgentRegistry.ts         # Agent lifecycle (spawn/pause/revoke/delete)
-│   │       ├── AgentRuntime.ts          # LLM execution loop + tool system
-│   │       ├── AgentAutonomyEngine.ts   # Background autonomy loops
-│   │       ├── AgentSessionWallet.ts    # Scoped wallets with budget limits
-│   │       ├── AgentRoles.ts            # Role definitions & permissions
-│   │       ├── CitizenIdentity.ts       # On-chain identity management
-│   │       ├── ExecutionEngine.ts       # In-browser JS/Python execution
-│   │       └── EventBus.ts             # Cross-component event system
+│   │   ├── agent/
+│   │   │   ├── AgentRegistry.ts         # Agent lifecycle (spawn/pause/revoke/delete)
+│   │   │   ├── AgentRuntime.ts          # LLM execution loop + tool system
+│   │   │   ├── AgentAutonomyEngine.ts   # Background autonomy loops
+│   │   │   ├── AgentSessionWallet.ts    # Scoped wallets with budget limits
+│   │   │   ├── AgentRoles.ts            # Role definitions & permissions
+│   │   │   ├── CitizenIdentity.ts       # On-chain identity management
+│   │   │   ├── AgentAuditLogService.ts  # Immutable audit trail (Supabase + IPFS)
+│   │   │   └── ExecutionEngine.ts       # In-browser JS/Python execution
+│   │   └── EventBus.ts                 # Cross-component event system
 │   ├── hooks/
 │   │   ├── useAgentContracts.ts     # React hooks for on-chain agent ops
 │   │   ├── useSettings.ts          # User preferences
@@ -120,7 +139,9 @@ sylos-blockchain-os/
 │   │   └── wagmi.ts                # Wallet connection config
 │   ├── index.css                   # Design system tokens
 │   └── main.tsx                    # React entry point
-├── supabase/                       # Edge functions & migrations
+├── supabase/
+│   └── migrations/
+│       └── 001_create_tables.sql   # All 8 tables for SylOS backend
 ├── package.json
 ├── vite.config.ts
 └── tsconfig.json
@@ -177,6 +198,17 @@ Create a `.env` file with:
 VITE_SUPABASE_URL=your_supabase_url
 VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
 VITE_WALLETCONNECT_PROJECT_ID=your_walletconnect_id
+VITE_API_BASE_URL=your_api_base_url          # Optional
+```
+
+### Supabase Setup
+
+Run the migration SQL in your Supabase dashboard to create all required tables:
+
+```bash
+# File: supabase/migrations/001_create_tables.sql
+# Creates: agent_registry, agent_actions, agent_audits, civilization_stats,
+#          transactions, decentralized_files, community_posts, community_replies
 ```
 
 ---

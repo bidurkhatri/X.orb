@@ -50,7 +50,7 @@ export interface KYCRecord {
 
 export interface VerificationCheck {
     checkType: 'SPONSOR_ATTESTATION' | 'STAKE_BOND_VERIFIED' | 'REPUTATION_THRESHOLD' |
-               'ACTION_HISTORY_AUDIT' | 'GOVERNANCE_VOTE' | 'COMMUNITY_ENDORSEMENT'
+    'ACTION_HISTORY_AUDIT' | 'GOVERNANCE_VOTE' | 'COMMUNITY_ENDORSEMENT'
     passed: boolean
     checkedAt: number
     evidence: string                  // Description or hash of evidence
@@ -90,8 +90,8 @@ export interface CriminalRecord {
 export interface Violation {
     id: string
     type: 'RATE_LIMIT_EXCEEDED' | 'PERMISSION_VIOLATION' | 'FUND_MISUSE' |
-          'CRITICAL_FAULT' | 'UNAUTHORIZED_ACCESS' | 'DATA_EXFILTRATION' |
-          'BUDGET_OVERRUN' | 'CONTRACT_VIOLATION'
+    'CRITICAL_FAULT' | 'UNAUTHORIZED_ACCESS' | 'DATA_EXFILTRATION' |
+    'BUDGET_OVERRUN' | 'CONTRACT_VIOLATION'
     severity: 'MINOR' | 'MODERATE' | 'SEVERE' | 'CRITICAL'
     description: string
     slashAmount: string               // Serialized bigint
@@ -225,8 +225,8 @@ export interface Certification {
 export interface ActionRecord {
     id: string
     type: 'TOOL_CALL' | 'TASK_COMPLETED' | 'TASK_FAILED' | 'PERMISSION_DENIED' |
-          'REPUTATION_CHANGE' | 'FINANCIAL_TX' | 'STATUS_CHANGE' | 'ENGAGEMENT_START' |
-          'ENGAGEMENT_END' | 'VIOLATION' | 'VISA_RENEWAL' | 'STAKE_CHANGE'
+    'REPUTATION_CHANGE' | 'FINANCIAL_TX' | 'STATUS_CHANGE' | 'ENGAGEMENT_START' |
+    'ENGAGEMENT_END' | 'VIOLATION' | 'VISA_RENEWAL' | 'STAKE_CHANGE'
     description: string
     timestamp: number
     metadata: Record<string, any>
@@ -307,7 +307,10 @@ class CitizenIdentityService {
                 profiles: Array.from(this.profiles.values()),
                 savedAt: Date.now(),
             }
-            localStorage.setItem(IDENTITY_KEY, JSON.stringify(data))
+            // BigInt replacer — converts BigInt values to strings for JSON serialization
+            localStorage.setItem(IDENTITY_KEY, JSON.stringify(data, (_key, value) =>
+                typeof value === 'bigint' ? value.toString() : value
+            ))
         } catch (e) {
             console.error('[CitizenIdentity] Failed to save:', e)
         }

@@ -189,7 +189,10 @@ class AgentRegistryService {
                 agents: Array.from(this.agents.values()),
                 savedAt: Date.now(),
             }
-            localStorage.setItem(REGISTRY_KEY, JSON.stringify(data))
+            // BigInt replacer — converts BigInt values to strings for JSON serialization
+            localStorage.setItem(REGISTRY_KEY, JSON.stringify(data, (_key, value) =>
+                typeof value === 'bigint' ? value.toString() : value
+            ))
         } catch (e) {
             console.error('[AgentRegistry] Failed to save:', e)
         }

@@ -70,9 +70,11 @@ export class AgentAuditLogService {
 
         // Persist to the local Index or Supabase standard logging table
         if (navigator.onLine) {
-            await supabase.from('agent_audits').insert([trail]).catch(() => {
+            try {
+                await supabase.from('agent_audits').insert([trail]);
+            } catch {
                 // Gracefully suppress missing tables during mocked OS phase
-            });
+            }
         }
 
         if (reputationPenalty > 0) {

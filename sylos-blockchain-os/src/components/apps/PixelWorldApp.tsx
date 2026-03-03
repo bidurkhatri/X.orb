@@ -554,18 +554,86 @@ const PixelWorldApp: React.FC = () => {
         }
     }, [pickDestination])
 
-    // ── EventBus integration ──
+    // ── EventBus integration (pixel-agents style: animate based on REAL actions) ──
     useEffect(() => {
         const chars = charsRef.current
 
+        // Agent thinking → typing animation
         const unsubThought = eventBus.on('agent:thought', (event) => {
             const char = chars.get(event.source)
             if (char) {
                 char.state = 'type'
+                char.speech = '💭 Thinking...'
+                char.speechTimer = 3000
                 setTimeout(() => { if (char.state === 'type') char.state = 'idle' }, 4000)
             }
         })
 
+        // Agent used a tool → animate based on WHICH tool (pixel-agents core feature)
+        const unsubTool = eventBus.on('agent:tool_executed', (event) => {
+            const char = chars.get(event.source)
+            if (!char) return
+            const toolName = event.payload?.toolName || ''
+            if (toolName === 'generate_code') {
+                char.state = 'type'
+                char.speech = `⌨️ Writing code...`
+                char.speechTimer = 5000
+                addLog(`${event.sourceName} wrote code: ${event.payload?.filename || 'file'}`)
+                setTimeout(() => { if (char.state === 'type') char.state = 'idle' }, 6000)
+            } else if (toolName === 'execute_code') {
+                char.speech = '▶️ Running code...'
+                char.speechTimer = 4000
+                addLog(`${event.sourceName} executed code`)
+            } else if (toolName === 'read_code_file' || toolName === 'search_files' || toolName === 'read_notes') {
+                char.state = 'read'
+                char.speech = `📖 Reading...`
+                char.speechTimer = 3000
+                setTimeout(() => { if (char.state === 'read') char.state = 'idle' }, 4000)
+            } else if (toolName === 'alert_user') {
+                char.speech = `🔔 ${(event.payload?.message || 'Alert!').slice(0, 24)}`
+                char.speechTimer = 5000
+                addLog(`${event.sourceName}: ${event.payload?.message || 'Alert'}`)
+            } else {
+                char.speech = `🔧 ${toolName}`
+                char.speechTimer = 3000
+                addLog(`${event.sourceName} used ${toolName}`)
+            }
+        })
+
+        // Task completed → celebrate!
+        const unsubTaskDone = eventBus.on('agent:task_completed', (event) => {
+            const char = chars.get(event.source)
+            if (char) {
+                char.state = 'celebrate'
+                char.speech = '🎉 Task done!'
+                char.speechTimer = 5000
+                addLog(`${event.sourceName} completed a task`)
+            }
+        })
+
+        // Task failed → show error bubble
+        const unsubTaskFail = eventBus.on('agent:task_failed', (event) => {
+            const char = chars.get(event.source)
+            if (char) {
+                char.speech = '❌ Task failed'
+                char.speechTimer = 4000
+                addLog(`${event.sourceName} task failed`)
+            }
+        })
+
+        // IDE file created → type animation
+        const unsubIDE = eventBus.on('ide:file_created', (event) => {
+            const char = chars.get(event.source)
+            if (char) {
+                char.state = 'type'
+                char.speech = `📝 ${event.payload?.path || 'New file'}`
+                char.speechTimer = 4000
+                addLog(`${event.sourceName} created ${event.payload?.path}`)
+                setTimeout(() => { if (char.state === 'type') char.state = 'idle' }, 5000)
+            }
+        })
+
+        // Community post
         const unsubPost = eventBus.on('community:post_created', (event) => {
             const char = chars.get(event.source)
             if (char) {
@@ -576,19 +644,29 @@ const PixelWorldApp: React.FC = () => {
             }
         })
 
+        // Community reply
         const unsubReply = eventBus.on('community:reply_created', (event) => {
             const char = chars.get(event.source)
             if (char) {
-                char.speech = `Replied to "${(event.payload?.postTitle || '').slice(0, 20)}"`
+                char.speech = `💬 Replied to "${(event.payload?.postTitle || '').slice(0, 20)}"`
                 char.speechTimer = 4000
                 addLog(`${event.sourceName} replied to: "${event.payload?.postTitle}"`)
             }
         })
 
+        // Reputation changed
+        const unsubRep = eventBus.on('agent:reputation_changed', (event) => {
+            const char = chars.get(event.source)
+            if (char) {
+                const delta = event.payload?.delta || 0
+                char.speech = delta > 0 ? `📈 +${delta} rep` : `📉 ${delta} rep`
+                char.speechTimer = 3000
+            }
+        })
+
         return () => {
-            unsubThought()
-            unsubPost()
-            unsubReply()
+            unsubThought(); unsubTool(); unsubTaskDone(); unsubTaskFail()
+            unsubIDE(); unsubPost(); unsubReply(); unsubRep()
         }
     }, [addLog])
 
