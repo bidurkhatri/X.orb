@@ -662,7 +662,7 @@ function DesktopInner() {
         <DesktopCompanion />
 
         {/* Desktop icons area */}
-        <div id="desktop-content" aria-label="Desktop applications" style={{ flex: 1, position: 'relative', zIndex: 10, padding: '16px 20px', overflow: 'auto' }}>
+        <div id="desktop-content" aria-label="Desktop applications" style={{ flex: 1, position: 'relative', zIndex: 10, padding: '16px 20px 56px 20px', overflow: 'auto' }}>
           {/* View mode toggle */}
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '8px' }}>
             <button onClick={toggleViewMode} title={viewMode === 'categories' ? 'Switch to grid view' : 'Switch to category view'} style={{

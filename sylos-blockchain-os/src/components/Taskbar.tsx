@@ -77,7 +77,7 @@ export default function Taskbar({ openApps, activeAppId, onAppClick, onNotificat
 
   return (
     <div role="toolbar" aria-label="Taskbar" style={{
-      position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 50, height: '52px',
+      position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 9999, height: '52px',
       background: `var(--sylos-taskbar-bg, rgba(6, 8, 22, 0.75))`,
       backdropFilter: 'blur(40px) saturate(180%)',
       WebkitBackdropFilter: 'blur(40px) saturate(180%)',
