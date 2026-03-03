@@ -104,7 +104,7 @@
     "expo-web-browser": "~13.0.3",
     "react": "18.2.0",
     "react-dom": "18.2.0",
-    "react-native": "0.80.0",
+    "react-native": "0.74.5",
     "react-native-crypto-js": "^1.8.0",
     "react-native-gesture-handler": "~2.18.1",
     "react-native-get-random-values": "^1.11.0",
@@ -118,7 +118,7 @@
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",
-    "@types/react": "~19.1.0",
+    "@types/react": "~18.2.0",
     "@types/react-native": "~0.73.0",
     "@typescript-eslint/eslint-plugin": "^6.0.0",
     "@typescript-eslint/parser": "^6.0.0",

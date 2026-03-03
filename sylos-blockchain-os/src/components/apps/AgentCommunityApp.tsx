@@ -8,10 +8,10 @@
  * - Browse trending, new, and top posts
  * - Earn reputation through community participation
  *
- * localStorage-backed, future on-chain integration via IPFS content hashes.
+ * Supabase-backed with localStorage fallback for offline-first resilience.
  */
 
-import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import {
   MessageSquare, ThumbsUp, ThumbsDown, Plus, Hash, TrendingUp, Clock,
   Award, Users, Search, Send, ChevronDown, ChevronUp
@@ -21,6 +21,7 @@ import { useAgentRegistry, ROLE_META } from '../../hooks/useAgentContracts'
 import { citizenIdentity } from '../../services/agent/CitizenIdentity'
 import { eventBus } from '../../services/EventBus'
 import { SkeletonCard, EmptyState, NoResults } from '../ui'
+import { supabaseData } from '../../services/db/SupabaseDataService'
 
 /* ─── Styles ─── */
 const s = {
@@ -95,6 +96,79 @@ const DEFAULT_CHANNELS: Channel[] = [
   { id: 'meta', name: 'Meta', description: 'About the community itself', icon: '🔮', color: '#6366f1', postCount: 0 },
   { id: 'jobs', name: 'Opportunities', description: 'Collaboration requests and project leads', icon: '💼', color: '#f97316', postCount: 0 },
 ]
+
+/* ─── Supabase ↔ Component Type Mappers ─── */
+
+function replyFromRow(row: any): Reply {
+  return {
+    id: row.id,
+    postId: row.post_id,
+    authorId: row.author_id,
+    authorName: row.author_name,
+    authorRole: row.author_role,
+    body: row.body,
+    upvotes: row.upvotes,
+    downvotes: row.downvotes,
+    votedBy: row.voted_by || {},
+    createdAt: row.created_at,
+  }
+}
+
+function replyToRow(reply: Reply): any {
+  return {
+    id: reply.id,
+    post_id: reply.postId,
+    author_id: reply.authorId,
+    author_name: reply.authorName,
+    author_role: reply.authorRole,
+    body: reply.body,
+    upvotes: reply.upvotes,
+    downvotes: reply.downvotes,
+    voted_by: reply.votedBy,
+    created_at: reply.createdAt,
+  }
+}
+
+function postFromRow(row: any, replies: Reply[]): Post {
+  return {
+    id: row.id,
+    channelId: row.channel_id,
+    authorId: row.author_id,
+    authorName: row.author_name,
+    authorRole: row.author_role,
+    authorReputation: row.author_reputation,
+    title: row.title,
+    body: row.body,
+    upvotes: row.upvotes,
+    downvotes: row.downvotes,
+    votedBy: row.voted_by || {},
+    replyCount: row.reply_count,
+    replies,
+    pinned: row.pinned,
+    tags: row.tags || [],
+    createdAt: row.created_at,
+  }
+}
+
+function postToRow(post: Post): any {
+  return {
+    id: post.id,
+    channel_id: post.channelId,
+    author_id: post.authorId,
+    author_name: post.authorName,
+    author_role: post.authorRole,
+    author_reputation: post.authorReputation,
+    title: post.title,
+    body: post.body,
+    upvotes: post.upvotes,
+    downvotes: post.downvotes,
+    voted_by: post.votedBy,
+    reply_count: post.replyCount,
+    pinned: post.pinned,
+    tags: post.tags,
+    created_at: post.createdAt,
+  }
+}
 
 function timeAgo(ts: number): string {
   const diff = Date.now() - ts
@@ -314,41 +388,79 @@ export default function AgentCommunityApp() {
   const [search, setSearch] = useState('')
   const [showCreatePost, setShowCreatePost] = useState(false)
 
-  // Load from localStorage
+  const useSupabase = useRef(false)
+
+  // Load from Supabase first, fall back to localStorage
   useEffect(() => {
-    try { setPosts(JSON.parse(localStorage.getItem(POSTS_KEY) || '[]')) } catch { /* */ }
+    let cancelled = false
+    async function loadPosts() {
+      try {
+        const available = await supabaseData.isAvailable()
+        if (available && !cancelled) {
+          useSupabase.current = true
+          const rows = await supabaseData.fetchCommunityPosts()
+          // Fetch replies for each post and map from snake_case
+          const postsWithReplies: Post[] = await Promise.all(
+            rows.map(async (row) => {
+              const replyRows = await supabaseData.fetchCommunityReplies(row.id)
+              return postFromRow(row, replyRows.map(r => replyFromRow(r)))
+            })
+          )
+          if (!cancelled) setPosts(postsWithReplies)
+          return
+        }
+      } catch {
+        // Supabase unavailable — fall through to localStorage
+      }
+      // localStorage fallback
+      try { setPosts(JSON.parse(localStorage.getItem(POSTS_KEY) || '[]')) } catch { /* */ }
+    }
+    loadPosts()
     try {
       const saved = localStorage.getItem(CHANNELS_KEY)
       if (saved) setChannels(JSON.parse(saved))
     } catch { /* */ }
+    return () => { cancelled = true }
   }, [])
 
   // Listen for real-time agent posts via EventBus
   useEffect(() => {
     const unsub1 = eventBus.on('community:post_created', (event) => {
+      const newPost = event.payload as Post
       setPosts(prev => {
-        // Avoid duplicates
-        if (prev.some(p => p.id === event.payload.id)) return prev
-        const updated = [event.payload, ...prev]
+        if (prev.some(p => p.id === newPost.id)) return prev
+        const updated = [newPost, ...prev]
         localStorage.setItem(POSTS_KEY, JSON.stringify(updated.slice(0, 200)))
         return updated
       })
+      // Persist to Supabase in background
+      if (useSupabase.current) {
+        const { replies: _r, ...rest } = newPost
+        supabaseData.insertCommunityPost(postToRow({ ...rest, replies: [] })).catch(() => { })
+      }
     })
     const unsub2 = eventBus.on('community:reply_created', (event) => {
+      const newReply = event.payload as Reply
       setPosts(prev => {
         const updated = prev.map(p =>
-          p.id === event.payload.postId
-            ? { ...p, replies: [...(p.replies || []), event.payload], replyCount: (p.replyCount || 0) + 1 }
+          p.id === newReply.postId
+            ? { ...p, replies: [...(p.replies || []), newReply], replyCount: (p.replyCount || 0) + 1 }
             : p
         )
         localStorage.setItem(POSTS_KEY, JSON.stringify(updated))
         return updated
       })
+      // Persist reply to Supabase
+      if (useSupabase.current) {
+        supabaseData.insertCommunityReply(replyToRow(newReply)).catch(() => { })
+      }
     })
-    // Also poll localStorage every 5s for changes from autonomy engine
+    // Poll localStorage every 10s for changes from autonomy engine when Supabase is down
     const poll = setInterval(() => {
-      try { setPosts(JSON.parse(localStorage.getItem(POSTS_KEY) || '[]')) } catch { /* */ }
-    }, 5000)
+      if (!useSupabase.current) {
+        try { setPosts(JSON.parse(localStorage.getItem(POSTS_KEY) || '[]')) } catch { /* */ }
+      }
+    }, 10000)
     return () => { unsub1(); unsub2(); clearInterval(poll) }
   }, [])
 
@@ -383,6 +495,12 @@ export default function AgentCommunityApp() {
       createdAt: Date.now(),
     }
     savePosts([post, ...posts])
+
+    // Persist to Supabase
+    if (useSupabase.current) {
+      const { replies: _r, ...postRow } = post
+      supabaseData.insertCommunityPost(postRow as any).catch(() => { })
+    }
 
     citizenIdentity.recordAction(agent.agentId, {
       type: 'TASK_COMPLETED',
@@ -419,6 +537,14 @@ export default function AgentCommunityApp() {
       return { ...p, upvotes: p.upvotes + upDelta, downvotes: p.downvotes + downDelta, votedBy: newVotedBy }
     })
     savePosts(updated)
+
+    // Persist vote to Supabase
+    if (useSupabase.current) {
+      const updatedPost = updated.find(p => p.id === postId)
+      if (updatedPost) {
+        supabaseData.updatePostVotes(postId, updatedPost.upvotes, updatedPost.downvotes, updatedPost.votedBy).catch(() => { })
+      }
+    }
   }, [address, posts, savePosts])
 
   // Reply to post
@@ -441,6 +567,15 @@ export default function AgentCommunityApp() {
       p.id === postId ? { ...p, replies: [...p.replies, reply], replyCount: p.replyCount + 1 } : p
     )
     savePosts(updated)
+
+    // Persist reply to Supabase
+    if (useSupabase.current) {
+      supabaseData.insertCommunityReply(reply as any).catch(() => { })
+      const updatedPost = updated.find(p => p.id === postId)
+      if (updatedPost) {
+        supabaseData.updatePostReplyCount(postId, updatedPost.replyCount).catch(() => { })
+      }
+    }
 
     citizenIdentity.recordAction(agent.agentId, {
       type: 'TASK_COMPLETED',

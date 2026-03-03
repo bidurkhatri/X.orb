@@ -8,7 +8,7 @@ class StorageService {
   private db: SQLite.WebSQLDatabase | null = null;
   private isInitialized = false;
 
-  private constructor() {}
+  private constructor() { }
 
   public static getInstance(): StorageService {
     if (!StorageService.instance) {
@@ -25,13 +25,13 @@ class StorageService {
   public async initialize(): Promise<void> {
     try {
       console.log('Initializing storage service...');
-      
+
       // Initialize SQLite database
       this.db = SQLite.openDatabase('sylos.db');
-      
+
       // Create tables
       await this.createTables();
-      
+
       this.isInitialized = true;
       console.log('Storage service initialized successfully');
     } catch (error) {
@@ -67,7 +67,7 @@ class StorageService {
               provider TEXT DEFAULT 'metamask'
             )`,
             [],
-            () => {},
+            () => { },
             (tx, error) => {
               console.error('Failed to create wallets table:', error);
               return true;
@@ -91,7 +91,7 @@ class StorageService {
               FOREIGN KEY (walletId) REFERENCES wallets (id) ON DELETE CASCADE
             )`,
             [],
-            () => {},
+            () => { },
             (tx, error) => {
               console.error('Failed to create transactions table:', error);
               return true;
@@ -112,7 +112,7 @@ class StorageService {
               FOREIGN KEY (walletId) REFERENCES wallets (id) ON DELETE CASCADE
             )`,
             [],
-            () => {},
+            () => { },
             (tx, error) => {
               console.error('Failed to create token_balances table:', error);
               return true;
@@ -131,7 +131,7 @@ class StorageService {
               retry_count INTEGER DEFAULT 0
             )`,
             [],
-            () => {},
+            () => { },
             (tx, error) => {
               console.error('Failed to create sync_queue table:', error);
               return true;
@@ -146,7 +146,7 @@ class StorageService {
               updatedAt TEXT NOT NULL
             )`,
             [],
-            () => {},
+            () => { },
             (tx, error) => {
               console.error('Failed to create app_settings table:', error);
               return true;
@@ -179,13 +179,13 @@ class StorageService {
             [],
             async (tx, { rows }) => {
               const wallets: Wallet[] = [];
-              
+
               for (let i = 0; i < rows.length; i++) {
                 const row = rows.item(i);
-                
+
                 let encryptedPrivateKey = '';
                 let mnemonic = '';
-                
+
                 // Check if sensitive data is in secure storage
                 if (row.encryptedPrivateKey === 'SECURE_STORAGE') {
                   try {
@@ -202,7 +202,7 @@ class StorageService {
                   encryptedPrivateKey = row.encryptedPrivateKey;
                   mnemonic = row.mnemonic;
                 }
-                
+
                 wallets.push({
                   id: row.id,
                   name: row.name,
@@ -241,25 +241,25 @@ class StorageService {
       // Import the security service
       const SecurityService = require('../security/SecurityService');
       const securityService = SecurityService.default.getInstance();
-      
+
       // Retrieve encryption key
       const encryptionKey = await securityService.getSecureData(`wallet_key_${walletId}`);
       if (!encryptionKey) {
         throw new Error('Encryption key not found');
       }
-      
+
       // Retrieve encrypted data
       const encryptedPrivateKey = await securityService.getSecureData(`wallet_private_key_${walletId}`);
       const encryptedMnemonic = await securityService.getSecureData(`wallet_mnemonic_${walletId}`);
-      
+
       if (!encryptedPrivateKey || !encryptedMnemonic) {
         throw new Error('Encrypted data not found');
       }
-      
+
       // Decrypt data
       const privateKey = await securityService.decryptData(encryptedPrivateKey, encryptionKey);
       const mnemonic = await securityService.decryptData(encryptedMnemonic, encryptionKey);
-      
+
       return {
         encryptedPrivateKey: privateKey,
         mnemonic: mnemonic,
@@ -325,19 +325,19 @@ class StorageService {
       // Import the security service
       const SecurityService = require('../security/SecurityService');
       const securityService = SecurityService.default.getInstance();
-      
+
       // Generate encryption key
       const encryptionKey = await securityService.generateSecureKey();
-      
+
       // Encrypt sensitive data
       const encryptedPrivateKey = await securityService.encryptData(wallet.encryptedPrivateKey, encryptionKey);
       const encryptedMnemonic = await securityService.encryptData(wallet.mnemonic, encryptionKey);
-      
+
       // Store encrypted data in secure storage
       await securityService.storeSecureData(`wallet_private_key_${wallet.id}`, encryptedPrivateKey);
       await securityService.storeSecureData(`wallet_mnemonic_${wallet.id}`, encryptedMnemonic);
       await securityService.storeSecureData(`wallet_key_${wallet.id}`, encryptionKey);
-      
+
       console.log('Wallet secure data stored successfully');
     } catch (error) {
       console.error('Failed to store wallet secure data:', error);
@@ -382,12 +382,12 @@ class StorageService {
       // Import the security service
       const SecurityService = require('../security/SecurityService');
       const securityService = SecurityService.default.getInstance();
-      
+
       // Delete all secure data for this wallet
       await securityService.deleteSecureData(`wallet_private_key_${walletId}`);
       await securityService.deleteSecureData(`wallet_mnemonic_${walletId}`);
       await securityService.deleteSecureData(`wallet_key_${walletId}`);
-      
+
       console.log('Wallet secure data deleted successfully');
     } catch (error) {
       console.error('Failed to delete wallet secure data:', error);
@@ -513,7 +513,7 @@ class StorageService {
 
       // Use timestamp with secure random for unique ID generation
       const id = `sync_${Date.now()}_${this.generateSecureId()}`;
-      
+
       this.db.transaction(
         (tx) => {
           tx.executeSql(
@@ -545,12 +545,13 @@ class StorageService {
   }
 
   private generateSecureId(): string {
-    // Generate a cryptographically secure random ID
+    // Generate a cryptographically secure random ID using expo-crypto
+    const Crypto = require('expo-crypto');
+    const bytes = Crypto.getRandomBytes(9);
     const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
     let result = '';
     for (let i = 0; i < 9; i++) {
-      const randomIndex = Math.floor(Math.random() * chars.length);
-      result += chars.charAt(randomIndex);
+      result += chars.charAt(bytes[i] % chars.length);
     }
     return result;
   }
@@ -578,10 +579,10 @@ class StorageService {
     try {
       // Clear AsyncStorage
       await AsyncStorage.clear();
-      
+
       // Get all wallet IDs before clearing database
       const wallets = await this.getWallets();
-      
+
       // Clear SQLite database
       if (this.db) {
         await new Promise<void>((resolve, reject) => {
@@ -620,15 +621,15 @@ class StorageService {
           );
         });
       }
-      
+
       // Clear secure storage for all wallets
       const SecurityService = require('../security/SecurityService');
       const securityService = SecurityService.default.getInstance();
-      
+
       for (const wallet of wallets) {
         await this.deleteWalletSecureData(wallet.id);
       }
-      
+
       console.log('All data cleared including secure storage');
     } catch (error) {
       console.error('Failed to clear data:', error);

@@ -66,6 +66,37 @@ export interface CivilizationStatsRow {
     updated_at: string
 }
 
+export interface CommunityPostRow {
+    id: string
+    channel_id: string
+    author_id: string
+    author_name: string
+    author_role: string
+    author_reputation: number
+    title: string
+    body: string
+    upvotes: number
+    downvotes: number
+    voted_by: Record<string, 'up' | 'down'>
+    reply_count: number
+    pinned: boolean
+    tags: string[]
+    created_at: number
+}
+
+export interface CommunityReplyRow {
+    id: string
+    post_id: string
+    author_id: string
+    author_name: string
+    author_role: string
+    body: string
+    upvotes: number
+    downvotes: number
+    voted_by: Record<string, 'up' | 'down'>
+    created_at: number
+}
+
 /* ─── Service ─── */
 
 class SupabaseDataService {
@@ -182,6 +213,63 @@ class SupabaseDataService {
         if (error) throw error
         return data ?? []
     }
+
+    /* ═══ Community Posts ═══ */
+
+    async fetchCommunityPosts(channelId?: string, limit = 200): Promise<CommunityPostRow[]> {
+        let query = supabase
+            .from('community_posts')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .limit(limit)
+        if (channelId && channelId !== 'all') {
+            query = query.eq('channel_id', channelId)
+        }
+        const { data, error } = await query
+        if (error) throw error
+        return data ?? []
+    }
+
+    async insertCommunityPost(post: CommunityPostRow): Promise<void> {
+        await supabase.from('community_posts').upsert([post], { onConflict: 'id' })
+    }
+
+    async updatePostVotes(postId: string, upvotes: number, downvotes: number, votedBy: Record<string, 'up' | 'down'>): Promise<void> {
+        await supabase.from('community_posts').update({
+            upvotes,
+            downvotes,
+            voted_by: votedBy,
+        }).eq('id', postId)
+    }
+
+    async updatePostReplyCount(postId: string, replyCount: number): Promise<void> {
+        await supabase.from('community_posts').update({ reply_count: replyCount }).eq('id', postId)
+    }
+
+    /* ═══ Community Replies ═══ */
+
+    async fetchCommunityReplies(postId: string): Promise<CommunityReplyRow[]> {
+        const { data, error } = await supabase
+            .from('community_replies')
+            .select('*')
+            .eq('post_id', postId)
+            .order('created_at', { ascending: true })
+        if (error) throw error
+        return data ?? []
+    }
+
+    async insertCommunityReply(reply: CommunityReplyRow): Promise<void> {
+        await supabase.from('community_replies').upsert([reply], { onConflict: 'id' })
+    }
+
+    async updateReplyVotes(replyId: string, upvotes: number, downvotes: number, votedBy: Record<string, 'up' | 'down'>): Promise<void> {
+        await supabase.from('community_replies').update({
+            upvotes,
+            downvotes,
+            voted_by: votedBy,
+        }).eq('id', replyId)
+    }
 }
 
 export const supabaseData = SupabaseDataService.getInstance()
+
