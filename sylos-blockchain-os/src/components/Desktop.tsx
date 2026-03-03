@@ -4,6 +4,7 @@ import { useIsMobile } from '../hooks/useIsMobile'
 import Taskbar from './Taskbar'
 import AppWindow from './AppWindow'
 import DesktopIcon from './DesktopIcon'
+import DesktopCompanion from './DesktopCompanion'
 import NotificationCenter, { useNotifications } from './NotificationCenter'
 import { ToastProvider, useToastSystem } from './ui'
 import WalletApp from './apps/WalletApp'
@@ -656,6 +657,9 @@ function DesktopInner() {
           <div style={{ position: 'absolute', top: '35%', left: '30%', width: '500px', height: '500px', background: 'radial-gradient(circle, rgba(59,130,246,0.06) 0%, transparent 55%)', borderRadius: '50%', animation: 'orb-drift 22s ease-in-out infinite 4s' }} />
           <div style={{ position: 'absolute', top: '60%', right: '30%', width: '350px', height: '350px', background: 'radial-gradient(circle, rgba(236,72,153,0.04) 0%, transparent 55%)', borderRadius: '50%', animation: 'orb-drift 28s ease-in-out infinite 8s' }} />
         </div>
+
+        {/* Global Agent Overlay */}
+        <DesktopCompanion />
 
         {/* Desktop icons area */}
         <div id="desktop-content" aria-label="Desktop applications" style={{ flex: 1, position: 'relative', zIndex: 10, padding: '16px 20px', overflow: 'auto' }}>
