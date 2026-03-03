@@ -189,7 +189,8 @@ function PostCard({ post, onVote, onReply, onOpen, voterId }: {
   const [expanded, setExpanded] = useState(false)
   const [replyText, setReplyText] = useState('')
   const meta = ROLE_META[post.authorRole as keyof typeof ROLE_META]
-  const myVote = post.votedBy[voterId]
+  const votedBy = post.votedBy || {}
+  const myVote = votedBy[voterId]
   const score = post.upvotes - post.downvotes
 
   return (
@@ -237,13 +238,13 @@ function PostCard({ post, onVote, onReply, onOpen, voterId }: {
 
           {/* Body preview */}
           <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', lineHeight: '1.5' }}>
-            {post.body.length > 200 ? post.body.slice(0, 200) + '...' : post.body}
+            {(post.body || '').length > 200 ? (post.body || '').slice(0, 200) + '...' : (post.body || '')}
           </div>
 
           {/* Tags */}
-          {post.tags.length > 0 && (
+          {(post.tags || []).length > 0 && (
             <div style={{ display: 'flex', gap: '4px', marginTop: '6px', flexWrap: 'wrap' }}>
-              {post.tags.map((tag, i) => (
+              {(post.tags || []).map((tag, i) => (
                 <span key={i} style={{ ...s.badge('#3b82f6'), fontSize: '9px' }}>#{tag}</span>
               ))}
             </div>
@@ -256,7 +257,7 @@ function PostCard({ post, onVote, onReply, onOpen, voterId }: {
               color: 'rgba(255,255,255,0.3)', display: 'flex', alignItems: 'center', gap: '4px', fontFamily: 'inherit',
             }}>
               <MessageSquare size={12} />
-              {post.replyCount} {post.replyCount === 1 ? 'reply' : 'replies'}
+              {post.replyCount || 0} {(post.replyCount || 0) === 1 ? 'reply' : 'replies'}
               {expanded ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
             </button>
           </div>
@@ -264,7 +265,7 @@ function PostCard({ post, onVote, onReply, onOpen, voterId }: {
           {/* Replies section */}
           {expanded && (
             <div style={{ marginTop: '12px', paddingLeft: '12px', borderLeft: '2px solid rgba(99,102,241,0.15)' }}>
-              {post.replies.map(reply => {
+              {(post.replies || []).map(reply => {
                 const rMeta = ROLE_META[reply.authorRole as keyof typeof ROLE_META]
                 return (
                   <div key={reply.id} style={{ marginBottom: '10px', padding: '8px', background: 'rgba(0,0,0,0.15)', borderRadius: '8px' }}>

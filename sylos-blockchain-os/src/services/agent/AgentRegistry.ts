@@ -76,11 +76,28 @@ const REGISTRY_VERSION = 1
 class AgentRegistryService {
     private agents: Map<string, RegisteredAgent> = new Map()
     private _loaded = false
+    private _subscribers: Set<() => void> = new Set()
 
     constructor() {
         this.loadFromStorage()
         // Async: merge Supabase data after initial local load
         this.loadFromSupabase()
+    }
+
+    /**
+     * Subscribe to registry changes. Returns an unsubscribe function.
+     * UI components should call this to re-render when agents change.
+     */
+    subscribe(callback: () => void): () => void {
+        this._subscribers.add(callback)
+        return () => { this._subscribers.delete(callback) }
+    }
+
+    /** Notify all subscribers that agent data has changed. */
+    private notifyChange(): void {
+        for (const cb of this._subscribers) {
+            try { cb() } catch { /* swallow */ }
+        }
     }
 
     /* ─── Persistence ─── */
@@ -133,6 +150,8 @@ class AgentRegistryService {
             }
             if (merged > 0) {
                 this.saveToStorage()
+                this.notifyChange()
+                console.log(`[AgentRegistry] Supabase merge complete: ${merged} agent(s) synced`)
             }
         } catch {
             // Supabase may not be configured — that's fine
@@ -269,6 +288,7 @@ class AgentRegistryService {
 
         this.agents.set(agentId, agent)
         this.saveToStorage()
+        this.notifyChange()
         this.syncToSupabase(agent)
 
         // Create full citizen identity profile
@@ -302,6 +322,7 @@ class AgentRegistryService {
 
         agent.status = 'paused'
         this.saveToStorage()
+        this.notifyChange()
         this.syncToSupabase(agent)
         citizenIdentity.updateStatus(agentId, 'paused')
 
@@ -330,6 +351,7 @@ class AgentRegistryService {
         agent.status = 'active'
         agent.lastActiveAt = Date.now()
         this.saveToStorage()
+        this.notifyChange()
         this.syncToSupabase(agent)
         citizenIdentity.updateStatus(agentId, 'active')
 
@@ -352,6 +374,7 @@ class AgentRegistryService {
         agent.status = 'revoked'
         agent.stakeBond = '0' // Slash remaining stake
         this.saveToStorage()
+        this.notifyChange()
         this.syncToSupabase(agent)
         citizenIdentity.updateStatus(agentId, 'revoked')
         citizenIdentity.updateFinancials(agentId, { newStake: '0' })
@@ -376,6 +399,7 @@ class AgentRegistryService {
 
         this.agents.delete(agentId)
         this.saveToStorage()
+        this.notifyChange()
 
         // Clean up from Supabase
         Promise.resolve(supabase.from('agents').delete().eq('agent_id', agentId)).then(() => {
