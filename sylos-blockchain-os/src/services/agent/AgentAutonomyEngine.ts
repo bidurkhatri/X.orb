@@ -362,6 +362,12 @@ class AgentAutonomyEngine {
 
   isRunning() { return this.running }
 
+  /** Check whether a specific agent has an active autonomy loop. */
+  isAgentActive(agentId: string): boolean {
+    const loop = this.loops.get(agentId)
+    return !!loop && loop.running
+  }
+
   /* ─── Internal ─── */
 
   private scheduleNext(loop: AgentLoop) {
