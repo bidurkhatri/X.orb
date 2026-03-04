@@ -50,6 +50,8 @@ export type EventType =
   // IDE
   | 'ide:file_created'
   | 'ide:file_updated'
+  // Apps
+  | 'apps:submission'
 
 export interface SylOSEvent<T = any> {
   id: string

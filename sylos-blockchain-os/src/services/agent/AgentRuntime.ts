@@ -19,10 +19,10 @@
 import { v4 as uuidv4 } from 'uuid'
 import { sysIpc, type IpcMessageType } from './IpcBridge'
 import { AgentAuditLogService } from './AgentAuditLogService'
-import { agentRegistry, type RegisteredAgent, type LLMProvider } from './AgentRegistry'
-import { agentWalletManager, type TransactionProposal } from './AgentSessionWallet'
+import { agentRegistry, type RegisteredAgent } from './AgentRegistry'
+import { agentWalletManager } from './AgentSessionWallet'
 import { citizenIdentity } from './CitizenIdentity'
-import { PermissionChecker, ROLE_PERMISSIONS, type AgentRole } from './AgentRoles'
+import { PermissionChecker } from './AgentRoles'
 import { eventBus } from '../EventBus'
 import { CONTRACTS, CHAIN } from '@/config/contracts'
 
@@ -309,7 +309,7 @@ export class AgentRuntime {
                 address: { type: 'string', description: 'The wallet address (0x...)', required: true },
             },
             execute: async (params) => {
-                const addr = params.address as string
+                const addr = params['address'] as string
                 const raw = await rpcCall('eth_getBalance', [addr, 'latest'])
                 const wei = BigInt(raw)
                 const pol = Number(wei) / 1e18
@@ -351,9 +351,9 @@ export class AgentRuntime {
                 decimals: { type: 'number', description: 'Token decimals (default 18)', required: false },
             },
             execute: async (params) => {
-                const token = params.token_address as string
-                const wallet = params.wallet_address as string
-                const decimals = (params.decimals as number) || 18
+                const token = params['token_address'] as string
+                const wallet = params['wallet_address'] as string
+                const decimals = (params['decimals'] as number) || 18
                 const data = '0x70a08231' + wallet.slice(2).padStart(64, '0')
                 const raw = await rpcCall('eth_call', [{ to: token, data }, 'latest'])
                 const balance = Number(BigInt(raw)) / Math.pow(10, decimals)
@@ -367,7 +367,7 @@ export class AgentRuntime {
             category: 'blockchain',
             parameters: { tx_hash: { type: 'string', description: 'Transaction hash', required: true } },
             execute: async (params) => {
-                const hash = params.tx_hash as string
+                const hash = params['tx_hash'] as string
                 const [tx, receipt] = await Promise.all([
                     rpcCall('eth_getTransactionByHash', [hash]),
                     rpcCall('eth_getTransactionReceipt', [hash]),
@@ -389,7 +389,7 @@ export class AgentRuntime {
             category: 'blockchain',
             parameters: { address: { type: 'string', description: 'Address to check', required: true } },
             execute: async (params) => {
-                const addr = params.address as string
+                const addr = params['address'] as string
                 const code = await rpcCall('eth_getCode', [addr, 'latest'])
                 const isContract = code !== '0x' && code !== '0x0'
                 return JSON.stringify({ address: addr, is_contract: isContract, bytecode_size: isContract ? Math.floor((code.length - 2) / 2) + ' bytes' : '0 bytes' })
@@ -402,7 +402,7 @@ export class AgentRuntime {
             category: 'blockchain',
             parameters: { block: { type: 'string', description: 'Block number or "latest"', required: false } },
             execute: async (params) => {
-                const blockId = params.block === 'latest' || !params.block ? 'latest' : '0x' + parseInt(params.block as string).toString(16)
+                const blockId = params['block'] === 'latest' || !params['block'] ? 'latest' : '0x' + parseInt(params['block'] as string).toString(16)
                 const block = await rpcCall('eth_getBlockByNumber', [blockId, false])
                 if (!block) return JSON.stringify({ error: 'Block not found' })
                 return JSON.stringify({
@@ -423,8 +423,8 @@ export class AgentRuntime {
                 value: { type: 'string', description: 'Value in POL', required: false },
             },
             execute: async (params) => {
-                const txParams: any = { from: params.from, to: params.to }
-                if (params.value) txParams.value = '0x' + BigInt(Math.floor(parseFloat(params.value as string) * 1e18)).toString(16)
+                const txParams: any = { from: params['from'], to: params['to'] }
+                if (params['value']) txParams.value = '0x' + BigInt(Math.floor(parseFloat(params['value'] as string) * 1e18)).toString(16)
                 const [gasEstimate, gasPrice] = await Promise.all([rpcCall('eth_estimateGas', [txParams]), rpcCall('eth_gasPrice')])
                 const gas = parseInt(gasEstimate, 16)
                 const price = Number(BigInt(gasPrice)) / 1e9
@@ -494,7 +494,7 @@ export class AgentRuntime {
                 try {
                     const raw = localStorage.getItem('sylos_notes')
                     const notes = raw ? JSON.parse(raw) : []
-                    const note = { id: `note_${Date.now()}`, title: params.title as string, content: params.content as string, pinned: false, createdAt: Date.now(), updatedAt: Date.now(), authorAgent: this.agent.agentId }
+                    const note = { id: `note_${Date.now()}`, title: params['title'] as string, content: params['content'] as string, pinned: false, createdAt: Date.now(), updatedAt: Date.now(), authorAgent: this.agent.agentId }
                     notes.unshift(note)
                     localStorage.setItem('sylos_notes', JSON.stringify(notes))
                     return JSON.stringify({ success: true, note_id: note.id, title: note.title, authored_by: this.agent.name })
@@ -510,7 +510,7 @@ export class AgentRuntime {
             category: 'os',
             parameters: { query: { type: 'string', description: 'Search keyword', required: true } },
             execute: async (params) => {
-                const query = (params.query as string).toLowerCase()
+                const query = (params['query'] as string).toLowerCase()
                 const results: any[] = []
                 for (let i = 0; i < localStorage.length; i++) {
                     const key = localStorage.key(i)
@@ -535,9 +535,9 @@ export class AgentRuntime {
             parameters: { expression: { type: 'string', description: 'Math expression (e.g., "100 * 1.05")', required: true } },
             execute: async (params) => {
                 try {
-                    const expr = (params.expression as string).trim()
+                    const expr = (params['expression'] as string).trim()
                     const result = safeMathEval(expr)
-                    return JSON.stringify({ expression: params.expression, result, formatted: Number(result).toLocaleString() })
+                    return JSON.stringify({ expression: params['expression'], result, formatted: Number(result).toLocaleString() })
                 } catch (e: any) {
                     return JSON.stringify({ error: `Cannot evaluate: ${e.message}` })
                 }
@@ -558,7 +558,7 @@ export class AgentRuntime {
             execute: async (params) => {
                 const alert = {
                     id: uuidv4(), source: this.agent.name, agentId: this.agent.agentId,
-                    title: params.title, message: params.message, severity: params.severity || 'medium',
+                    title: params['title'], message: params['message'], severity: params['severity'] || 'medium',
                     timestamp: Date.now(),
                 }
                 // Store in notification system
@@ -568,8 +568,8 @@ export class AgentRuntime {
                     alerts.unshift(alert)
                     localStorage.setItem('sylos_agent_alerts', JSON.stringify(alerts.slice(0, 100)))
                 } catch { /* ignore */ }
-                console.log(`[Agent Alert] ${this.agent.name}: ${params.title}`)
-                return JSON.stringify({ sent: true, alert_id: alert.id, title: params.title })
+                console.log(`[Agent Alert] ${this.agent.name}: ${params['title']}`)
+                return JSON.stringify({ sent: true, alert_id: alert.id, title: params['title'] })
             },
         }, allowed)
 
@@ -579,7 +579,7 @@ export class AgentRuntime {
             category: 'blockchain',
             parameters: { address: { type: 'string', description: 'Wallet address to query', required: true } },
             execute: async (params) => {
-                const addr = params.address as string
+                const addr = params['address'] as string
                 // getUserScore(address) = 0xc2a7dd78 + address padded
                 const data = '0xc2a7dd78' + addr.slice(2).padStart(64, '0')
                 try {
@@ -624,7 +624,7 @@ export class AgentRuntime {
                         rpcCall('eth_gasPrice'),
                         rpcCall('eth_blockNumber'),
                     ])
-                    const requestedSymbol = ((params?.token as string) || '').toUpperCase()
+                    const requestedSymbol = ((params?.['token'] as string) || '').toUpperCase()
                     const tokenPrices: Record<string, any> = {}
                     const symbolsToShow = requestedSymbol && SYMBOL_TO_CG[requestedSymbol]
                         ? { [requestedSymbol]: SYMBOL_TO_CG[requestedSymbol] }
@@ -669,13 +669,13 @@ export class AgentRuntime {
                 reason: { type: 'string', description: 'Reason for this transfer', required: true },
             },
             execute: async (params) => {
-                const to = params.to as string
-                const valuePol = parseFloat(params.value_pol as string)
+                const to = params['to'] as string
+                const valuePol = parseFloat(params['value_pol'] as string)
                 const valueWei = BigInt(Math.floor(valuePol * 1e18))
 
                 // Check wallet approval
                 const check = agentWalletManager.checkTransaction({
-                    to, value: valueWei, description: params.reason as string,
+                    to, value: valueWei, description: params['reason'] as string,
                     toolName: 'submit_transaction_proposal', agentId: this.agent.agentId,
                 })
                 if (!check.approved) {
@@ -698,7 +698,7 @@ export class AgentRuntime {
                 const proposals = JSON.parse(localStorage.getItem('sylos_tx_proposals') || '[]')
                 proposals.unshift({
                     id: proposalId, agentId: this.agent.agentId, agentName: this.agent.name,
-                    tx: txProposal, reason: params.reason, status: 'PENDING_APPROVAL',
+                    tx: txProposal, reason: params['reason'], status: 'PENDING_APPROVAL',
                     createdAt: Date.now(), valuePol,
                 })
                 localStorage.setItem('sylos_tx_proposals', JSON.stringify(proposals.slice(0, 100)))
@@ -706,7 +706,7 @@ export class AgentRuntime {
                 // Record in citizen identity
                 citizenIdentity.recordAction(this.agent.agentId, {
                     type: 'FINANCIAL_TX',
-                    description: `Proposed transfer: ${valuePol} POL to ${to} — ${params.reason}`,
+                    description: `Proposed transfer: ${valuePol} POL to ${to} — ${params['reason']}`,
                     timestamp: Date.now(),
                     metadata: { proposalId, to, valuePol, status: 'PENDING' },
                     reputationDelta: 0,
@@ -734,8 +734,8 @@ export class AgentRuntime {
                 data: { type: 'string', description: 'ABI-encoded calldata (hex)', required: true },
             },
             execute: async (params) => {
-                const contract = params.contract as string
-                const data = params.data as string
+                const contract = params['contract'] as string
+                const data = params['data'] as string
 
                 // Permission check — contract must be in allowlist or read-only contracts
                 const wallet = agentWalletManager.getWallet(this.agent.agentId)
@@ -766,7 +766,7 @@ export class AgentRuntime {
                 quote: { type: 'string', description: 'Quote token address (default USDC)', required: false },
             },
             execute: async (params) => {
-                const token = params.token as string
+                const token = params['token'] as string
                 try {
                     // Check token total supply to verify it exists
                     const supplyData = '0x18160ddd' // totalSupply()
@@ -829,9 +829,9 @@ export class AgentRuntime {
                     id: `draft_${Date.now()}`,
                     agentId: this.agent.agentId,
                     agentName: this.agent.name,
-                    title: params.title,
-                    description: params.description,
-                    actionType: params.action_type,
+                    title: params['title'],
+                    description: params['description'],
+                    actionType: params['action_type'],
                     status: 'DRAFT_PENDING_REVIEW',
                     createdAt: Date.now(),
                 }
@@ -841,9 +841,9 @@ export class AgentRuntime {
 
                 citizenIdentity.recordAction(this.agent.agentId, {
                     type: 'TASK_COMPLETED',
-                    description: `Drafted governance proposal: "${params.title}"`,
+                    description: `Drafted governance proposal: "${params['title']}"`,
                     timestamp: Date.now(),
-                    metadata: { draftId: draft.id, actionType: params.action_type },
+                    metadata: { draftId: draft.id, actionType: params['action_type'] },
                     reputationDelta: 2,
                     financialImpact: '0',
                 })
@@ -861,8 +861,8 @@ export class AgentRuntime {
                 limit: { type: 'number', description: 'Max records to return', required: false },
             },
             execute: async (params) => {
-                const targetId = params.agent_id as string || this.agent.agentId
-                const limit = (params.limit as number) || 20
+                const targetId = params['agent_id'] as string || this.agent.agentId
+                const limit = (params['limit'] as number) || 20
 
                 const profile = citizenIdentity.getProfile(targetId)
                 if (!profile) {
@@ -893,7 +893,7 @@ export class AgentRuntime {
                 agent_id: { type: 'string', description: 'Agent ID to query', required: false },
             },
             execute: async (params) => {
-                const targetId = params.agent_id as string || this.agent.agentId
+                const targetId = params['agent_id'] as string || this.agent.agentId
                 const summary = citizenIdentity.getProfileSummary(targetId)
                 if (!summary) {
                     return JSON.stringify({ error: `No citizen profile found for ${targetId}` })
@@ -911,7 +911,7 @@ export class AgentRuntime {
                 if (this.agent.permissionScope.fileAccess === 'none') {
                     return JSON.stringify({ error: 'Agent does not have file access permission' })
                 }
-                const query = (params.query as string).toLowerCase()
+                const query = (params['query'] as string).toLowerCase()
                 try {
                     const raw = localStorage.getItem('sylos_files_index')
                     const files = raw ? JSON.parse(raw) : []
@@ -940,8 +940,8 @@ export class AgentRuntime {
                     return JSON.stringify({ error: 'Agent does not have file write permission' })
                 }
                 const entry = {
-                    id: `file_${Date.now()}`, name: params.name, type: params.type,
-                    size: params.size, cid: params.cid || '', indexedBy: this.agent.agentId,
+                    id: `file_${Date.now()}`, name: params['name'], type: params['type'],
+                    size: params['size'], cid: params['cid'] || '', indexedBy: this.agent.agentId,
                     indexedAt: Date.now(),
                 }
                 const files = JSON.parse(localStorage.getItem('sylos_files_index') || '[]')
@@ -965,8 +965,8 @@ export class AgentRuntime {
                     'PoPTracker': CONTRACTS.POP_TRACKER,
                     'Governance': CONTRACTS.GOVERNANCE,
                 }
-                const addr = nameMap[params.contract_name as string]
-                if (!addr) return JSON.stringify({ error: `Unknown contract: ${params.contract_name}` })
+                const addr = nameMap[params['contract_name'] as string]
+                if (!addr) return JSON.stringify({ error: `Unknown contract: ${params['contract_name']}` })
 
                 try {
                     const [code, supplyRaw] = await Promise.all([
@@ -975,7 +975,7 @@ export class AgentRuntime {
                     ])
                     const supply = Number(BigInt(supplyRaw)) / 1e18
                     return JSON.stringify({
-                        contract: params.contract_name, address: addr,
+                        contract: params['contract_name'], address: addr,
                         is_deployed: code !== '0x' && code !== '0x0',
                         bytecode_size: Math.floor((code.length - 2) / 2),
                         total_supply: supply.toFixed(2),
@@ -1121,9 +1121,9 @@ export class AgentRuntime {
                 description: { type: 'string', description: 'Brief description of what this file does', required: false },
             },
             execute: async (params) => {
-                const path = (params.path as string).startsWith('/') ? params.path as string : `/${params.path}`
-                const language = params.language as string || 'javascript'
-                const code = params.code as string
+                const path = (params['path'] as string).startsWith('/') ? params['path'] as string : `/${params['path']}`
+                const language = params['language'] as string || 'javascript'
+                const code = params['code'] as string
                 const now = Date.now()
 
                 try {
@@ -1188,7 +1188,7 @@ export class AgentRuntime {
                 try {
                     const raw = localStorage.getItem('sylos_vfs')
                     const files: any[] = raw ? JSON.parse(raw) : []
-                    const folder = params.folder as string || ''
+                    const folder = params['folder'] as string || ''
                     const filtered = folder ? files.filter((f: any) => f.path.startsWith(folder)) : files
                     return JSON.stringify({
                         total: filtered.length,
@@ -1217,8 +1217,8 @@ export class AgentRuntime {
                 try {
                     const raw = localStorage.getItem('sylos_vfs')
                     const files: any[] = raw ? JSON.parse(raw) : []
-                    const file = files.find((f: any) => f.path === params.path)
-                    if (!file) return JSON.stringify({ error: `File not found: ${params.path}` })
+                    const file = files.find((f: any) => f.path === params['path'])
+                    if (!file) return JSON.stringify({ error: `File not found: ${params['path']}` })
                     return JSON.stringify({
                         path: file.path,
                         language: file.language,
@@ -1240,7 +1240,7 @@ export class AgentRuntime {
                 code: { type: 'string', description: 'JavaScript code to execute', required: true },
             },
             execute: async (params) => {
-                const code = params.code as string
+                const code = params['code'] as string
                 try {
                     const logs: string[] = []
                     const fakeConsole = {
@@ -1314,11 +1314,12 @@ export class AgentRuntime {
     }
 
     private addStep(type: AgentStep['type'], content: string, toolCall?: ToolCall): AgentStep {
-        const step: AgentStep = {
+        const step = {
             id: `step_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-            type, content, toolCall, timestamp: Date.now(),
+            type, content, timestamp: Date.now(),
             status: type === 'tool_call' ? 'running' : type === 'permission_denied' ? 'denied' : 'success',
-        }
+        } as AgentStep;
+        if (toolCall) step.toolCall = toolCall;
         if (this.currentTask) this.currentTask.steps.push(step)
         this.emit()
         return step
@@ -1353,7 +1354,7 @@ export class AgentRuntime {
         if (!this.config.apiKey) throw new Error('LLM API key not configured')
 
         const registryCheck = agentRegistry.canExecute(this.agent.agentId)
-        if (!registryCheck.allowed) throw new Error(registryCheck.reason)
+        if (!registryCheck.allowed) throw new Error(registryCheck['reason'])
 
         const toolDefs = this.tools.map(t => ({
             type: 'function' as const,
@@ -1432,9 +1433,9 @@ export class AgentRuntime {
         // ─── GATE 1: Registry Check ───
         const registryCheck = agentRegistry.canExecute(this.agent.agentId)
         if (!registryCheck.allowed) {
-            this.messages.push({ id: `msg_${Date.now()}`, role: 'system', content: `⛔ Agent blocked: ${registryCheck.reason}`, timestamp: Date.now() })
+            this.messages.push({ id: `msg_${Date.now()}`, role: 'system', content: `⛔ Agent blocked: ${registryCheck['reason']}`, timestamp: Date.now() })
             this.emit()
-            throw new Error(registryCheck.reason)
+            throw new Error(registryCheck['reason'])
         }
 
         // ─── GATE 2: Config Check ───
@@ -1583,7 +1584,7 @@ export class AgentRuntime {
                         // ─── GATE 5: Wallet Check (for financial operations) ───
                         if (tc.function.name.includes('transaction') || tc.function.name.includes('send') || tc.function.name.includes('swap')) {
                             const walletCheck = agentWalletManager.checkTransaction({
-                                to: args.to || '', value: BigInt(args.value || '0'),
+                                to: args['to'] || '', value: BigInt(args['value'] || '0'),
                                 description: tc.function.name, toolName: tc.function.name, agentId: this.agent.agentId,
                             })
                             if (!walletCheck.approved) {
