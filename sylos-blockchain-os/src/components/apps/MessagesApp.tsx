@@ -15,7 +15,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { MessageCircle, Send, Plus, Loader2, Key, RefreshCw, X, AlertTriangle } from 'lucide-react'
-import { Client, ConsentState } from '@xmtp/browser-sdk'
+import { Client, ConsentState, IdentifierKind } from '@xmtp/browser-sdk'
 import type { Signer, Identifier } from '@xmtp/browser-sdk'
 import type { Dm } from '@xmtp/browser-sdk'
 import type { DecodedMessage } from '@xmtp/browser-sdk'
@@ -56,7 +56,7 @@ function createXmtpSigner(walletClient: any, address: string): Signer {
     type: 'EOA' as const,
     getIdentifier: (): Identifier => ({
       identifier: address,
-      identifierKind: 'Ethereum' as const,
+      identifierKind: IdentifierKind.Ethereum,
     }),
     signMessage: async (message: string): Promise<Uint8Array> => {
       const signature = await walletClient.signMessage({ message })
@@ -190,7 +190,7 @@ export default function MessagesApp() {
 
         streamRef.current.unsubscribe = () => {
           cancelled = true
-          stream.return?.(undefined)
+          stream.return?.()
         }
 
         for await (const message of stream) {
@@ -298,7 +298,7 @@ export default function MessagesApp() {
 
     try {
       // Check if address can be messaged
-      const identifier: Identifier = { identifier: addr, identifierKind: 'Ethereum' as const }
+      const identifier: Identifier = { identifier: addr, identifierKind: IdentifierKind.Ethereum }
       const canMessageResult = await client.canMessage([identifier])
       const canMsg = canMessageResult.get(addr.toLowerCase())
       if (!canMsg) {
