@@ -78,12 +78,12 @@ class AgentWalletManager {
             if (!raw) return
             const parsed: Record<string, any>[] = JSON.parse(raw)
             parsed.forEach(w => {
-                this.wallets.set(w.agentId, {
+                this.wallets.set(w['agentId'], {
                     ...w,
-                    totalBudget: BigInt(w.totalBudget || '0'),
-                    spent: BigInt(w.spent || '0'),
-                    maxPerTransaction: BigInt(w.maxPerTransaction || '0'),
-                })
+                    totalBudget: BigInt(w['totalBudget'] || '0'),
+                    spent: BigInt(w['spent'] || '0'),
+                    maxPerTransaction: BigInt(w['maxPerTransaction'] || '0'),
+                } as any)
             })
         } catch { /* fresh start */ }
     }
