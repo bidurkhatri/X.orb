@@ -135,5 +135,11 @@
       "pre-commit": "lint-staged",
       "pre-push": "npm run type-check && npm run test"
     }
+  },
+  "resolutions": {
+    "rollup": "4.12.0"
+  },
+  "overrides": {
+    "rollup": "4.12.0"
   }
 }
