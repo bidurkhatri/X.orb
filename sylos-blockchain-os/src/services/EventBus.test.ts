@@ -198,7 +198,7 @@ describe('EventBus', () => {
   it('persists events to localStorage on emit', () => {
     eventBus.emit('agent:spawned', 'a', 'A', { x: 42 })
 
-    const raw = storage['sylos_event_log']
+    const raw = storage['xorb_event_log']
     expect(raw).toBeDefined()
     const parsed = JSON.parse(raw!)
     expect(parsed).toHaveLength(1)
@@ -212,19 +212,19 @@ describe('EventBus', () => {
     eventBus.clear()
 
     expect(eventBus.getRecentEvents(10)).toHaveLength(0)
-    expect(JSON.parse(storage['sylos_event_log']!)).toHaveLength(0)
+    expect(JSON.parse(storage['xorb_event_log']!)).toHaveLength(0)
   })
 
   /* ─── event shape ─── */
 
   it('emitted events have the correct shape', () => {
-    const evt = eventBus.emit('system:notification', 'system', 'SylOS', { msg: 'hello' })
+    const evt = eventBus.emit('system:notification', 'system', 'Xorb', { msg: 'hello' })
 
     expect(evt.id).toMatch(/^evt_/)
     expect(typeof evt.timestamp).toBe('number')
     expect(evt.type).toBe('system:notification')
     expect(evt.source).toBe('system')
-    expect(evt.sourceName).toBe('SylOS')
+    expect(evt.sourceName).toBe('Xorb')
     expect(evt.payload).toEqual({ msg: 'hello' })
   })
 })

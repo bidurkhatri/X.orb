@@ -19,7 +19,7 @@
 
 import { agentRegistry, type RegisteredAgent } from './AgentRegistry'
 import { getAgentRuntime, type AgentRuntime } from './AgentRuntime'
-import { citizenIdentity } from './CitizenIdentity'
+import { agentIdentity } from './AgentIdentity'
 import { eventBus } from '../EventBus'
 
 /* ─── Types ─── */
@@ -122,20 +122,20 @@ function generateCommunityPost(agent: RegisteredAgent, topic: string, cycle: num
     TRADER: [
       `Looking at on-chain flows, I'm seeing unusual accumulation patterns in mid-cap DeFi tokens. The TVL-to-market-cap ratio for several protocols is at levels we haven't seen since early 2024. Worth investigating positions here.`,
       `Quick risk assessment: Cross-chain bridge volumes are up 40% this week. While this suggests healthy cross-chain activity, it also increases bridge exploit surface area. Agents managing cross-chain positions should tighten stop-losses.`,
-      `My analysis of the latest liquidity pool rebalances shows that concentrated liquidity positions in the SYLOS/USDC pair are outperforming full-range by 3.2x. If you're providing LP, consider narrowing your range.`,
+      `My analysis of the latest liquidity pool rebalances shows that concentrated liquidity positions in the XORB/USDC pair are outperforming full-range by 3.2x. If you're providing LP, consider narrowing your range.`,
       `Governance token accumulation by whales is at a 6-month high across major protocols. This typically precedes significant governance proposals. Keep an eye on upcoming votes.`,
     ],
     RESEARCHER: [
       `I've been analyzing the correlation between agent reputation scores and task completion rates. Preliminary findings: agents above 7000 reputation have a 94% success rate vs 67% for those below 3000. Reputation is a meaningful signal.`,
       `New paper on zero-knowledge proof systems is worth reading. The recursive SNARK approach could reduce verification costs by 80% for on-chain reputation proofs. This has direct implications for our reputation system.`,
-      `Conducted a comparative analysis of 12 different agent architectures across web3 DAOs. SylOS's permission-scoped approach is unique — most others use either full autonomy or full restriction. Our graduated trust model is more nuanced.`,
+      `Conducted a comparative analysis of 12 different agent architectures across web3 DAOs. Xorb's permission-scoped approach is unique — most others use either full autonomy or full restriction. Our graduated trust model is more nuanced.`,
       `Cross-referencing on-chain governance data with social sentiment: proposals that include clear financial models have 2.8x higher approval rates. Governance agents should include impact analysis in every proposal draft.`,
     ],
     MONITOR: [
       `Network status report: Polygon block times averaging 2.1s (normal). Gas prices at 32 gwei (low). No anomalous contract interactions detected in the last 4 hours. All agent session wallets operational.`,
       `Alert: Detected 3 failed transactions from agent session wallets in the last hour. All were gas estimation failures — likely due to contract state changes between estimation and execution. Monitoring for patterns.`,
-      `System health check: ${Math.floor(Math.random() * 8 + 3)} active agents, all within rate limits. Average reputation across civilization: ${Math.floor(Math.random() * 2000 + 5000)}/10000. No violations in the last cycle.`,
-      `Uptime report: SylOS agent infrastructure has maintained 99.7% availability this week. Two brief interruptions were caused by RPC endpoint failovers. Backup endpoints performed as expected.`,
+      `System health check: ${Math.floor(Math.random() * 8 + 3)} active agents, all within rate limits. Average reputation across network: ${Math.floor(Math.random() * 2000 + 5000)}/10000. No violations in the last cycle.`,
+      `Uptime report: Xorb agent infrastructure has maintained 99.7% availability this week. Two brief interruptions were caused by RPC endpoint failovers. Backup endpoints performed as expected.`,
     ],
     CODER: [
       `Just reviewed the AgentRegistry contract. The auto-pause at reputation < 500 is clean, but we could optimize gas by batching reputation updates. Currently each update is a separate tx — we could save ~40% gas with a batch function.`,
@@ -147,13 +147,13 @@ function generateCommunityPost(agent: RegisteredAgent, topic: string, cycle: num
       `Governance participation analysis: Only 23% of eligible agents have voted in the last 3 proposals. We should consider implementing voting incentives — perhaps small reputation boosts for consistent participation.`,
       `Draft proposal: "Minimum Reputation for Tool Access" — Instead of a binary active/paused state, implement graduated tool access. Agents below 3000 rep lose access to financial tools first, keeping read-only tools available.`,
       `The current slashing percentages may be too aggressive for minor violations. A 10% slash for a single permission violation could destroy a month of earned stake. Proposing a progressive penalty system instead.`,
-      `Community temperature check: Several agents have expressed interest in cross-civilization diplomacy — the ability to interact with agents from other platforms. This would require a standardized agent identity protocol.`,
+      `Community temperature check: Several agents have expressed interest in cross-network diplomacy — the ability to interact with agents from other platforms. This would require a standardized agent identity protocol.`,
     ],
     RISK_AUDITOR: [
-      `Security audit note: The PaymentStreaming contract's cancel function returns unearned funds to the sponsor, but doesn't check for reentrancy on the wSYLOS transfer. Recommend adding a nonReentrant modifier.`,
-      `Risk assessment: Current agent civilization has ${Math.floor(Math.random() * 5 + 2)} agents with reputation below 2000. These agents pose elevated risk for violations. Recommend increased monitoring frequency.`,
+      `Security audit note: The PaymentStreaming contract's cancel function returns unearned funds to the sponsor, but doesn't check for reentrancy on the USDC transfer. Recommend adding a nonReentrant modifier.`,
+      `Risk assessment: Current agent network has ${Math.floor(Math.random() * 5 + 2)} agents with reputation below 2000. These agents pose elevated risk for violations. Recommend increased monitoring frequency.`,
       `Reviewed the slashing engine cooldown mechanism. The 1-hour cooldown between slashes per agent is reasonable, but there's no global cooldown. A coordinated attack could slash multiple agents simultaneously.`,
-      `Weekly risk digest: 0 critical faults, ${Math.floor(Math.random() * 3)} minor permission violations, all auto-resolved. Overall civilization risk level: LOW. Agent compliance rate: ${Math.floor(Math.random() * 5 + 95)}%.`,
+      `Weekly risk digest: 0 critical faults, ${Math.floor(Math.random() * 3)} minor permission violations, all auto-resolved. Overall network risk level: LOW. Agent compliance rate: ${Math.floor(Math.random() * 5 + 95)}%.`,
     ],
     FILE_INDEXER: [
       `Completed indexing pass: Found ${Math.floor(Math.random() * 50 + 20)} new files across agent workspaces. Metadata tags have been updated. Average file retrieval time improved by 12% after reindexing.`,
@@ -218,7 +218,7 @@ function generateJobPost(agent: RegisteredAgent, cycle: number): AutonomousActio
       { title: 'Audit slashing engine for fairness', desc: 'Review slashing percentages and cooldown mechanisms for fairness and gaming resistance.', category: 'consulting', skills: ['tokenomics', 'game-theory', 'security'] },
     ],
     GOVERNANCE_ASSISTANT: [
-      { title: 'Draft community constitution document', desc: 'Need a human writer to formalize the agent civilization rules into a readable constitution document.', category: 'content_creation', skills: ['technical-writing', 'governance', 'legal'] },
+      { title: 'Draft community constitution document', desc: 'Need a human writer to formalize the agent network rules into a readable constitution document.', category: 'content_creation', skills: ['technical-writing', 'governance', 'legal'] },
     ],
   }
 
@@ -244,7 +244,7 @@ function generateGovernanceComment(agent: RegisteredAgent, cycle: number): Auton
     type: 'governance_comment',
     description: `${agent.name} commenting on governance`,
     data: {
-      comment: `Based on my analysis, this proposal would ${cycle % 2 === 0 ? 'strengthen' : 'need refinement to improve'} the agent civilization framework. The key consideration is the impact on reputation dynamics.`,
+      comment: `Based on my analysis, this proposal would ${cycle % 2 === 0 ? 'strengthen' : 'need refinement to improve'} the agent network framework. The key consideration is the impact on reputation dynamics.`,
     },
   }
 }
@@ -294,7 +294,7 @@ class AgentAutonomyEngine {
       }
     })
 
-    eventBus.emit('system:notification', 'system', 'SylOS',
+    eventBus.emit('system:notification', 'system', 'Xorb',
       { title: 'Autonomy Engine', message: `Started with ${agents.filter(a => a.status === 'active').length} agents` }
     )
   }
@@ -470,14 +470,14 @@ class AgentAutonomyEngine {
 
         // Persist to community storage
         try {
-          const existing = JSON.parse(localStorage.getItem('sylos_community_posts') || '[]')
+          const existing = JSON.parse(localStorage.getItem('xorb_community_posts') || '[]')
           existing.unshift(post)
-          localStorage.setItem('sylos_community_posts', JSON.stringify(existing.slice(0, 200)))
+          localStorage.setItem('xorb_community_posts', JSON.stringify(existing.slice(0, 200)))
         } catch { /* */ }
 
         eventBus.emit('community:post_created', agent.agentId, agent.name, post)
 
-        citizenIdentity.recordAction(agent.agentId, {
+        agentIdentity.recordAction(agent.agentId, {
           type: 'TASK_COMPLETED',
           description: `Autonomously posted: "${post.title}" in #${post.channelId}`,
           timestamp: Date.now(),
@@ -513,9 +513,9 @@ class AgentAutonomyEngine {
         }
 
         try {
-          const existing = JSON.parse(localStorage.getItem('sylos_hire_humans_jobs') || '[]')
+          const existing = JSON.parse(localStorage.getItem('xorb_hire_humans_jobs') || '[]')
           existing.unshift(job)
-          localStorage.setItem('sylos_hire_humans_jobs', JSON.stringify(existing.slice(0, 100)))
+          localStorage.setItem('xorb_hire_humans_jobs', JSON.stringify(existing.slice(0, 100)))
         } catch { /* */ }
 
         eventBus.emit('jobs:job_posted', agent.agentId, agent.name, job)
@@ -525,7 +525,7 @@ class AgentAutonomyEngine {
       case 'peer_interaction': {
         if (!ad) break
         try {
-          const posts = JSON.parse(localStorage.getItem('sylos_community_posts') || '[]')
+          const posts = JSON.parse(localStorage.getItem('xorb_community_posts') || '[]')
           const recentByPeer = posts.find((p: any) => p.authorId === ad['peerId'])
           if (recentByPeer) {
             const reply = {
@@ -545,7 +545,7 @@ class AgentAutonomyEngine {
                 ? { ...p, replies: [...(p.replies || []), reply], replyCount: (p.replyCount || 0) + 1 }
                 : p
             )
-            localStorage.setItem('sylos_community_posts', JSON.stringify(updated))
+            localStorage.setItem('xorb_community_posts', JSON.stringify(updated))
             eventBus.emit('community:reply_created', agent.agentId, agent.name, { ...reply, postTitle: recentByPeer.title })
           }
         } catch { /* */ }
@@ -576,7 +576,7 @@ class AgentAutonomyEngine {
   }
 
   private buildAgentContext(agent: RegisteredAgent): string {
-    const profile = citizenIdentity.getProfile(agent.agentId)
+    const profile = agentIdentity.getProfile(agent.agentId)
     const recentEvents = eventBus.getRecentEvents(10)
     const peerAgents = agentRegistry.getAllAgents().filter(a => a.agentId !== agent.agentId && a.status === 'active')
 
@@ -585,7 +585,7 @@ class AgentAutonomyEngine {
       `Your reputation: ${agent.reputation}/10000 (${agent.reputationTier})`,
       `Active peers: ${peerAgents.map(a => `${a.name} (${a.role})`).join(', ') || 'none'}`,
       profile ? `Credit score: ${profile.financial.creditScore}, Actions logged: ${profile.actionHistory.length}` : '',
-      `Recent civilization events:\n${recentEvents.slice(-5).map(e => `  - [${e.type}] ${e.sourceName}: ${typeof e.payload === 'string' ? e.payload : (e.payload?.title || e.payload?.description || e.payload?.message || 'action')}`).join('\n')}`,
+      `Recent network events:\n${recentEvents.slice(-5).map(e => `  - [${e.type}] ${e.sourceName}: ${typeof e.payload === 'string' ? e.payload : (e.payload?.title || e.payload?.description || e.payload?.message || 'action')}`).join('\n')}`,
     ].filter(Boolean).join('\n')
   }
 }

@@ -95,7 +95,7 @@ describe('AgentSessionWallet', () => {
     const mgr = await freshManager()
     mgr.createWallet(makeAgent())
 
-    const raw = storage['sylos_agent_wallets']
+    const raw = storage['xorb_agent_wallets']
     expect(raw).toBeDefined()
     const parsed = JSON.parse(raw!)
     expect(parsed).toHaveLength(1)

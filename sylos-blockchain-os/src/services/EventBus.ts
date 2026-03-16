@@ -1,5 +1,5 @@
 /**
- * SylOS EventBus — Central Nervous System
+ * Xorb EventBus — Central Nervous System
  *
  * This is the REAL backbone connecting all apps. When an agent acts,
  * every app that cares about that action gets notified instantly.
@@ -53,7 +53,7 @@ export type EventType =
   // Apps
   | 'apps:submission'
 
-export interface SylOSEvent<T = any> {
+export interface XorbEvent<T = any> {
   id: string
   type: EventType
   source: string            // agentId or 'system' or 'user'
@@ -64,19 +64,19 @@ export interface SylOSEvent<T = any> {
 
 /* ─── Subscriber ─── */
 
-type EventHandler<T = any> = (event: SylOSEvent<T>) => void
+type EventHandler<T = any> = (event: XorbEvent<T>) => void
 type UnsubscribeFn = () => void
 
 /* ─── Event Log ─── */
 
-const EVENT_LOG_KEY = 'sylos_event_log'
+const EVENT_LOG_KEY = 'xorb_event_log'
 const MAX_LOG_SIZE = 500
 
 /* ─── The Bus ─── */
 
 class EventBus {
   private handlers: Map<EventType | '*', Set<EventHandler>> = new Map()
-  private eventLog: SylOSEvent[] = []
+  private eventLog: XorbEvent[] = []
   private idCounter = 0
 
   constructor() {
@@ -112,8 +112,8 @@ class EventBus {
   /**
    * Emit an event. All matching subscribers are notified.
    */
-  emit<T = any>(type: EventType, source: string, sourceName: string, payload: T): SylOSEvent<T> {
-    const event: SylOSEvent<T> = {
+  emit<T = any>(type: EventType, source: string, sourceName: string, payload: T): XorbEvent<T> {
+    const event: XorbEvent<T> = {
       id: `evt_${Date.now()}_${this.idCounter++}`,
       type,
       source,
@@ -151,7 +151,7 @@ class EventBus {
   /**
    * Get recent events, optionally filtered by type prefix.
    */
-  getRecentEvents(limit = 50, typePrefix?: string): SylOSEvent[] {
+  getRecentEvents(limit = 50, typePrefix?: string): XorbEvent[] {
     let events = this.eventLog
     if (typePrefix) {
       events = events.filter(e => e.type.startsWith(typePrefix))
@@ -162,7 +162,7 @@ class EventBus {
   /**
    * Get events by source agent.
    */
-  getAgentEvents(agentId: string, limit = 50): SylOSEvent[] {
+  getAgentEvents(agentId: string, limit = 50): XorbEvent[] {
     return this.eventLog.filter(e => e.source === agentId).slice(-limit)
   }
 

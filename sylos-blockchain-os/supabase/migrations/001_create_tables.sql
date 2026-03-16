@@ -1,5 +1,5 @@
 -- ================================================================
--- SylOS Supabase Migration — All Required Tables
+-- Xorb Supabase Migration — All Required Tables
 -- Run this in the Supabase SQL Editor to fix 404 errors
 -- ================================================================
 
@@ -62,8 +62,8 @@ CREATE TABLE IF NOT EXISTS agent_audits (
 
 CREATE INDEX IF NOT EXISTS idx_audits_agent ON agent_audits (agent_id);
 
--- ─── Civilization Stats (Dashboard) ───
-CREATE TABLE IF NOT EXISTS civilization_stats (
+-- ─── Network Stats (Dashboard) ───
+CREATE TABLE IF NOT EXISTS network_stats (
     id                      TEXT PRIMARY KEY DEFAULT 'global',
     total_agents            INTEGER NOT NULL DEFAULT 0,
     active_agents           INTEGER NOT NULL DEFAULT 0,
@@ -79,7 +79,7 @@ CREATE TABLE IF NOT EXISTS civilization_stats (
 );
 
 -- Seed the global stats row
-INSERT INTO civilization_stats (id) VALUES ('global') ON CONFLICT (id) DO NOTHING;
+INSERT INTO network_stats (id) VALUES ('global') ON CONFLICT (id) DO NOTHING;
 
 -- ─── Transactions ───
 CREATE TABLE IF NOT EXISTS transactions (
@@ -155,7 +155,7 @@ CREATE INDEX IF NOT EXISTS idx_replies_post ON community_replies (post_id);
 ALTER TABLE agent_registry ENABLE ROW LEVEL SECURITY;
 ALTER TABLE agent_actions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE agent_audits ENABLE ROW LEVEL SECURITY;
-ALTER TABLE civilization_stats ENABLE ROW LEVEL SECURITY;
+ALTER TABLE network_stats ENABLE ROW LEVEL SECURITY;
 ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE decentralized_files ENABLE ROW LEVEL SECURITY;
 ALTER TABLE community_posts ENABLE ROW LEVEL SECURITY;
@@ -165,7 +165,7 @@ ALTER TABLE community_replies ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Allow all" ON agent_registry FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all" ON agent_actions FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all" ON agent_audits FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all" ON civilization_stats FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all" ON network_stats FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all" ON transactions FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all" ON decentralized_files FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all" ON community_posts FOR ALL USING (true) WITH CHECK (true);

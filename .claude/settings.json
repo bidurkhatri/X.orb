@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep \"\\\\.sql$\")",
+      "Bash(grep -l \"Desktop\\\\|Taskbar\\\\|AppWindow\" /c/Users/Crater/Downloads/\"SYLOS system - NEW\"/sylos-blockchain-os/src/components/*.tsx)",
+      "Bash(rm -f sylos-blockchain-os/index.html sylos-blockchain-os/src/App.tsx sylos-blockchain-os/src/main.tsx sylos-blockchain-os/src/App.css)",
+      "Bash(rm -rf sylos-blockchain-os/src/components/ui/ sylos-blockchain-os/src/hooks/)",
+      "Bash(rm -f sylos-blockchain-os/src/utils/codeSplitting.tsx sylos-blockchain-os/src/utils/reactOptimizations.tsx)",
+      "Bash(rm -f SYLOS_AUDIT_PROMPT.md SYLOS_COMPLETE_PROJECT_DOCUMENTATION.md)",
+      "Bash(rm -f docs/economics/TOKENOMICS_DOCUMENT.md docs/mobile_app_architecture.md)",
+      "Bash(rm -rf imgs/)",
+      "Bash(rm -f sylos-blockchain-os/src/components/ErrorBoundary.tsx sylos-blockchain-os/src/components/Web3Provider.tsx)",
+      "Bash(rm -f sylos-blockchain-os/src/services/agent/ExecutionEngine.ts sylos-blockchain-os/src/services/agent/IpcBridge.ts)",
+      "Bash(rm -rf sylos-blockchain-os/dist/ sylos-blockchain-os/mobile/ sylos-blockchain-os/public/ sylos-blockchain-os/scripts/ sylos-blockchain-os/node_modules/)",
+      "Bash(rm -f sylos-blockchain-os/Dockerfile sylos-blockchain-os/bundler-analyzer.config.js sylos-blockchain-os/postcss.config.js sylos-blockchain-os/tailwind.config.js sylos-blockchain-os/typedoc.json sylos-blockchain-os/vite.config.ts sylos-blockchain-os/vite.config.production.ts sylos-blockchain-os/push-env.mjs sylos-blockchain-os/vercel.json sylos-blockchain-os/package-lock.json)",
+      "Bash(rm -f \"sylos-blockchain-os/vite.config.ts.timestamp-1771651003847-6e93cef4020d8.mjs\" sylos-blockchain-os/typescript_error.log sylos-blockchain-os/typescript_error.txt)",
+      "Bash(rm -f sylos-blockchain-os/ACCESSIBILITY_GUIDE.md sylos-blockchain-os/ERROR_HANDLING_GUIDE.md sylos-blockchain-os/QUICKSTART.md sylos-blockchain-os/README.md)",
+      "Bash(mv smart-contracts:*)",
+      "Bash(mv supabase:*)",
+      "Bash(mv deployment:*)",
+      "Bash(mv docs:*)",
+      "Bash(mv packages/shared-types packages/xorb-types)",
+      "Bash(xargs grep:*)",
+      "Bash(rm -f AUDIT_INDEX.md CODEBASE_AUDIT.md COMMUNITY_AUDIT.md IMPLEMENTATION_PLAN.md PROJECT_AUDIT.md XMTP_AUDIT.md)",
+      "Bash(rm -f Dockerfile)",
+      "Bash(rm -rf docker/)",
+      "Bash(rm -rf xorb-contracts/_remix-originals/ xorb-contracts/_deprecated/)",
+      "Bash(rm -f xorb-contracts/test/SylOSToken.test.js xorb-contracts/test/SylOS-Integration.js)",
+      "Bash(xargs sed:*)"
+    ]
+  }
+}

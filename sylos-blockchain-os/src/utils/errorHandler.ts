@@ -119,7 +119,7 @@ class ErrorLogger {
 
     // Console log for development
     if (import.meta.env.DEV) {
-      console.error('[SylOS Error]', loggedError)
+      console.error('[Xorb Error]', loggedError)
     }
 
     // In production, send to logging service

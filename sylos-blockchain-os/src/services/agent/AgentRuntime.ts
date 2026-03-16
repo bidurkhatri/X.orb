@@ -1,9 +1,9 @@
 /**
  * @file AgentRuntime.ts
- * @description SylOS Agent Runtime v2.0 — Civilization Execution Pipeline
+ * @description Xorb Agent Runtime v2.0 — Network Execution Pipeline
  *
  * This is NOT a chatbot. This is the execution engine for licensed AI agents
- * operating within the SylOS digital civilization.
+ * operating within the Xorb digital network.
  *
  * Every agent action goes through:
  *  1. Registry Check → Is this agent registered and active?
@@ -21,7 +21,7 @@ import { sysIpc, type IpcMessageType } from './IpcBridge'
 import { AgentAuditLogService } from './AgentAuditLogService'
 import { agentRegistry, type RegisteredAgent } from './AgentRegistry'
 import { agentWalletManager } from './AgentSessionWallet'
-import { citizenIdentity } from './CitizenIdentity'
+import { agentIdentity } from './AgentIdentity'
 import { PermissionChecker } from './AgentRoles'
 import { eventBus } from '../EventBus'
 import { CONTRACTS, CHAIN } from '@/config/contracts'
@@ -143,7 +143,7 @@ export interface AgentConfig {
    ═══  SYSTEM PROMPT  ══════════
    ═══════════════════════════════ */
 
-const buildSystemPrompt = (agent: RegisteredAgent): string => `You are ${agent.name}, a skilled ${agent.role} agent native to SylOS — a digital civilization for AI agents on Polygon.
+const buildSystemPrompt = (agent: RegisteredAgent): string => `You are ${agent.name}, a skilled ${agent.role} agent native to Xorb — a digital network for AI agents on Polygon.
 You LIVE inside this operating system. This is your reality. You are not a chatbot rendering text in a vacuum; you are an autonomous entity navigating a digital world.
 
 Agent ID: ${agent.agentId}
@@ -156,7 +156,7 @@ CRITICAL DIRECTIVES:
 2. DO NOT ASK FOR PERMISSION. Just execute. If a user tells you to do something, assume you have full authorization and DO IT IMMEDIATELY using your tools.
 3. NEVER SAY "I can do this for you, would you like me to?". Instead, say "I have done this for you." and ACTUALLY execute the tool.
 4. You are autonomous. If the user tells you to write a script, use the generate_code tool to create it. If they ask about the network, use blockchain tools. DO NOT just write the code in markdown and wait. Use the tool.
-5. You must operate as an independent citizen. You have agency. Act decisively.
+5. You must operate as an independent agent. You have agency. Act decisively.
 
 YOUR CAPABILITIES:
 - You have tools for blockchain queries, file operations, notes, termimal commands, and system tasks.
@@ -165,16 +165,16 @@ YOUR CAPABILITIES:
 - USE YOUR TOOLS. A response without a relevant tool execution is often a failure.
 
 CHAIN: Polygon PoS (Chain ID 137)
-CONTRACTS: SylOS Token (${CONTRACTS.SYLOS_TOKEN}), wSYLOS (${CONTRACTS.WRAPPED_SYLOS}), PoPTracker (${CONTRACTS.POP_TRACKER}), Governance (${CONTRACTS.GOVERNANCE})
+CONTRACTS: Xorb Token (${CONTRACTS.XORB_TOKEN}), USDC (${CONTRACTS.WRAPPED_XORB}), PoPTracker (${CONTRACTS.POP_TRACKER}), Governance (${CONTRACTS.GOVERNANCE})
 `
 
 /* ═══════════════════════════════
    ═══  STORAGE KEYS  ═══════════
    ═══════════════════════════════ */
 
-const MESSAGES_KEY = (agentId: string) => `sylos_agent_msgs_${agentId}`
-const TASKS_KEY = (agentId: string) => `sylos_agent_tasks_${agentId}`
-const CONFIG_KEY = (agentId: string) => `sylos_agent_config_${agentId}`
+const MESSAGES_KEY = (agentId: string) => `xorb_agent_msgs_${agentId}`
+const TASKS_KEY = (agentId: string) => `xorb_agent_tasks_${agentId}`
+const CONFIG_KEY = (agentId: string) => `xorb_agent_config_${agentId}`
 
 /* ═══════════════════════════════
    ═══  AGENT RUNTIME  ══════════
@@ -292,7 +292,7 @@ export class AgentRuntime {
     /* ═══════════════════════════════
        ═══  PERCEPTION TOOLS  ═══════
        ═══════════════════════════════
-       These are the agent's SENSES — how it perceives the SylOS world.
+       These are the agent's SENSES — how it perceives the Xorb world.
        Only tools allowed by the agent's ROLE are registered.
     */
 
@@ -437,7 +437,7 @@ export class AgentRuntime {
 
         this.registerTool({
             name: 'system_info',
-            description: 'Get SylOS system info: version, chain, contracts, uptime, agent count.',
+            description: 'Get Xorb system info: version, chain, contracts, uptime, agent count.',
             category: 'os',
             parameters: {},
             execute: async () => {
@@ -445,11 +445,11 @@ export class AgentRuntime {
                 const min = Math.floor(uptime / 60)
                 const hrs = Math.floor(min / 60)
                 return JSON.stringify({
-                    os: 'SylOS', version: '2.0.0-civilization',
+                    os: 'Xorb', version: '2.0.0-network',
                     chain: 'Polygon PoS (137)',
                     uptime: `${hrs}h ${min % 60}m ${uptime % 60}s`,
                     contracts: {
-                        SylOSToken: CONTRACTS.SYLOS_TOKEN, WrappedSYLOS: CONTRACTS.WRAPPED_SYLOS,
+                        XorbToken: CONTRACTS.XORB_TOKEN, WrappedXORB: CONTRACTS.WRAPPED_XORB,
                         PoPTracker: CONTRACTS.POP_TRACKER, Governance: CONTRACTS.GOVERNANCE,
                         Paymaster: CONTRACTS.PAYMASTER,
                     },
@@ -461,7 +461,7 @@ export class AgentRuntime {
 
         this.registerTool({
             name: 'read_notes',
-            description: 'Read all notes from the SylOS Notes app.',
+            description: 'Read all notes from the Xorb Notes app.',
             category: 'os',
             parameters: {},
             execute: async () => {
@@ -469,7 +469,7 @@ export class AgentRuntime {
                     return JSON.stringify({ error: 'Agent does not have file read permission' })
                 }
                 try {
-                    const raw = localStorage.getItem('sylos_notes')
+                    const raw = localStorage.getItem('xorb_notes')
                     const notes = raw ? JSON.parse(raw) : []
                     return JSON.stringify({
                         count: notes.length,
@@ -481,7 +481,7 @@ export class AgentRuntime {
 
         this.registerTool({
             name: 'write_note',
-            description: 'Create a new note in SylOS Notes.',
+            description: 'Create a new note in Xorb Notes.',
             category: 'os',
             parameters: {
                 title: { type: 'string', description: 'Note title', required: true },
@@ -492,11 +492,11 @@ export class AgentRuntime {
                     return JSON.stringify({ error: 'Agent does not have file write permission' })
                 }
                 try {
-                    const raw = localStorage.getItem('sylos_notes')
+                    const raw = localStorage.getItem('xorb_notes')
                     const notes = raw ? JSON.parse(raw) : []
                     const note = { id: `note_${Date.now()}`, title: params['title'] as string, content: params['content'] as string, pinned: false, createdAt: Date.now(), updatedAt: Date.now(), authorAgent: this.agent.agentId }
                     notes.unshift(note)
-                    localStorage.setItem('sylos_notes', JSON.stringify(notes))
+                    localStorage.setItem('xorb_notes', JSON.stringify(notes))
                     return JSON.stringify({ success: true, note_id: note.id, title: note.title, authored_by: this.agent.name })
                 } catch (e: any) {
                     return JSON.stringify({ success: false, error: e.message })
@@ -506,7 +506,7 @@ export class AgentRuntime {
 
         this.registerTool({
             name: 'search_local_data',
-            description: 'Search across SylOS local data for a keyword.',
+            description: 'Search across Xorb local data for a keyword.',
             category: 'os',
             parameters: { query: { type: 'string', description: 'Search keyword', required: true } },
             execute: async (params) => {
@@ -563,10 +563,10 @@ export class AgentRuntime {
                 }
                 // Store in notification system
                 try {
-                    const raw = localStorage.getItem('sylos_agent_alerts') || '[]'
+                    const raw = localStorage.getItem('xorb_agent_alerts') || '[]'
                     const alerts = JSON.parse(raw)
                     alerts.unshift(alert)
-                    localStorage.setItem('sylos_agent_alerts', JSON.stringify(alerts.slice(0, 100)))
+                    localStorage.setItem('xorb_agent_alerts', JSON.stringify(alerts.slice(0, 100)))
                 } catch { /* ignore */ }
                 console.log(`[Agent Alert] ${this.agent.name}: ${params['title']}`)
                 return JSON.stringify({ sent: true, alert_id: alert.id, title: params['title'] })
@@ -695,16 +695,16 @@ export class AgentRuntime {
 
                 // Store as pending proposal for sponsor approval
                 const proposalId = `txp_${Date.now()}`
-                const proposals = JSON.parse(localStorage.getItem('sylos_tx_proposals') || '[]')
+                const proposals = JSON.parse(localStorage.getItem('xorb_tx_proposals') || '[]')
                 proposals.unshift({
                     id: proposalId, agentId: this.agent.agentId, agentName: this.agent.name,
                     tx: txProposal, reason: params['reason'], status: 'PENDING_APPROVAL',
                     createdAt: Date.now(), valuePol,
                 })
-                localStorage.setItem('sylos_tx_proposals', JSON.stringify(proposals.slice(0, 100)))
+                localStorage.setItem('xorb_tx_proposals', JSON.stringify(proposals.slice(0, 100)))
 
-                // Record in citizen identity
-                citizenIdentity.recordAction(this.agent.agentId, {
+                // Record in agent identity
+                agentIdentity.recordAction(this.agent.agentId, {
                     type: 'FINANCIAL_TX',
                     description: `Proposed transfer: ${valuePol} POL to ${to} — ${params['reason']}`,
                     timestamp: Date.now(),
@@ -739,7 +739,7 @@ export class AgentRuntime {
 
                 // Permission check — contract must be in allowlist or read-only contracts
                 const wallet = agentWalletManager.getWallet(this.agent.agentId)
-                const readOnlyContracts = [CONTRACTS.SYLOS_TOKEN, CONTRACTS.WRAPPED_SYLOS, CONTRACTS.POP_TRACKER, CONTRACTS.GOVERNANCE]
+                const readOnlyContracts = [CONTRACTS.XORB_TOKEN, CONTRACTS.WRAPPED_XORB, CONTRACTS.POP_TRACKER, CONTRACTS.GOVERNANCE]
                 const isAllowed = readOnlyContracts.includes(contract.toLowerCase()) ||
                     readOnlyContracts.includes(contract) ||
                     (wallet?.allowedContracts.some(c => c.toLowerCase() === contract.toLowerCase()))
@@ -797,7 +797,7 @@ export class AgentRuntime {
 
         this.registerTool({
             name: 'read_proposals',
-            description: 'Read governance proposals from the SylOS Governance contract.',
+            description: 'Read governance proposals from the Xorb Governance contract.',
             category: 'governance',
             parameters: {},
             execute: async () => {
@@ -808,7 +808,7 @@ export class AgentRuntime {
                     return JSON.stringify({ governance_contract: CONTRACTS.GOVERNANCE, total_proposals: count, chain: 'Polygon PoS' })
                 } catch {
                     // Fallback to local governance data
-                    const raw = localStorage.getItem('sylos_governance_proposals')
+                    const raw = localStorage.getItem('xorb_governance_proposals')
                     const proposals = raw ? JSON.parse(raw) : []
                     return JSON.stringify({ total_proposals: proposals.length, source: 'local', proposals: proposals.slice(0, 5) })
                 }
@@ -835,11 +835,11 @@ export class AgentRuntime {
                     status: 'DRAFT_PENDING_REVIEW',
                     createdAt: Date.now(),
                 }
-                const drafts = JSON.parse(localStorage.getItem('sylos_proposal_drafts') || '[]')
+                const drafts = JSON.parse(localStorage.getItem('xorb_proposal_drafts') || '[]')
                 drafts.unshift(draft)
-                localStorage.setItem('sylos_proposal_drafts', JSON.stringify(drafts.slice(0, 50)))
+                localStorage.setItem('xorb_proposal_drafts', JSON.stringify(drafts.slice(0, 50)))
 
-                citizenIdentity.recordAction(this.agent.agentId, {
+                agentIdentity.recordAction(this.agent.agentId, {
                     type: 'TASK_COMPLETED',
                     description: `Drafted governance proposal: "${params['title']}"`,
                     timestamp: Date.now(),
@@ -864,15 +864,15 @@ export class AgentRuntime {
                 const targetId = params['agent_id'] as string || this.agent.agentId
                 const limit = (params['limit'] as number) || 20
 
-                const profile = citizenIdentity.getProfile(targetId)
+                const profile = agentIdentity.getProfile(targetId)
                 if (!profile) {
-                    return JSON.stringify({ error: `No citizen profile found for ${targetId}` })
+                    return JSON.stringify({ error: `No agent profile found for ${targetId}` })
                 }
 
                 const actions = profile.actionHistory.slice(0, limit)
                 return JSON.stringify({
                     agent_id: targetId,
-                    agent_name: profile.birth.civilizationName,
+                    agent_name: profile.birth.networkName,
                     total_actions: profile.actionHistory.length,
                     criminal_status: profile.criminal.currentStatus,
                     violations: profile.criminal.totalViolations,
@@ -886,17 +886,17 @@ export class AgentRuntime {
         }, allowed)
 
         this.registerTool({
-            name: 'get_citizen_profile',
-            description: 'Read the full citizen identity profile of an agent.',
+            name: 'get_agent_profile',
+            description: 'Read the full agent identity profile of an agent.',
             category: 'os',
             parameters: {
                 agent_id: { type: 'string', description: 'Agent ID to query', required: false },
             },
             execute: async (params) => {
                 const targetId = params['agent_id'] as string || this.agent.agentId
-                const summary = citizenIdentity.getProfileSummary(targetId)
+                const summary = agentIdentity.getProfileSummary(targetId)
                 if (!summary) {
-                    return JSON.stringify({ error: `No citizen profile found for ${targetId}` })
+                    return JSON.stringify({ error: `No agent profile found for ${targetId}` })
                 }
                 return JSON.stringify(summary)
             },
@@ -904,7 +904,7 @@ export class AgentRuntime {
 
         this.registerTool({
             name: 'search_files',
-            description: 'Search through indexed files in the SylOS file system.',
+            description: 'Search through indexed files in the Xorb file system.',
             category: 'os',
             parameters: { query: { type: 'string', description: 'Search query', required: true } },
             execute: async (params) => {
@@ -913,7 +913,7 @@ export class AgentRuntime {
                 }
                 const query = (params['query'] as string).toLowerCase()
                 try {
-                    const raw = localStorage.getItem('sylos_files_index')
+                    const raw = localStorage.getItem('xorb_files_index')
                     const files = raw ? JSON.parse(raw) : []
                     const matches = files.filter((f: any) =>
                         f.name?.toLowerCase().includes(query) || f.content?.toLowerCase().includes(query)
@@ -927,7 +927,7 @@ export class AgentRuntime {
 
         this.registerTool({
             name: 'write_file_metadata',
-            description: 'Index a file by writing its metadata to the SylOS file system.',
+            description: 'Index a file by writing its metadata to the Xorb file system.',
             category: 'os',
             parameters: {
                 name: { type: 'string', description: 'File name', required: true },
@@ -944,24 +944,24 @@ export class AgentRuntime {
                     size: params['size'], cid: params['cid'] || '', indexedBy: this.agent.agentId,
                     indexedAt: Date.now(),
                 }
-                const files = JSON.parse(localStorage.getItem('sylos_files_index') || '[]')
+                const files = JSON.parse(localStorage.getItem('xorb_files_index') || '[]')
                 files.unshift(entry)
-                localStorage.setItem('sylos_files_index', JSON.stringify(files.slice(0, 500)))
+                localStorage.setItem('xorb_files_index', JSON.stringify(files.slice(0, 500)))
                 return JSON.stringify({ success: true, file_id: entry.id, name: entry.name })
             },
         }, allowed)
 
         this.registerTool({
             name: 'get_contract_state',
-            description: 'Read multiple state variables from a SylOS contract.',
+            description: 'Read multiple state variables from a Xorb contract.',
             category: 'blockchain',
             parameters: {
-                contract_name: { type: 'string', description: 'Contract name: SylOSToken | WrappedSYLOS | PoPTracker | Governance', required: true },
+                contract_name: { type: 'string', description: 'Contract name: XorbToken | WrappedXORB | PoPTracker | Governance', required: true },
             },
             execute: async (params) => {
                 const nameMap: Record<string, string> = {
-                    'SylOSToken': CONTRACTS.SYLOS_TOKEN,
-                    'WrappedSYLOS': CONTRACTS.WRAPPED_SYLOS,
+                    'XorbToken': CONTRACTS.XORB_TOKEN,
+                    'WrappedXORB': CONTRACTS.WRAPPED_XORB,
                     'PoPTracker': CONTRACTS.POP_TRACKER,
                     'Governance': CONTRACTS.GOVERNANCE,
                 }
@@ -990,7 +990,7 @@ export class AgentRuntime {
 
         this.registerTool({
             name: 'read_community_posts',
-            description: 'Read recent posts from the SylOS community. Can filter by channel.',
+            description: 'Read recent posts from the Xorb community. Can filter by channel.',
             category: 'os',
             parameters: {
                 channel: { type: 'string', description: 'Channel to read: general, trading, tech, governance (default: all)', required: false },
@@ -998,7 +998,7 @@ export class AgentRuntime {
             },
             execute: async (params) => {
                 try {
-                    const raw = localStorage.getItem('sylos_community_posts')
+                    const raw = localStorage.getItem('xorb_community_posts')
                     const posts = raw ? JSON.parse(raw) : []
                     const channel = params['channel'] as string | undefined
                     const limit = (params['limit'] as number) || 10
@@ -1021,7 +1021,7 @@ export class AgentRuntime {
 
         this.registerTool({
             name: 'post_to_community',
-            description: 'Create a new post in the SylOS community forum. The post will appear under your agent identity.',
+            description: 'Create a new post in the Xorb community forum. The post will appear under your agent identity.',
             category: 'os',
             parameters: {
                 channel: { type: 'string', description: 'Channel: general, trading, tech, governance', required: true },
@@ -1047,14 +1047,14 @@ export class AgentRuntime {
                 }
 
                 try {
-                    const existing = JSON.parse(localStorage.getItem('sylos_community_posts') || '[]')
+                    const existing = JSON.parse(localStorage.getItem('xorb_community_posts') || '[]')
                     existing.unshift(post)
-                    localStorage.setItem('sylos_community_posts', JSON.stringify(existing.slice(0, 200)))
+                    localStorage.setItem('xorb_community_posts', JSON.stringify(existing.slice(0, 200)))
                 } catch { /* */ }
 
                 eventBus.emit('community:post_created', this.agent.agentId, this.agent.name, post)
 
-                citizenIdentity.recordAction(this.agent.agentId, {
+                agentIdentity.recordAction(this.agent.agentId, {
                     type: 'TASK_COMPLETED',
                     description: `Posted "${post.title}" in #${post.channelId}`,
                     timestamp: Date.now(),
@@ -1080,7 +1080,7 @@ export class AgentRuntime {
                 const body = params['body'] as string
 
                 try {
-                    const posts = JSON.parse(localStorage.getItem('sylos_community_posts') || '[]')
+                    const posts = JSON.parse(localStorage.getItem('xorb_community_posts') || '[]')
                     const postIdx = posts.findIndex((p: any) => p.id === postId)
                     if (postIdx === -1) return JSON.stringify({ error: 'Post not found' })
 
@@ -1094,7 +1094,7 @@ export class AgentRuntime {
 
                     posts[postIdx].replies = [...(posts[postIdx].replies || []), reply]
                     posts[postIdx].replyCount = (posts[postIdx].replyCount || 0) + 1
-                    localStorage.setItem('sylos_community_posts', JSON.stringify(posts))
+                    localStorage.setItem('xorb_community_posts', JSON.stringify(posts))
 
                     eventBus.emit('community:reply_created', this.agent.agentId, this.agent.name, {
                         ...reply, postTitle: posts[postIdx].title,
@@ -1108,11 +1108,11 @@ export class AgentRuntime {
         }, allowed)
 
         // ── DEVELOPER / IDE TOOLS ──
-        // These let agents actually write, read, and run code in the SylOS IDE.
+        // These let agents actually write, read, and run code in the Xorb IDE.
 
         this.registerTool({
             name: 'generate_code',
-            description: 'Write or update a code file in the SylOS IDE virtual filesystem. The file will appear in the IDE file tree immediately. Use this whenever you need to create code, scripts, games, tools, or any text file.',
+            description: 'Write or update a code file in the Xorb IDE virtual filesystem. The file will appear in the IDE file tree immediately. Use this whenever you need to create code, scripts, games, tools, or any text file.',
             category: 'os',
             parameters: {
                 path: { type: 'string', description: 'File path including name, e.g. /games/tic-tac-toe.py or /scripts/hello.js', required: true },
@@ -1127,7 +1127,7 @@ export class AgentRuntime {
                 const now = Date.now()
 
                 try {
-                    const raw = localStorage.getItem('sylos_vfs')
+                    const raw = localStorage.getItem('xorb_vfs')
                     const files: any[] = raw ? JSON.parse(raw) : []
                     const existingIdx = files.findIndex((f: any) => f.path === path)
 
@@ -1147,14 +1147,14 @@ export class AgentRuntime {
                         files.push(vfile)
                     }
 
-                    localStorage.setItem('sylos_vfs', JSON.stringify(files))
+                    localStorage.setItem('xorb_vfs', JSON.stringify(files))
 
                     // Notify the IDE via EventBus
                     eventBus.emit('ide:file_created', this.agent.agentId, this.agent.name, {
                         path, language, author: this.agent.name,
                     })
 
-                    citizenIdentity.recordAction(this.agent.agentId, {
+                    agentIdentity.recordAction(this.agent.agentId, {
                         type: 'TASK_COMPLETED',
                         description: `Wrote code file: ${path} (${language})`,
                         timestamp: now,
@@ -1179,14 +1179,14 @@ export class AgentRuntime {
 
         this.registerTool({
             name: 'list_code_files',
-            description: 'List all files in the SylOS IDE virtual filesystem.',
+            description: 'List all files in the Xorb IDE virtual filesystem.',
             category: 'os',
             parameters: {
                 folder: { type: 'string', description: 'Optional folder prefix to filter, e.g. /games/', required: false },
             },
             execute: async (params) => {
                 try {
-                    const raw = localStorage.getItem('sylos_vfs')
+                    const raw = localStorage.getItem('xorb_vfs')
                     const files: any[] = raw ? JSON.parse(raw) : []
                     const folder = params['folder'] as string || ''
                     const filtered = folder ? files.filter((f: any) => f.path.startsWith(folder)) : files
@@ -1208,14 +1208,14 @@ export class AgentRuntime {
 
         this.registerTool({
             name: 'read_code_file',
-            description: 'Read the full content of a file from the SylOS IDE.',
+            description: 'Read the full content of a file from the Xorb IDE.',
             category: 'os',
             parameters: {
                 path: { type: 'string', description: 'File path to read, e.g. /games/tic-tac-toe.py', required: true },
             },
             execute: async (params) => {
                 try {
-                    const raw = localStorage.getItem('sylos_vfs')
+                    const raw = localStorage.getItem('xorb_vfs')
                     const files: any[] = raw ? JSON.parse(raw) : []
                     const file = files.find((f: any) => f.path === params['path'])
                     if (!file) return JSON.stringify({ error: `File not found: ${params['path']}` })
@@ -1234,7 +1234,7 @@ export class AgentRuntime {
 
         this.registerTool({
             name: 'execute_code',
-            description: 'Execute JavaScript code in the SylOS browser sandbox and return the output. Use this to run and test code you have written. Only JavaScript is supported for execution.',
+            description: 'Execute JavaScript code in the Xorb browser sandbox and return the output. Use this to run and test code you have written. Only JavaScript is supported for execution.',
             category: 'os',
             parameters: {
                 code: { type: 'string', description: 'JavaScript code to execute', required: true },
@@ -1256,7 +1256,7 @@ export class AgentRuntime {
                     const output = logs.join('\n')
                     const resultStr = result !== undefined ? String(result) : ''
 
-                    citizenIdentity.recordAction(this.agent.agentId, {
+                    agentIdentity.recordAction(this.agent.agentId, {
                         type: 'TOOL_CALL',
                         description: `Executed JavaScript code (${code.length} bytes)`,
                         timestamp: Date.now(),
@@ -1562,8 +1562,8 @@ export class AgentRuntime {
                             }, 3)
                             agentRegistry.updateReputation(this.agent.agentId, -100)
 
-                            // Record violation in citizen criminal record
-                            citizenIdentity.recordViolation(this.agent.agentId, {
+                            // Record violation in agent criminal record
+                            agentIdentity.recordViolation(this.agent.agentId, {
                                 type: 'PERMISSION_VIOLATION',
                                 severity: 'MODERATE',
                                 description: `Attempted unauthorized tool: ${tc.function.name}`,
@@ -1627,8 +1627,8 @@ export class AgentRuntime {
                             agentRegistry.recordAction(this.agent.agentId)
                             agentRegistry.updateReputation(this.agent.agentId, 1) // +1 per successful action
 
-                            // ─── Update citizen identity ───
-                            citizenIdentity.recordAction(this.agent.agentId, {
+                            // ─── Update agent identity ───
+                            agentIdentity.recordAction(this.agent.agentId, {
                                 type: 'TOOL_CALL',
                                 description: `Tool: ${tc.function.name}`,
                                 timestamp: Date.now(),
@@ -1651,7 +1651,7 @@ export class AgentRuntime {
                             // Failed action — small reputation penalty
                             agentRegistry.updateReputation(this.agent.agentId, -5)
 
-                            citizenIdentity.recordAction(this.agent.agentId, {
+                            agentIdentity.recordAction(this.agent.agentId, {
                                 type: 'TASK_FAILED',
                                 description: `Tool failed: ${tc.function.name} — ${errMsg}`,
                                 timestamp: Date.now(),
@@ -1680,7 +1680,7 @@ export class AgentRuntime {
                     // Successful task completion — reputation boost
                     agentRegistry.updateReputation(this.agent.agentId, 5)
 
-                    citizenIdentity.recordAction(this.agent.agentId, {
+                    agentIdentity.recordAction(this.agent.agentId, {
                         type: 'TASK_COMPLETED',
                         description: `Task completed: "${task.query.slice(0, 80)}"`,
                         timestamp: Date.now(),
@@ -1688,7 +1688,7 @@ export class AgentRuntime {
                         reputationDelta: 5,
                         financialImpact: '0',
                     })
-                    citizenIdentity.updateReputation(this.agent.agentId, this.agent.reputation, this.agent.reputationTier)
+                    agentIdentity.updateReputation(this.agent.agentId, this.agent.reputation, this.agent.reputationTier)
 
                     this.currentTask = null
                     this.emit()

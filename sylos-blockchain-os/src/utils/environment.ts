@@ -55,7 +55,7 @@ class EnvironmentManager {
     if (import.meta.env.PROD) {
       for (const varName of requiredVars) {
         if (!import.meta.env[varName]) {
-          console.warn(`[SylOS] Missing environment variable: ${varName} — some features may be unavailable`)
+          console.warn(`[Xorb] Missing environment variable: ${varName} — some features may be unavailable`)
         }
       }
     }
@@ -197,7 +197,7 @@ export const validateEnvironment = (): void => {
   const errors = envManager.validateConfig()
 
   if (errors.length > 0) {
-    console.warn('[SylOS] Environment validation warnings:', errors)
+    console.warn('[Xorb] Environment validation warnings:', errors)
   }
 }
 

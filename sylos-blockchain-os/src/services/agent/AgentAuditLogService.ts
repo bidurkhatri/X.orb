@@ -51,7 +51,7 @@ export class AgentAuditLogService {
             reputationDelta: reputationPenalty
         };
 
-        console.log(`[SylOS Audit] Agent ${agentId.substring(0, 6)} -> ${actionType}`);
+        console.log(`[Xorb Audit] Agent ${agentId.substring(0, 6)} -> ${actionType}`);
 
         // High severity actions necessitate immediate immutable IPFS pinning (Moral Alignment constraint)
         if (actionType === 'TX_SIGN_REQUEST' || actionType === 'CRITICAL_FAULT' || actionType === 'AKASH_COMPUTE_LEASE') {
@@ -89,8 +89,8 @@ export class AgentAuditLogService {
      * (Phase 5.14/5.16 integration logic).
      */
     private async slashAgentReputationBond(agentId: string, penalty: number) {
-        console.warn(`[SylOS Guardrail] SLA/PoP Penalty invoked! Agent ${agentId} slashed by ${penalty} points.`);
-        // In a real environment, this calls SylOSGovernance.slashAgentBond(agentId, penalty)
+        console.warn(`[Xorb Guardrail] SLA/PoP Penalty invoked! Agent ${agentId} slashed by ${penalty} points.`);
+        // In a real environment, this calls XorbGovernance.slashAgentBond(agentId, penalty)
     }
 
     /**
