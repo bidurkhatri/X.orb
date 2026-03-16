@@ -1,7 +1,8 @@
 import { AgentRegistryService } from '@xorb/agent-core'
 import type { DataStore, AgentRow, AgentUpsert, ActionInsert } from '@xorb/agent-core'
+import { SupabaseDataStore } from '../adapters/supabase-store'
 
-// In-memory DataStore implementation (replace with Supabase adapter later)
+// In-memory DataStore for development
 class InMemoryDataStore implements DataStore {
   private agents = new Map<string, AgentRow>()
   private actions: ActionInsert[] = []
@@ -22,11 +23,8 @@ class InMemoryDataStore implements DataStore {
   async upsertAgent(agent: AgentUpsert): Promise<void> {
     this.agents.set(agent.agent_id, {
       ...agent,
-      slashed_amount: agent.slashed_amount || '0',
-      permission_hash: agent.permission_hash || '',
       permission_scope: null,
       reputation_tier: null,
-      reputation_score: agent.reputation_score,
     } as AgentRow)
   }
 
@@ -43,11 +41,24 @@ class InMemoryDataStore implements DataStore {
   }
 }
 
+function createDataStore(): DataStore {
+  const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL
+  const supabaseKey = process.env.SUPABASE_SERVICE_KEY || process.env.VITE_SUPABASE_ANON_KEY
+
+  if (supabaseUrl && supabaseKey) {
+    console.log('[Registry] Using Supabase DataStore')
+    return new SupabaseDataStore(supabaseUrl, supabaseKey)
+  }
+
+  console.log('[Registry] Using in-memory DataStore (set SUPABASE_URL + SUPABASE_SERVICE_KEY for persistence)')
+  return new InMemoryDataStore()
+}
+
 let registry: AgentRegistryService | null = null
 
 export async function getRegistry(): Promise<AgentRegistryService> {
   if (!registry) {
-    const store = new InMemoryDataStore()
+    const store = createDataStore()
     registry = new AgentRegistryService(store)
     await registry.load()
   }
