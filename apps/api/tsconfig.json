@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "paths": {
+      "@xorb/agent-core": ["../../packages/agent-core/src"]
+    }
+  },
+  "include": ["src/**/*", "api/**/*"],
+  "exclude": ["node_modules", "dist"]
+}

@@ -1,4 +1,3 @@
-// Agent types
 export type AgentRole =
   | 'TRADER'
   | 'RESEARCHER'
@@ -17,11 +16,11 @@ export interface PermissionScope {
   allowedContracts: string[]
   maxActionsPerHour: number
   canTransferFunds: boolean
-  maxFundsPerAction: string
+  maxFundsPerAction: string // serialized bigint (avoid BigInt for JSON compat)
   fileAccess: 'none' | 'read' | 'readwrite'
 }
 
-export interface AgentProfile {
+export interface RegisteredAgent {
   agentId: string
   name: string
   role: AgentRole
@@ -40,33 +39,31 @@ export interface AgentProfile {
   description: string
 }
 
-// API types
-export interface ApiKey {
-  id: string
-  keyPrefix: string
-  ownerAddress: string
+export interface SpawnAgentConfig {
   name: string
-  scopes: ApiKeyScope[]
-  rateLimitPerMinute: number
-  isActive: boolean
-  createdAt: string
-  expiresAt?: string
+  role: AgentRole
+  sponsorAddress: string
+  stakeBond?: string
+  expiryDays?: number
+  description?: string
+  customPermissions?: Partial<PermissionScope>
 }
 
-export type ApiKeyScope =
-  | 'agents:read'
-  | 'agents:write'
-  | 'actions:write'
-  | 'reputation:read'
-  | 'audit:read'
-  | 'webhooks:manage'
-
-// Pipeline types
 export interface GateResult {
   gate: string
   passed: boolean
   reason?: string
   latency_ms: number
+}
+
+export interface PipelineContext {
+  agentId: string
+  action: string
+  tool: string
+  params: unknown
+  agent?: RegisteredAgent
+  gateResults: GateResult[]
+  startTime: number
 }
 
 export interface PipelineResult {
@@ -79,39 +76,3 @@ export interface PipelineResult {
   timestamp: string
   latency_ms: number
 }
-
-// Webhook types
-export interface WebhookSubscription {
-  id: string
-  sponsorAddress: string
-  url: string
-  eventTypes: string[]
-  secret: string
-  active: boolean
-  createdAt: string
-}
-
-export interface WebhookPayload {
-  id: string
-  type: string
-  created_at: string
-  data: Record<string, unknown>
-}
-
-// Event types
-export type XorbEventType =
-  | 'agent.registered'
-  | 'agent.paused'
-  | 'agent.resumed'
-  | 'agent.revoked'
-  | 'action.approved'
-  | 'action.blocked'
-  | 'action.verified'
-  | 'reputation.changed'
-  | 'reputation.tier_changed'
-  | 'agent.warned'
-  | 'agent.slashed'
-  | 'agent.suspended'
-  | 'listing.created'
-  | 'engagement.started'
-  | 'engagement.completed'
