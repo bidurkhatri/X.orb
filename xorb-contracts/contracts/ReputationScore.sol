@@ -29,9 +29,12 @@ import "@openzeppelin/contracts/utils/Pausable.sol";
  *   -50 per rate limit violation
  *   -100 per permission violation
  */
-contract ReputationScore is AccessControl, ReentrancyGuard, Pausable {
+import "./interfaces/IReputationFeedback.sol";
+
+contract ReputationScore is AccessControl, ReentrancyGuard, Pausable, IReputationFeedback {
 
     bytes32 public constant ORACLE_ROLE = keccak256("ORACLE_ROLE");
+    bytes32 public constant FEEDBACK_ROLE = keccak256("FEEDBACK_ROLE");
 
     // --- Types ---
 
@@ -348,6 +351,111 @@ contract ReputationScore is AccessControl, ReentrancyGuard, Pausable {
         agentRegistry.updateReputation(_agentId, newScore);
 
         emit DecayApplied(_agentId, totalDecay, newScore);
+    }
+}
+
+    // ═══════════════════════════════════════════
+    // ═══  ERC-8004: IReputationFeedback  ════
+    // ═══════════════════════════════════════════
+
+    /// @dev Feedback records per agent
+    mapping(bytes32 => Feedback[]) private agentFeedback;
+
+    /// @dev Feedback summary per agent
+    mapping(bytes32 => uint256) public totalFeedbackCount;
+    mapping(bytes32 => uint256) public positiveFeedbackCount;
+    mapping(bytes32 => uint256) public negativeFeedbackCount;
+
+    /// @inheritdoc IReputationFeedback
+    function submitFeedback(
+        bytes32 fromAgent,
+        bytes32 toAgent,
+        uint256 score,
+        string[] calldata tags,
+        string calldata context
+    ) external override {
+        require(score <= 100, "Score must be 0-100");
+        require(reputations[toAgent].lastUpdatedAt > 0, "Target agent not registered");
+
+        Feedback memory fb = Feedback({
+            fromAgent: fromAgent,
+            toAgent: toAgent,
+            score: score,
+            tags: tags,
+            context: context,
+            timestamp: block.timestamp
+        });
+
+        agentFeedback[toAgent].push(fb);
+        totalFeedbackCount[toAgent]++;
+
+        if (score >= 50) {
+            positiveFeedbackCount[toAgent]++;
+        } else {
+            negativeFeedbackCount[toAgent]++;
+        }
+
+        // Apply reputation impact: feedback score maps to -10..+10 delta
+        int256 delta = int256(score) - 50; // 0→-50, 50→0, 100→+50
+        delta = delta / 5; // scale to -10..+10
+
+        if (delta != 0) {
+            ReputationRecord storage rep = reputations[toAgent];
+            uint256 scoreBefore = rep.score;
+            uint256 scoreAfter;
+
+            if (delta >= 0) {
+                scoreAfter = rep.score + uint256(delta);
+                if (scoreAfter > MAX_SCORE) scoreAfter = MAX_SCORE;
+            } else {
+                uint256 absDelta = uint256(-delta);
+                scoreAfter = absDelta >= rep.score ? 0 : rep.score - absDelta;
+            }
+
+            rep.score = scoreAfter;
+            rep.lastUpdatedAt = block.timestamp;
+            agentRegistry.updateReputation(toAgent, scoreAfter);
+        }
+
+        emit FeedbackSubmitted(fromAgent, toAgent, score, block.timestamp);
+    }
+
+    /// @inheritdoc IReputationFeedback
+    function getReputation(bytes32 agentId) external view override returns (
+        uint256 score,
+        uint256 totalFeedback,
+        uint256 positiveFeedback,
+        uint256 negativeFeedback
+    ) {
+        return (
+            reputations[agentId].score,
+            totalFeedbackCount[agentId],
+            positiveFeedbackCount[agentId],
+            negativeFeedbackCount[agentId]
+        );
+    }
+
+    /// @inheritdoc IReputationFeedback
+    function getFeedback(bytes32 agentId, uint256 offset, uint256 limit)
+        external view override returns (Feedback[] memory)
+    {
+        Feedback[] storage all = agentFeedback[agentId];
+        if (offset >= all.length) return new Feedback[](0);
+
+        uint256 end = offset + limit;
+        if (end > all.length) end = all.length;
+        uint256 size = end - offset;
+
+        Feedback[] memory result = new Feedback[](size);
+        for (uint256 i = 0; i < size; i++) {
+            result[i] = all[offset + i];
+        }
+        return result;
+    }
+
+    /// @inheritdoc IReputationFeedback
+    function supportsERC8004() external pure override returns (bool) {
+        return true;
     }
 }
 

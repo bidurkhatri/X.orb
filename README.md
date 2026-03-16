@@ -1,6 +1,6 @@
 <div align="center">
 
-# Xorb
+# X.orb
 
 ### The logic gate between AI agents and the real world.
 

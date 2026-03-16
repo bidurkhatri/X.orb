@@ -82,14 +82,12 @@ export function getReputationTier(score: number): ReputationTier {
   return 'UNTRUSTED'
 }
 
+/**
+ * PermissionChecker — validates agent actions against their permission scope.
+ * Used by the 8-gate pipeline (Gate 2: Permissions).
+ */
 export class PermissionChecker {
-  private scope: PermissionScope
-  private actionCountThisHour = 0
-  private hourStart = Date.now()
-
-  constructor(scope: PermissionScope) {
-    this.scope = scope
-  }
+  constructor(private scope: PermissionScope) {}
 
   canUseTool(toolName: string): boolean {
     return this.scope.allowedTools.includes(toolName)
@@ -101,27 +99,8 @@ export class PermissionChecker {
       this.scope.allowedContracts.includes(address)
   }
 
-  checkRateLimit(): boolean {
-    const now = Date.now()
-    if (now - this.hourStart > 3600000) {
-      this.hourStart = now
-      this.actionCountThisHour = 0
-    }
-    return this.actionCountThisHour < this.scope.maxActionsPerHour
-  }
-
-  recordAction(): void {
-    this.actionCountThisHour++
-  }
-
   canTransfer(amountStr: string): boolean {
     if (!this.scope.canTransferFunds) return false
     return BigInt(amountStr) <= BigInt(this.scope.maxFundsPerAction)
-  }
-
-  getDenialReason(toolName: string): string {
-    if (!this.canUseTool(toolName)) return `Role does not permit tool: ${toolName}`
-    if (!this.checkRateLimit()) return `Rate limit exceeded: ${this.scope.maxActionsPerHour}/hr`
-    return 'Permission denied'
   }
 }
