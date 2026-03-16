@@ -1,6 +1,6 @@
 /**
  * @file AgentRoles.ts
- * @description Agent Role System — Professions in the SylOS Civilization
+ * @description Agent Role System — Professions in the Xorb Network
  *
  * Every agent is instantiated with a ROLE that defines:
  * - What tools it can call
@@ -67,7 +67,7 @@ const BASE_PERCEPTION_TOOLS = [
     'get_block_number',
     'get_token_balance',
     'system_info',
-    // Community — every agent can interact with the civilization
+    // Community — every agent can interact with the network
     'read_community_posts',
     'post_to_community',
     'reply_to_post',
@@ -89,8 +89,8 @@ export const ROLE_PERMISSIONS: Record<AgentRole, PermissionScope> = {
             'get_token_price',
         ],
         allowedContracts: [
-            CONTRACTS.WRAPPED_SYLOS,
-            CONTRACTS.SYLOS_TOKEN,
+            CONTRACTS.WRAPPED_XORB,
+            CONTRACTS.XORB_TOKEN,
         ],
         allowedIpcTypes: ['EXECUTE_ONCHAIN', 'REQUEST_PERMISSION', 'HEARTBEAT'],
         maxActionsPerHour: 60,
@@ -193,10 +193,10 @@ export const ROLE_PERMISSIONS: Record<AgentRole, PermissionScope> = {
             'alert_user',
         ],
         allowedContracts: [
-            CONTRACTS.WRAPPED_SYLOS,
+            CONTRACTS.WRAPPED_XORB,
             CONTRACTS.GOVERNANCE,
             CONTRACTS.POP_TRACKER,
-            CONTRACTS.SYLOS_TOKEN,
+            CONTRACTS.XORB_TOKEN,
         ],
         allowedIpcTypes: ['REQUEST_PERMISSION', 'HEARTBEAT', 'AGENT_CHAT'],
         maxActionsPerHour: 120,

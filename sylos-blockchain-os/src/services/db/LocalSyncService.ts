@@ -14,12 +14,12 @@ export interface QueuedTransaction {
  * LocalSyncService
  * 
  * Implements a Conflict-free Replicated Data Type (CRDT) inspired architecture.
- * This service ensures SylOS functions perfectly offline (Local-First).
+ * This service ensures Xorb functions perfectly offline (Local-First).
  * It queues all blockchain transactions and VFS uploads in a local IndexedDB,
  * automatically flushing and syncing to Supabase/Polygon upon reconnection.
  */
 export class LocalSyncService {
-    private dbName = 'sylos_offline_crdt_store';
+    private dbName = 'xorb_offline_crdt_store';
     private storeName = 'transaction_queue';
     private db: IDBDatabase | null = null;
     private syncInterval: ReturnType<typeof setInterval> | null = null;
@@ -56,14 +56,14 @@ export class LocalSyncService {
     private setupNetworkListeners() {
         window.addEventListener('online', () => {
             this.isOnline = true;
-            console.log('🌍 SylOS network restored. Flushing CRDT queue...');
+            console.log('🌍 Xorb network restored. Flushing CRDT queue...');
             this.flushQueue();
             this.startBackgroundSync();
         });
 
         window.addEventListener('offline', () => {
             this.isOnline = false;
-            console.warn('⚠️ SylOS network disconnected. Entering Local-First offline mode.');
+            console.warn('⚠️ Xorb network disconnected. Entering Local-First offline mode.');
             this.stopBackgroundSync();
         });
 
@@ -123,7 +123,7 @@ export class LocalSyncService {
             const pendingTxs = await this.getPendingTransactions();
             if (pendingTxs.length === 0) return;
 
-            console.log(`[SylOS Sync] Flushing ${pendingTxs.length} pending offline actions...`);
+            console.log(`[Xorb Sync] Flushing ${pendingTxs.length} pending offline actions...`);
 
             for (const tx of pendingTxs) {
                 try {
@@ -152,7 +152,7 @@ export class LocalSyncService {
                 break;
 
             case 'SMART_CONTRACT_CALL':
-                // Payload would technically be executed via Wagmi or the SylOSMetaPaymaster
+                // Payload would technically be executed via Wagmi or the XorbMetaPaymaster
                 // In a real execution, we emit an event to the UI asking for signature confirmation as it comes back online
                 console.log('Syncing SMART_CONTRACT_CALL via Web3 Provider:', tx.payload);
                 break;
@@ -216,5 +216,5 @@ export class LocalSyncService {
     }
 }
 
-// Export singleton instance for SylOS
+// Export singleton instance for Xorb
 export const localSyncService = new LocalSyncService();

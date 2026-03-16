@@ -1,5 +1,5 @@
 /**
- * SylOS Agent Supervisor Daemon
+ * Xorb Agent Supervisor Daemon
  * Manages the lifecycle, resource tracking, and "Heartbeat" wake cycles of all AI Agents.
  *
  * Resource metrics are tracked from actual agent activity:

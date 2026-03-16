@@ -1,4 +1,4 @@
-// Monitoring and logging configuration for SylOS Blockchain OS
+// Monitoring and logging configuration for Xorb Blockchain OS
 export interface MonitoringConfig {
   // Application monitoring
   app: {
@@ -381,7 +381,7 @@ export default {
     config: {
       app: {
         enableTracking: process.env.NODE_ENV === 'production',
-        serviceName: 'sylos-blockchain-os',
+        serviceName: 'xorb-blockchain-os',
         version: process.env.npm_package_version || '1.0.0',
         environment: process.env.NODE_ENV || 'development',
         samplingRate: process.env.NODE_ENV === 'production' ? 100 : 0

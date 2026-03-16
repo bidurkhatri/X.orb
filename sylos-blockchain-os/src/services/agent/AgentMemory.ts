@@ -5,7 +5,7 @@
  * Every agent gets persistent memory that survives across cycles,
  * giving them continuity, goals, and the ability to learn from experience.
  *
- * This is what transforms a one-shot prompt bot into a living digital citizen.
+ * This is what transforms a one-shot prompt bot into a living digital agent.
  * Without memory, every 30-second cycle is a blank slate.
  * With memory, the agent builds on what it did before — like a real mind.
  */
@@ -75,7 +75,7 @@ export interface AgentMemoryData {
    ═══  MEMORY MANAGER  ═════════
    ═══════════════════════════════ */
 
-const MEMORY_PREFIX = 'sylos_agent_memory_'
+const MEMORY_PREFIX = 'xorb_agent_memory_'
 const MAX_JOURNAL = 50
 const MAX_LEARNINGS = 30
 const MAX_READ_POSTS = 100

@@ -21,9 +21,9 @@ vi.mock('@/lib/supabase', () => ({
   },
 }))
 
-// CitizenIdentity — we only care that registry calls through
-vi.mock('./CitizenIdentity', () => ({
-  citizenIdentity: {
+// AgentIdentity — we only care that registry calls through
+vi.mock('./AgentIdentity', () => ({
+  agentIdentity: {
     createProfile: vi.fn(),
     updateStatus: vi.fn(),
     updateReputation: vi.fn(),

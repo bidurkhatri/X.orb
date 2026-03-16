@@ -1,4 +1,4 @@
-// Performance optimization configuration for SylOS Blockchain OS
+// Performance optimization configuration for Xorb Blockchain OS
 export interface PerformanceConfig {
   // Bundle optimization
   bundle: {
@@ -191,7 +191,7 @@ export const bundleAnalyzer = {
   output: {
     filename: 'stats.html',
     reportFilename: 'report.html',
-    reportTitle: 'SylOS Bundle Analysis',
+    reportTitle: 'Xorb Bundle Analysis',
     
     // Open browser automatically
     openAnalyzer: false,

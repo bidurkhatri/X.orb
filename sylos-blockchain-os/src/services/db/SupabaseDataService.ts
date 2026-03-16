@@ -1,10 +1,10 @@
 /**
- * SupabaseDataService — typed query layer for all SylOS Supabase tables.
+ * SupabaseDataService — typed query layer for all Xorb Supabase tables.
  *
  * Provides real data access for:
  *  - agent_registry (agents, spawn, lifecycle)
  *  - agent_actions (audit log, tool calls)
- *  - civilization_stats (dashboard metrics)
+ *  - network_stats (dashboard metrics)
  *  - transactions (on-chain tx records)
  *  - decentralized_files (VFS)
  *
@@ -51,7 +51,7 @@ export interface AgentActionRow {
     created_at: string
 }
 
-export interface CivilizationStatsRow {
+export interface NetworkStatsRow {
     id: string
     total_agents: number
     active_agents: number
@@ -117,7 +117,7 @@ class SupabaseDataService {
             return this._available
         }
         try {
-            const { error } = await supabase.from('civilization_stats').select('id').limit(1)
+            const { error } = await supabase.from('network_stats').select('id').limit(1)
             this._available = !error
         } catch {
             this._available = false
@@ -183,11 +183,11 @@ class SupabaseDataService {
         await supabase.from('agent_actions').insert([action])
     }
 
-    /* ═══ Civilization Stats ═══ */
+    /* ═══ Network Stats ═══ */
 
-    async fetchCivilizationStats(): Promise<CivilizationStatsRow | null> {
+    async fetchNetworkStats(): Promise<NetworkStatsRow | null> {
         const { data, error } = await supabase
-            .from('civilization_stats')
+            .from('network_stats')
             .select('*')
             .eq('id', 'global')
             .single()

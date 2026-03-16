@@ -1,4 +1,4 @@
-name: SylOS Production Deployment
+name: Xorb Production Deployment
 
 on:
   push:
@@ -29,11 +29,11 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Lint Frontend
-        working-directory: ./sylos-blockchain-os
+        working-directory: ./xorb-blockchain-os
         run: pnpm run lint
 
       - name: Run Vite Tests
-        working-directory: ./sylos-blockchain-os
+        working-directory: ./xorb-blockchain-os
         run: pnpm run test
 
       - name: Compile Smart Contracts
@@ -90,9 +90,9 @@ jobs:
       - name: Build and Push Docker Image
         uses: docker/build-push-action@v5
         with:
-          context: ./sylos-blockchain-os
+          context: ./xorb-blockchain-os
           push: true
-          tags: ghcr.io/${{ github.repository }}/sylos-web:latest
+          tags: ghcr.io/${{ github.repository }}/xorb-web:latest
           build-args: |
             NEXT_PUBLIC_SUPABASE_URL=${{ secrets.SUPABASE_URL }}
             NEXT_PUBLIC_POLYGON_RPC=${{ secrets.POLYGON_RPC_URL }}

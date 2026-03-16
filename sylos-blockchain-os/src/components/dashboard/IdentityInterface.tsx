@@ -1,5 +1,5 @@
 /**
- * SylOS Identity Interface — Real DID Management
+ * Xorb Identity Interface — Real DID Management
  * 
  * Manages decentralized identity: DID registration, credential management,
  * attribute editing, and social recovery. Uses Supabase for persistence
@@ -60,7 +60,7 @@ const cs = {
   badge: (color: string) => ({ padding: '4px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: 600, background: `${color}18`, color, display: 'inline-flex', alignItems: 'center', gap: '4px' }) as React.CSSProperties,
 }
 
-const STORAGE_KEY = 'sylos_identity'
+const STORAGE_KEY = 'xorb_identity'
 
 // ─── Local persistence helpers ─────────────────────
 function loadIdentity(address: string): { did: DIDRecord | null; credentials: Credential[]; attributes: DIDAttribute[]; guardians: Guardian[] } {
@@ -136,7 +136,7 @@ export default function IdentityInterface() {
     setLoading(true)
     try {
       // Generate DID using W3C format
-      const didString = `did:sylos:polygon:${address.slice(2).toLowerCase()}`
+      const didString = `did:xorb:polygon:${address.slice(2).toLowerCase()}`
 
       // Hash the DID document
       const encoder = new TextEncoder()
@@ -151,7 +151,7 @@ export default function IdentityInterface() {
         did_string: didString,
         document_hash: documentHash,
         public_keys: [address],
-        services: ['SylOS-Agent-Runtime', 'SylOS-VFS'],
+        services: ['Xorb-Agent-Runtime', 'Xorb-VFS'],
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         status: 'active',
@@ -336,7 +336,7 @@ export default function IdentityInterface() {
               <Fingerprint size={28} color={did ? '#fff' : 'rgba(255,255,255,0.2)'} />
             </div>
             <div>
-              <div style={{ fontSize: '16px', fontWeight: 700, color: '#fff' }}>{did ? 'SylOS DID' : 'No DID Registered'}</div>
+              <div style={{ fontSize: '16px', fontWeight: 700, color: '#fff' }}>{did ? 'Xorb DID' : 'No DID Registered'}</div>
               {did ? (
                 <>
                   <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.5)', marginTop: '2px', fontFamily: "'JetBrains Mono', monospace", display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -379,7 +379,7 @@ export default function IdentityInterface() {
             This will create a W3C-compliant DID bound to your wallet address. Your DID document hash will be generated cryptographically.
           </p>
           <div style={{ padding: '12px', borderRadius: '10px', background: 'rgba(0,0,0,0.2)', marginBottom: '16px', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: '#a5b4fc' }}>
-            did:sylos:polygon:{address?.slice(2, 14).toLowerCase()}...
+            did:xorb:polygon:{address?.slice(2, 14).toLowerCase()}...
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
             <button onClick={handleRegisterDID} disabled={loading} style={{ ...cs.btn, background: 'linear-gradient(135deg, #4f46e5, #7c3aed)', color: '#fff', opacity: loading ? 0.5 : 1, display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -451,7 +451,7 @@ export default function IdentityInterface() {
                   })),
                   service: did.services.map((s, i) => ({
                     id: `${did.did_string}#svc-${i}`,
-                    type: 'SylOSService',
+                    type: 'XorbService',
                     serviceEndpoint: s,
                   })),
                   created: did.created_at,
@@ -508,7 +508,7 @@ export default function IdentityInterface() {
               <h4 style={{ fontSize: '13px', fontWeight: 600, color: '#fff', margin: '0 0 12px' }}>Request Credential</h4>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '14px' }}>
                 <input placeholder="Credential type (e.g. Proof of Humanity, KYC Level 2)" value={credForm.type} onChange={e => setCredForm(p => ({ ...p, type: e.target.value }))} style={cs.input} />
-                <input placeholder="Issuer (e.g. SylOS Network, Polygon ID)" value={credForm.issuer} onChange={e => setCredForm(p => ({ ...p, issuer: e.target.value }))} style={cs.input} />
+                <input placeholder="Issuer (e.g. Xorb Network, Polygon ID)" value={credForm.issuer} onChange={e => setCredForm(p => ({ ...p, issuer: e.target.value }))} style={cs.input} />
               </div>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <button onClick={handleAddCredential} style={{ ...cs.btn, background: 'linear-gradient(135deg, #4f46e5, #7c3aed)', color: '#fff', fontSize: '12px', padding: '8px 16px' }}>Submit Request</button>

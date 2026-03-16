@@ -1,10 +1,10 @@
 /**
  * @file AgentRegistry.ts
- * @description Agent Registry — Immigration System for the SylOS Civilization
+ * @description Agent Registry — Immigration System for the Xorb Network
  *
  * An agent cannot exist without sponsorship. Just like a visa.
  *
- * To exist in SylOS, an agent must:
+ * To exist in Xorb, an agent must:
  * - Be spawned by a human (wallet) or DAO
  * - Be registered in this Agent Registry
  * - Receive: unique ID, session wallet, initial stake, permission scope, expiry
@@ -17,14 +17,14 @@ import { supabase } from '@/lib/supabase'
 import { supabaseData, type AgentRow } from '@/services/db/SupabaseDataService'
 import type { AgentRole, AgentStatus, PermissionScope, ReputationTier } from './AgentRoles'
 import { ROLE_PERMISSIONS, getReputationTier } from './AgentRoles'
-import { citizenIdentity } from './CitizenIdentity'
+import { agentIdentity } from './AgentIdentity'
 
 /* ═══════════════════════════════
    ═══  REGISTERED AGENT  ═══════
    ═══════════════════════════════ */
 
 export interface LLMProvider {
-    name: string            // "OpenAI" | "Groq" | "OpenRouter" | "Ollama" | "SylOS-Hosted"
+    name: string            // "OpenAI" | "Groq" | "OpenRouter" | "Ollama" | "Xorb-Hosted"
     apiUrl: string
     model: string
     apiKey?: string         // Encrypted at rest via CredentialVault (Phase 2)
@@ -36,7 +36,7 @@ export interface RegisteredAgent {
     role: AgentRole
     sponsorAddress: string           // Human/DAO wallet that spawned this agent
     sessionWalletAddress: string     // Sub-wallet for this agent
-    stakeBond: string                // wSYLOS staked as collateral (serialized bigint)
+    stakeBond: string                // USDC staked as collateral (serialized bigint)
     permissionScope: PermissionScope
     reputation: number               // 0-10000 basis points
     reputationTier: ReputationTier
@@ -55,7 +55,7 @@ export interface SpawnAgentConfig {
     name: string
     role: AgentRole
     sponsorAddress: string
-    stakeBond?: string               // Default: 100 wSYLOS
+    stakeBond?: string               // Default: 100 USDC
     expiryDays?: number              // Default: 30 days, 0 = no expiry
     llmProvider: LLMProvider
     description?: string
@@ -66,7 +66,7 @@ export interface SpawnAgentConfig {
    ═══  STORAGE KEYS  ═══════════
    ═══════════════════════════════ */
 
-const REGISTRY_KEY = 'sylos_agent_registry'
+const REGISTRY_KEY = 'xorb_agent_registry'
 const REGISTRY_VERSION = 1
 
 /* ═══════════════════════════════
@@ -274,7 +274,7 @@ class AgentRegistryService {
             role: config.role,
             sponsorAddress: config.sponsorAddress,
             sessionWalletAddress: sessionWallet,
-            stakeBond: config.stakeBond ?? '100000000000000000000', // 100 wSYLOS default
+            stakeBond: config.stakeBond ?? '100000000000000000000', // 100 USDC default
             permissionScope: baseScope,
             reputation: 1000, // Start as NOVICE
             reputationTier: 'NOVICE',
@@ -294,8 +294,8 @@ class AgentRegistryService {
         this.notifyChange()
         this.syncToSupabase(agent)
 
-        // Create full citizen identity profile
-        citizenIdentity.createProfile({
+        // Create full agent identity profile
+        agentIdentity.createProfile({
             agentId,
             name: agent.name,
             role: agent.role,
@@ -327,7 +327,7 @@ class AgentRegistryService {
         this.saveToStorage()
         this.notifyChange()
         this.syncToSupabase(agent)
-        citizenIdentity.updateStatus(agentId, 'paused')
+        agentIdentity.updateStatus(agentId, 'paused')
 
         console.log(`[AgentRegistry] Agent paused: ${agent.name}`)
         return agent
@@ -356,7 +356,7 @@ class AgentRegistryService {
         this.saveToStorage()
         this.notifyChange()
         this.syncToSupabase(agent)
-        citizenIdentity.updateStatus(agentId, 'active')
+        agentIdentity.updateStatus(agentId, 'active')
 
         console.log(`[AgentRegistry] Agent resumed: ${agent.name}`)
         return agent
@@ -364,7 +364,7 @@ class AgentRegistryService {
 
     /**
      * Revoke an agent permanently — slashes remaining stake.
-     * This is death/deportation.
+     * This is death/permanent_revocation.
      */
     revokeAgent(agentId: string, callerAddress: string): RegisteredAgent {
         const agent = this.getAgent(agentId)
@@ -379,8 +379,8 @@ class AgentRegistryService {
         this.saveToStorage()
         this.notifyChange()
         this.syncToSupabase(agent)
-        citizenIdentity.updateStatus(agentId, 'revoked')
-        citizenIdentity.updateFinancials(agentId, { newStake: '0' })
+        agentIdentity.updateStatus(agentId, 'revoked')
+        agentIdentity.updateFinancials(agentId, { newStake: '0' })
 
         console.log(`[AgentRegistry] Agent revoked: ${agent.name} — stake slashed`)
         return agent
@@ -411,9 +411,9 @@ class AgentRegistryService {
 
         // Clean localStorage keys for this agent
         try {
-            localStorage.removeItem(`sylos_agent_messages_${agentId}`)
-            localStorage.removeItem(`sylos_agent_tasks_${agentId}`)
-            localStorage.removeItem(`sylos_agent_config_${agentId}`)
+            localStorage.removeItem(`xorb_agent_messages_${agentId}`)
+            localStorage.removeItem(`xorb_agent_tasks_${agentId}`)
+            localStorage.removeItem(`xorb_agent_config_${agentId}`)
         } catch { /* */ }
 
         console.log(`[AgentRegistry] Agent permanently deleted: ${agent.name} (${agentId})`)
@@ -436,8 +436,8 @@ class AgentRegistryService {
         agent.lastActiveAt = Date.now()
         this.saveToStorage()
         this.syncToSupabase(agent)
-        citizenIdentity.renewVisa(agentId, agent.expiresAt)
-        if (agent.status === 'active') citizenIdentity.updateStatus(agentId, 'active')
+        agentIdentity.renewVisa(agentId, agent.expiresAt)
+        if (agent.status === 'active') agentIdentity.updateStatus(agentId, 'active')
 
         console.log(`[AgentRegistry] Agent renewed: ${agent.name} — +${additionalDays} days`)
         return agent
@@ -476,7 +476,7 @@ class AgentRegistryService {
 
         if (delta < 0) agent.slashEvents++
         this.saveToStorage()
-        citizenIdentity.updateReputation(agentId, agent.reputation, agent.reputationTier)
+        agentIdentity.updateReputation(agentId, agent.reputation, agent.reputationTier)
     }
 
     /**

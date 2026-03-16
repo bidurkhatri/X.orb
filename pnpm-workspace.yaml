@@ -1,5 +1,4 @@
 packages:
-  - 'sylos-blockchain-os'
-  - 'smart-contracts'
-  - 'sylos-mobile'
+  - 'apps/*'
   - 'packages/*'
+  - 'xorb-contracts'

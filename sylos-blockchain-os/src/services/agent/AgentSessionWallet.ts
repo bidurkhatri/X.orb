@@ -63,7 +63,7 @@ export interface WalletCheckResult {
    ═══  WALLET MANAGER  ═════════
    ═══════════════════════════════ */
 
-const WALLETS_KEY = 'sylos_agent_wallets'
+const WALLETS_KEY = 'xorb_agent_wallets'
 
 class AgentWalletManager {
     private wallets: Map<string, SessionWallet> = new Map()

@@ -1,4 +1,4 @@
-// Security configuration for SylOS Blockchain OS
+// Security configuration for Xorb Blockchain OS
 export interface SecurityConfig {
   // Content Security Policy
   csp: {
@@ -68,7 +68,7 @@ export const securityConfig: SecurityConfig = {
           ? ["'unsafe-inline'", "'unsafe-eval'"] 
           : []
         ),
-        process.env.CDN_URL || 'https://cdn.sylos.io'
+        process.env.CDN_URL || 'https://cdn.xorb.io'
       ].filter(Boolean),
       styleSrc: [
         "'self'",
@@ -88,7 +88,7 @@ export const securityConfig: SecurityConfig = {
       connectSrc: [
         "'self'",
         process.env.VITE_RPC_URL || 'https://polygon-rpc.com',
-        process.env.VITE_API_URL || 'https://api.sylos.io',
+        process.env.VITE_API_URL || 'https://api.xorb.io',
         ...(process.env.NODE_ENV === 'development' 
           ? ['ws://localhost:*', 'http://localhost:*'] 
           : []
@@ -140,9 +140,9 @@ export const securityConfig: SecurityConfig = {
   cors: {
     origin: process.env.NODE_ENV === 'production' 
       ? [
-          'https://sylos.io',
-          'https://app.sylos.io',
-          'https://www.sylos.io'
+          'https://xorb.io',
+          'https://app.xorb.io',
+          'https://www.xorb.io'
         ]
       : true, // allow all origins in development
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
