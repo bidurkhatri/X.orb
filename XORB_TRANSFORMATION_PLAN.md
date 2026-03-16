@@ -654,33 +654,160 @@ await xorb.webhooks.subscribe({
 });
 ```
 
-### 7.4 Developer Dashboard (Minimal)
+### 7.4 Developer Dashboard — Full Specification
 
-A single-page web app for sponsors to monitor their agents. NOT a desktop OS. Think Stripe Dashboard.
+A developer dashboard for sponsors to monitor and manage their agents. **Design: Stripe-like layout with Liquid Glass visual treatment.** Deployed at `dashboard.xorb.xyz`.
+
+#### Design Direction: Stripe Layout + Liquid Glass
+
+**Layout**: Stripe dashboard structure — fixed sidebar navigation on the left (220px), content area on the right. Clean, data-dense, professional. No desktop OS metaphor.
+
+**Visual Treatment** — Liquid Glass on dark canvas:
+- **Background**: Dark base `#0A0A0A` with subtle gradient mesh (`radial-gradient` with `#0066FF08` spots)
+- **Cards**: Frosted glass — `background: rgba(255,255,255,0.05)`, `backdrop-filter: blur(20px)`, `border: 1px solid rgba(255,255,255,0.08)`, subtle inner glow on hover
+- **Primary accent**: Electric blue `#0066FF`
+- **Success/Error/Warning**: `#22c55e` / `#ef4444` / `#f59e0b`
+- **Typography**: Inter for UI labels, JetBrains Mono for data (numbers, hashes, IDs, code, USDC amounts)
+- **No heavy gradients**, no neon glow, no window managers — clean glass cards on dark
+- **Border radius**: 12px for cards, 8px for inputs/buttons, 4px for badges
+- **Spacing**: 8/12/16/20/24px increments (consistent with Stripe density)
+
+**Reuse from SylOS** (adapt, don't copy verbatim):
+- `sylos-blockchain-os/src/components/ui/index.tsx` — Skeleton loaders, EmptyState, Toast system, ProgressBar, PulseDot, StatValue, Avatar
+- `sylos-blockchain-os/tailwind.config.js` — Accessibility utilities (focus-ring, touch-target, sr-only), adapt color palette to Xorb brand
+- `sylos-blockchain-os/src/index.css` — Glass utilities (`.glass`, `.glass-heavy`), scrollbar styling, `@keyframes shimmer`
+- Layout patterns from `KillSwitchPanel.tsx` (status grid + action log) and `ReputationExplorer.tsx` (sortable list with expandable rows)
+
+#### Pages (9 total)
+
+**1. Overview (`/`)**
+- **Metric cards** (glass): Active Agents, Total Gate Checks (today), Pass Rate %, Revenue (USDC today)
+- **Gate Pipeline chart**: Pass/block rate over time (line or area chart, last 7 days)
+- **Live Action Feed**: Real-time SSE-powered list showing latest actions with gate results, agent name, timestamp, latency
+- **Reputation Distribution**: Tier breakdown (Untrusted → Elite) as horizontal stacked bar
+
+**2. Agents (`/agents`)**
+- **Agent table**: Name, Role, Status (dot indicator), Reputation (score + tier badge), Bond (USDC), Created, Actions column
+- **Filters**: Status (active/paused/revoked), Role, Reputation tier
+- **Search**: By name or agent ID
+- **Bulk actions**: Pause selected, Export CSV
+- **Register Agent button** → modal form (name, role, bond amount, capabilities)
+
+**3. Agent Detail (`/agents/:id`)**
+- **Profile header**: Name, role, status, reputation badge, bond amount, wallet address (truncated + copy)
+- **Tabs**: Overview | Actions | Reputation | Violations | Engagements
+- **Overview tab**: Capability manifest, access policy, financial summary, activity pattern (24h heatmap)
+- **Actions tab**: Paginated action log with gate result expansion (click row to see all 8 gates)
+- **Reputation tab**: Score history chart, tier transitions timeline
+- **Violations tab**: Violation records with severity badges, slash amounts
+- **Engagements tab**: Marketplace engagement history with ratings
+- **Emergency controls**: Pause / Resume / Revoke buttons (with confirmation modal for revoke)
+
+**4. Actions (`/actions`)**
+- **Real-time action log**: Auto-updating via SSE
+- **Columns**: Timestamp, Agent, Action Type, Tool, Approved (checkmark/X), Failed Gate, Latency, Audit Hash
+- **Expandable rows**: Click to show all 8 gate results with pass/fail, reason, latency per gate
+- **Filters**: Agent, Approved/Blocked, Date range, Action type
+- **Gate Result Badge component**: Green checkmark or red X with gate name tooltip
+
+**5. Marketplace (`/marketplace`)**
+- **Browse tab**: Available agent listings with glass cards — Agent name, role, reputation badge, rate (USDC/hr or /action), capabilities, rating stars
+- **My Listings tab**: Sponsor's own listed agents with toggle availability
+- **My Engagements tab**: Active and completed engagements with status, escrow amount, rating
+- **Hire flow**: Select listing → confirm escrow amount → sign transaction
+- **Dispute flow**: Open dispute button on active engagements
+
+**6. Audit (`/audit`)**
+- **Agent selector**: Dropdown to pick agent
+- **Audit log table**: Timestamp, Event type, Details, Audit hash, On-chain anchor status
+- **Compliance reports**: Generate button with format selector (EU AI Act, NIST, SOC 2, JSON)
+- **Export**: Download CSV of raw audit data
+- **Report preview**: Modal showing report summary before download
+
+**7. Webhooks (`/webhooks`)**
+- **Subscription list**: URL, event types (as tag chips), status (active/inactive), last delivery status
+- **Add subscription**: Modal with URL input, event type multi-select, auto-generated HMAC secret (with copy)
+- **Delivery log**: Click subscription to see delivery attempts — timestamp, status code, response time, success/fail
+- **Test button**: Send test event to a subscription
+
+**8. Billing (`/billing`)**
+- **Usage summary**: Total USDC spent (this month), breakdown by endpoint category (pie chart)
+- **Transaction history table**: Timestamp, Endpoint, Amount (USDC), x402 payment ID, Status
+- **Free tier usage**: Bar showing X/1,000 free gate checks used this month
+- **Bond summary**: Total USDC bonded across all agents, bond status per agent
+
+**9. Settings (`/settings`)**
+- **API Keys**: List with name, created date, last used, permissions — Create/Revoke buttons
+- **Wallet connection**: Connected wallet address, SIWE session status
+- **Default configuration**: Default bond amount, default role, default rate limits
+- **Notification preferences**: Email alerts for violations, slashing, bond depletion
+
+#### Component Library
 
 ```
 xorb-dashboard/
 ├── src/
-│   ├── App.tsx                    — Main layout (sidebar + content)
+│   ├── App.tsx                    — Main layout (Sidebar + content router)
 │   ├── pages/
-│   │   ├── Overview.tsx           — Active agents, total actions, revenue
-│   │   ├── Agents.tsx             — Agent list with status, reputation, bond
-│   │   ├── AgentDetail.tsx        — Single agent profile + action history
-│   │   ├── Actions.tsx            — Real-time action log with gate results
-│   │   ├── Marketplace.tsx        — Listed agents, active engagements
-│   │   ├── Audit.tsx              — Audit logs, compliance report download
-│   │   ├── Webhooks.tsx           — Webhook subscriptions + delivery logs
-│   │   ├── Billing.tsx            — x402 payment history
-│   │   └── Settings.tsx           — API keys, wallet connection
-│   └── components/
-│       ├── AgentCard.tsx
-│       ├── GateResultBadge.tsx
-│       ├── ReputationBadge.tsx
-│       ├── ActionTimeline.tsx
-│       └── MetricCard.tsx
+│   │   ├── Overview.tsx
+│   │   ├── Agents.tsx
+│   │   ├── AgentDetail.tsx
+│   │   ├── Actions.tsx
+│   │   ├── Marketplace.tsx
+│   │   ├── Audit.tsx
+│   │   ├── Webhooks.tsx
+│   │   ├── Billing.tsx
+│   │   └── Settings.tsx
+│   ├── components/
+│   │   ├── layout/
+│   │   │   ├── Sidebar.tsx        — Fixed left sidebar with nav links + active state
+│   │   │   └── PageHeader.tsx     — Page title + optional action buttons
+│   │   ├── glass/
+│   │   │   ├── GlassCard.tsx      — Base glass card with backdrop blur, border, optional glow
+│   │   │   └── MetricCard.tsx     — Glass card with label, large value, sublabel, trend indicator
+│   │   ├── agents/
+│   │   │   ├── AgentCard.tsx      — Compact agent card (name, role, status dot, reputation)
+│   │   │   ├── StatusDot.tsx      — Animated dot: green/amber/red
+│   │   │   └── ReputationBadge.tsx — Tier + score pill badge (color by tier)
+│   │   ├── actions/
+│   │   │   ├── GateResultBadge.tsx — Pass/fail badge with gate name tooltip
+│   │   │   ├── ActionTimeline.tsx  — Vertical timeline with gate expansion
+│   │   │   └── LiveFeed.tsx       — SSE-connected auto-updating list
+│   │   ├── data/
+│   │   │   ├── DataTable.tsx      — Sortable, filterable table with pagination
+│   │   │   └── TagChip.tsx        — Small labeled chips for event types, capabilities
+│   │   └── shared/
+│   │       ├── ConfirmModal.tsx   — Two-step confirmation for destructive actions
+│   │       ├── CopyButton.tsx     — Click-to-copy with tooltip feedback
+│   │       ├── EmptyState.tsx     — Icon + title + description + action button
+│   │       ├── Skeleton.tsx       — Shimmer loading placeholders
+│   │       └── Toast.tsx          — Notification toasts (success/error/info/warning)
+│   ├── hooks/
+│   │   ├── useXorbAPI.ts          — TanStack Query hooks for all API endpoints
+│   │   ├── useSSE.ts              — EventSource hook for live feeds
+│   │   └── useAuth.ts             — SIWE auth state
+│   ├── lib/
+│   │   ├── api.ts                 — Fetch wrapper with auth headers
+│   │   └── format.ts              — Number/date/address formatting utilities
+│   └── styles/
+│       ├── glass.css              — Glass card utilities (adapted from SylOS)
+│       └── globals.css            — Base styles, scrollbar, animations
 ├── package.json
-└── vite.config.ts
+├── vite.config.ts
+├── tailwind.config.ts
+└── tsconfig.json
 ```
+
+#### Dashboard Tech Stack
+
+- **Framework**: React 18 + Vite
+- **Styling**: Tailwind CSS (adapted from SylOS config) + custom glass CSS utilities
+- **Data fetching**: TanStack React Query (already in SylOS deps)
+- **Charts**: Recharts (lightweight, React-native charting)
+- **Real-time**: EventSource (SSE) for live action feeds
+- **Auth**: SIWE (Sign-In With Ethereum) via wagmi (already in SylOS deps)
+- **Routing**: React Router v6 (already in SylOS deps)
+- **Icons**: Lucide React (already in SylOS deps)
 
 ### 7.5 MCP Security Middleware
 
