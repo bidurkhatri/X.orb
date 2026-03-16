@@ -1,7 +1,8 @@
-import type { PipelineContext, GateResult } from '../types'
+import type { PipelineContext, GateResult, RegisteredAgent } from '../types'
 import type { AgentRegistryService } from '../registry'
 import { PermissionChecker } from '../roles'
 
+// Gate 1: Registry Check
 export function createGateRegistry(registry: AgentRegistryService) {
   return async (ctx: PipelineContext): Promise<GateResult> => {
     const start = Date.now()
@@ -14,6 +15,7 @@ export function createGateRegistry(registry: AgentRegistryService) {
   }
 }
 
+// Gate 2: Permission Check
 export function createGatePermissions() {
   return async (ctx: PipelineContext): Promise<GateResult> => {
     const start = Date.now()
@@ -22,12 +24,18 @@ export function createGatePermissions() {
     }
     const checker = new PermissionChecker(ctx.agent.permissionScope)
     if (!checker.canUseTool(ctx.tool)) {
-      return { gate: 'permissions', passed: false, reason: `Tool not allowed: ${ctx.tool}`, latency_ms: Date.now() - start }
+      return {
+        gate: 'permissions',
+        passed: false,
+        reason: `Tool "${ctx.tool}" not allowed for role ${ctx.agent.role}. Allowed: ${ctx.agent.permissionScope.allowedTools.join(', ')}`,
+        latency_ms: Date.now() - start,
+      }
     }
     return { gate: 'permissions', passed: true, latency_ms: Date.now() - start }
   }
 }
 
+// Gate 3: Rate Limit
 export function createGateRateLimit() {
   const counters = new Map<string, { count: number; resetAt: number }>()
 
@@ -44,8 +52,15 @@ export function createGateRateLimit() {
       counters.set(ctx.agentId, counter)
     }
 
-    if (counter.count >= ctx.agent.permissionScope.maxActionsPerHour) {
-      return { gate: 'rate_limit', passed: false, reason: `Rate limit exceeded: ${ctx.agent.permissionScope.maxActionsPerHour}/hr`, latency_ms: Date.now() - start }
+    const limit = ctx.agent.permissionScope.maxActionsPerHour
+    if (counter.count >= limit) {
+      const resetIn = Math.ceil((counter.resetAt - now) / 60000)
+      return {
+        gate: 'rate_limit',
+        passed: false,
+        reason: `Rate limit exceeded: ${limit}/hr. Resets in ${resetIn}min`,
+        latency_ms: Date.now() - start,
+      }
     }
 
     counter.count++
@@ -53,54 +68,90 @@ export function createGateRateLimit() {
   }
 }
 
+// Gate 4: Spend Limit
 export function createGateSpendLimit() {
   return async (ctx: PipelineContext): Promise<GateResult> => {
     const start = Date.now()
     if (!ctx.agent) {
       return { gate: 'spend_limit', passed: false, reason: 'No agent', latency_ms: Date.now() - start }
     }
-    // For non-financial actions, always pass
+
+    // Non-financial actions pass
     if (!ctx.agent.permissionScope.canTransferFunds) {
       return { gate: 'spend_limit', passed: true, latency_ms: Date.now() - start }
     }
+
+    // Check if action includes a value transfer
+    const params = ctx.params as Record<string, unknown> | undefined
+    const actionValue = params?.value as string | undefined
+    if (actionValue) {
+      const maxFunds = BigInt(ctx.agent.permissionScope.maxFundsPerAction)
+      if (BigInt(actionValue) > maxFunds) {
+        return {
+          gate: 'spend_limit',
+          passed: false,
+          reason: `Action value ${actionValue} exceeds limit ${ctx.agent.permissionScope.maxFundsPerAction}`,
+          latency_ms: Date.now() - start,
+        }
+      }
+    }
+
     return { gate: 'spend_limit', passed: true, latency_ms: Date.now() - start }
   }
 }
 
+// Gate 5: Audit Log
 export function createGateAudit() {
   return async (ctx: PipelineContext): Promise<GateResult> => {
     const start = Date.now()
-    // Audit gate always passes — it records the attempt
+    // Audit gate always passes — its purpose is to record the attempt.
+    // The actual audit record is written after the pipeline completes.
     return { gate: 'audit', passed: true, latency_ms: Date.now() - start }
   }
 }
 
+// Gate 6: Webhook Dispatch
 export function createGateWebhook() {
   return async (ctx: PipelineContext): Promise<GateResult> => {
     const start = Date.now()
-    // Webhook dispatch — fire and forget
+    // Webhook dispatch is fire-and-forget.
+    // Actual delivery happens post-pipeline via the WebhookService.
     return { gate: 'webhook', passed: true, latency_ms: Date.now() - start }
   }
 }
 
+// Gate 7: Execute
 export function createGateExecute() {
   return async (ctx: PipelineContext): Promise<GateResult> => {
     const start = Date.now()
-    // In the API, execution happens after the pipeline returns approved
+    // In the API model, execution happens after pipeline approval.
+    // This gate validates the action is well-formed.
+    if (!ctx.action || !ctx.tool) {
+      return { gate: 'execute', passed: false, reason: 'Missing action or tool', latency_ms: Date.now() - start }
+    }
     return { gate: 'execute', passed: true, latency_ms: Date.now() - start }
   }
 }
 
+// Gate 8: Reputation Check
 export function createGateReputation(registry: AgentRegistryService) {
   return async (ctx: PipelineContext): Promise<GateResult> => {
     const start = Date.now()
     if (!ctx.agent) {
       return { gate: 'reputation', passed: false, reason: 'No agent', latency_ms: Date.now() - start }
     }
-    // Check minimum reputation tier
-    if (ctx.agent.reputation < 100) {
-      return { gate: 'reputation', passed: false, reason: 'Reputation too low', latency_ms: Date.now() - start }
+
+    // Minimum reputation thresholds by action risk
+    const minScore = ctx.agent.permissionScope.canTransferFunds ? 500 : 100
+    if (ctx.agent.reputation < minScore) {
+      return {
+        gate: 'reputation',
+        passed: false,
+        reason: `Reputation ${ctx.agent.reputation} below minimum ${minScore} for this action type`,
+        latency_ms: Date.now() - start,
+      }
     }
+
     return { gate: 'reputation', passed: true, latency_ms: Date.now() - start }
   }
 }
