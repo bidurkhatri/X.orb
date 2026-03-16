@@ -108,7 +108,9 @@ class AgentsAPI {
   }
 
   async revoke(agentId: string, callerAddress: string): Promise<{ agent: Agent }> {
-    return this.client.request('DELETE', `/v1/agents/${agentId}`)
+    return this.client.request('DELETE', `/v1/agents/${agentId}`, {
+      caller_address: callerAddress,
+    })
   }
 }
 

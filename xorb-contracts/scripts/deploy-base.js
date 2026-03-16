@@ -20,59 +20,60 @@ async function main() {
     throw new Error(`No USDC address configured for chain ${chainId}`);
   }
 
+  const treasury = deployer.address; // Use deployer as treasury initially
+  const admin = deployer.address;
+
   console.log(`\nChain: ${chainId}`);
   console.log(`USDC: ${usdcAddress}`);
+  console.log(`Treasury: ${treasury}`);
+  console.log(`Admin: ${admin}`);
   console.log("\n--- Deploying Contracts ---\n");
 
-  // 1. Deploy XorbEscrow
-  const treasury = deployer.address; // Use deployer as treasury for now
+  // 1. XorbEscrow(address _usdc, address _treasury)
   const XorbEscrow = await hre.ethers.getContractFactory("XorbEscrow");
   const escrow = await XorbEscrow.deploy(usdcAddress, treasury);
   await escrow.waitForDeployment();
   const escrowAddr = await escrow.getAddress();
   console.log("1. XorbEscrow deployed to:", escrowAddr);
 
-  // 2. Deploy AgentRegistry
-  const minStake = hre.ethers.parseUnits("10", 6); // 10 USDC minimum
-  const maxAgentsPerSponsor = 10;
+  // 2. AgentRegistry(address _stakeToken, address _treasury, address _admin)
   const AgentRegistry = await hre.ethers.getContractFactory("AgentRegistry");
-  const registry = await AgentRegistry.deploy(usdcAddress, minStake, maxAgentsPerSponsor);
+  const registry = await AgentRegistry.deploy(usdcAddress, treasury, admin);
   await registry.waitForDeployment();
   const registryAddr = await registry.getAddress();
   console.log("2. AgentRegistry deployed to:", registryAddr);
 
-  // 3. Deploy ReputationScore
+  // 3. ReputationScore(address _agentRegistry, address _admin)
   const ReputationScore = await hre.ethers.getContractFactory("ReputationScore");
-  const reputation = await ReputationScore.deploy();
+  const reputation = await ReputationScore.deploy(registryAddr, admin);
   await reputation.waitForDeployment();
   const reputationAddr = await reputation.getAddress();
   console.log("3. ReputationScore deployed to:", reputationAddr);
 
-  // 4. Deploy SlashingEngine
+  // 4. SlashingEngine(address _agentRegistry, address _reputationScore, address _admin)
   const SlashingEngine = await hre.ethers.getContractFactory("SlashingEngine");
-  const slashing = await SlashingEngine.deploy(registryAddr, reputationAddr);
+  const slashing = await SlashingEngine.deploy(registryAddr, reputationAddr, admin);
   await slashing.waitForDeployment();
   const slashingAddr = await slashing.getAddress();
   console.log("4. SlashingEngine deployed to:", slashingAddr);
 
-  // 5. Deploy ActionVerifier
+  // 5. ActionVerifier() — no constructor args
   const ActionVerifier = await hre.ethers.getContractFactory("ActionVerifier");
   const verifier = await ActionVerifier.deploy();
   await verifier.waitForDeployment();
   const verifierAddr = await verifier.getAddress();
   console.log("5. ActionVerifier deployed to:", verifierAddr);
 
-  // 6. Deploy PaymentStreaming
+  // 6. PaymentStreaming(address _token, address _treasury)
   const PaymentStreaming = await hre.ethers.getContractFactory("PaymentStreaming");
-  const streaming = await PaymentStreaming.deploy(usdcAddress);
+  const streaming = await PaymentStreaming.deploy(usdcAddress, treasury);
   await streaming.waitForDeployment();
   const streamingAddr = await streaming.getAddress();
   console.log("6. PaymentStreaming deployed to:", streamingAddr);
 
-  // 7. Deploy AgentMarketplace
-  const protocolFeeBps = 200; // 2%
+  // 7. AgentMarketplace(address _token, address _treasury)
   const AgentMarketplace = await hre.ethers.getContractFactory("AgentMarketplace");
-  const marketplace = await AgentMarketplace.deploy(usdcAddress, registryAddr, reputationAddr, protocolFeeBps);
+  const marketplace = await AgentMarketplace.deploy(usdcAddress, treasury);
   await marketplace.waitForDeployment();
   const marketplaceAddr = await marketplace.getAddress();
   console.log("7. AgentMarketplace deployed to:", marketplaceAddr);
@@ -81,6 +82,7 @@ async function main() {
   console.log("\n=== X.orb Deployment Summary ===");
   console.log(`Chain ID:         ${chainId}`);
   console.log(`USDC:             ${usdcAddress}`);
+  console.log(`Treasury:         ${treasury}`);
   console.log(`XorbEscrow:       ${escrowAddr}`);
   console.log(`AgentRegistry:    ${registryAddr}`);
   console.log(`ReputationScore:  ${reputationAddr}`);
@@ -96,6 +98,7 @@ async function main() {
     chainId: Number(chainId),
     deployedAt: new Date().toISOString(),
     deployer: deployer.address,
+    treasury,
     contracts: {
       USDC: usdcAddress,
       XorbEscrow: escrowAddr,

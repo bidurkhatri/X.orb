@@ -133,7 +133,9 @@ class _AgentsAPI:
         return _parse_agent(data["agent"])
 
     def revoke(self, agent_id: str, caller_address: str) -> Agent:
-        data = self._c._request("DELETE", f"/v1/agents/{agent_id}")
+        data = self._c._request("DELETE", f"/v1/agents/{agent_id}", json={
+            "caller_address": caller_address,
+        })
         return _parse_agent(data["agent"])
 
 

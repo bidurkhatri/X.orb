@@ -15,7 +15,10 @@ export class SupabaseDataStore implements DataStore {
       .eq('agent_id', id)
       .single()
 
-    if (error || !data) return null
+    if (error) {
+      if (error.code === 'PGRST116') return null // not found
+      throw new Error(`[Supabase] fetchAgent failed: ${error.message}`)
+    }
     return data as AgentRow
   }
 
@@ -25,8 +28,8 @@ export class SupabaseDataStore implements DataStore {
       .select('*')
       .order('spawned_at', { ascending: false })
 
-    if (error || !data) return []
-    return data as AgentRow[]
+    if (error) throw new Error(`[Supabase] fetchAllAgents failed: ${error.message}`)
+    return (data || []) as AgentRow[]
   }
 
   async fetchAgentsBySponsor(sponsorAddress: string): Promise<AgentRow[]> {
@@ -35,8 +38,8 @@ export class SupabaseDataStore implements DataStore {
       .select('*')
       .ilike('sponsor_address', sponsorAddress)
 
-    if (error || !data) return []
-    return data as AgentRow[]
+    if (error) throw new Error(`[Supabase] fetchAgentsBySponsor failed: ${error.message}`)
+    return (data || []) as AgentRow[]
   }
 
   async upsertAgent(agent: AgentUpsert): Promise<void> {
@@ -60,9 +63,7 @@ export class SupabaseDataStore implements DataStore {
         llm_provider: agent.llm_provider,
       }, { onConflict: 'agent_id' })
 
-    if (error) {
-      console.error('[SupabaseDataStore] upsertAgent error:', error.message)
-    }
+    if (error) throw new Error(`[Supabase] upsertAgent failed: ${error.message}`)
   }
 
   async deleteAgent(agentId: string): Promise<void> {
@@ -71,9 +72,7 @@ export class SupabaseDataStore implements DataStore {
       .delete()
       .eq('agent_id', agentId)
 
-    if (error) {
-      console.error('[SupabaseDataStore] deleteAgent error:', error.message)
-    }
+    if (error) throw new Error(`[Supabase] deleteAgent failed: ${error.message}`)
   }
 
   async insertAction(action: ActionInsert): Promise<void> {
@@ -92,9 +91,7 @@ export class SupabaseDataStore implements DataStore {
         latency_ms: action.latency_ms,
       })
 
-    if (error) {
-      console.error('[SupabaseDataStore] insertAction error:', error.message)
-    }
+    if (error) throw new Error(`[Supabase] insertAction failed: ${error.message}`)
   }
 
   async fetchAgentActions(agentId: string, limit = 100): Promise<ActionInsert[]> {
@@ -105,7 +102,7 @@ export class SupabaseDataStore implements DataStore {
       .order('created_at', { ascending: false })
       .limit(limit)
 
-    if (error || !data) return []
-    return data as ActionInsert[]
+    if (error) throw new Error(`[Supabase] fetchAgentActions failed: ${error.message}`)
+    return (data || []) as ActionInsert[]
   }
 }

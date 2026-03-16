@@ -26,7 +26,12 @@
       "Bash(rm -rf docker/)",
       "Bash(rm -rf xorb-contracts/_remix-originals/ xorb-contracts/_deprecated/)",
       "Bash(rm -f xorb-contracts/test/SylOSToken.test.js xorb-contracts/test/SylOS-Integration.js)",
-      "Bash(xargs sed:*)"
+      "Bash(xargs sed:*)",
+      "Bash(find 'c:\\\\Users\\\\Crater\\\\Downloads\\\\SYLOS system - NEW/xorb-contracts' -maxdepth 3 -type f \\\\\\(-name deploy* -o -name script* \\\\\\))",
+      "Bash(grep -r checker. 'c:\\\\Users\\\\Crater\\\\Downloads\\\\SYLOS system - NEW\\\\packages\\\\agent-core' --include=*.ts)",
+      "Bash(grep -r \"import.*EventBus\\\\|from.*events\" 'c:\\\\Users\\\\Crater\\\\Downloads\\\\SYLOS system - NEW' --include=*.ts --exclude-dir=node_modules --exclude-dir=__tests__)",
+      "Bash(grep -r \"from [''''].*sylos-blockchain-os\\\\|from [''''].*old-\\\\|from ['''']\\\\.\\\\.\\\\/\\\\.\\\\.\\\\/\\\\.\\\\.\\\\/\" 'c:\\\\Users\\\\Crater\\\\Downloads\\\\SYLOS system - NEW\\\\packages\\\\agent-core' --include=*.ts)",
+      "Bash(grep -r \"IpfsAdapter\\\\|pin\\(\" 'c:\\\\Users\\\\Crater\\\\Downloads\\\\SYLOS system - NEW\\\\packages\\\\agent-core' --include=*.ts)"
     ]
   }
 }
