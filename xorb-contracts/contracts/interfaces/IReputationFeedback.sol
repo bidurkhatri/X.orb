@@ -26,12 +26,6 @@ interface IReputationFeedback {
         uint256 timestamp
     );
 
-    event ReputationQueried(
-        bytes32 indexed agentId,
-        address indexed querier,
-        uint256 timestamp
-    );
-
     /**
      * @dev Submit feedback for an agent.
      */
