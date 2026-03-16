@@ -1,0 +1,33 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+  .glass-card {
+    @apply bg-white/5 backdrop-blur-[20px] border border-white/10 rounded-xl;
+  }
+  .glass-card-hover {
+    @apply glass-card hover:bg-white/8 hover:border-white/15 transition-all duration-200;
+  }
+  .glass-sidebar {
+    @apply bg-white/3 backdrop-blur-[20px] border-r border-white/8;
+  }
+  .text-mono {
+    @apply font-mono text-sm tracking-tight;
+  }
+  .badge {
+    @apply text-xs font-medium px-2 py-0.5 rounded-full;
+  }
+  .badge-active {
+    @apply badge bg-xorb-green/20 text-xorb-green;
+  }
+  .badge-paused {
+    @apply badge bg-xorb-amber/20 text-xorb-amber;
+  }
+  .badge-revoked {
+    @apply badge bg-xorb-red/20 text-xorb-red;
+  }
+  .badge-tier {
+    @apply badge bg-xorb-purple/20 text-xorb-purple;
+  }
+}
