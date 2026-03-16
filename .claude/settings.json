@@ -31,7 +31,10 @@
       "Bash(grep -r checker. 'c:\\\\Users\\\\Crater\\\\Downloads\\\\SYLOS system - NEW\\\\packages\\\\agent-core' --include=*.ts)",
       "Bash(grep -r \"import.*EventBus\\\\|from.*events\" 'c:\\\\Users\\\\Crater\\\\Downloads\\\\SYLOS system - NEW' --include=*.ts --exclude-dir=node_modules --exclude-dir=__tests__)",
       "Bash(grep -r \"from [''''].*sylos-blockchain-os\\\\|from [''''].*old-\\\\|from ['''']\\\\.\\\\.\\\\/\\\\.\\\\.\\\\/\\\\.\\\\.\\\\/\" 'c:\\\\Users\\\\Crater\\\\Downloads\\\\SYLOS system - NEW\\\\packages\\\\agent-core' --include=*.ts)",
-      "Bash(grep -r \"IpfsAdapter\\\\|pin\\(\" 'c:\\\\Users\\\\Crater\\\\Downloads\\\\SYLOS system - NEW\\\\packages\\\\agent-core' --include=*.ts)"
+      "Bash(grep -r \"IpfsAdapter\\\\|pin\\(\" 'c:\\\\Users\\\\Crater\\\\Downloads\\\\SYLOS system - NEW\\\\packages\\\\agent-core' --include=*.ts)",
+      "Bash(find '/c/Users/Crater/Downloads/SYLOS system - NEW' -type f \\\\\\(-iname *dashboard* -o -iname *plan* -o -iname *spec* \\\\\\))",
+      "Bash(cmd //c \"rename \"\"SYLOS system - NEW\"\" xORB\")",
+      "Bash(powershell -Command \"Rename-Item -Path ''SYLOS system - NEW'' -NewName ''xORB''\")"
     ]
   }
 }
