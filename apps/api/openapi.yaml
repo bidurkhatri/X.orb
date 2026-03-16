@@ -1,0 +1,345 @@
+openapi: 3.1.0
+info:
+  title: X.orb API
+  version: 0.1.0
+  description: |
+    Agent Trust Infrastructure API. Every AI agent action — validated, bonded, and auditable.
+
+    Base URL: https://api.xorb.xyz/v1
+
+    Authentication: Pass your API key via the `x-api-key` header.
+
+    Payments: Paid endpoints return HTTP 402 when free tier is exhausted.
+    Include payment via `x-payment` header (x402 protocol).
+  contact:
+    name: X.orb
+    url: https://xorb.xyz
+  license:
+    name: MIT
+
+servers:
+  - url: https://api.xorb.xyz/v1
+    description: Production
+  - url: http://localhost:3000/v1
+    description: Local development
+
+security:
+  - ApiKeyAuth: []
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-api-key
+
+  schemas:
+    Agent:
+      type: object
+      properties:
+        agentId: { type: string }
+        name: { type: string }
+        role: { type: string, enum: [TRADER, RESEARCHER, MONITOR, CODER, GOVERNANCE_ASSISTANT, FILE_INDEXER, RISK_AUDITOR] }
+        sponsorAddress: { type: string }
+        stakeBond: { type: string }
+        reputation: { type: integer }
+        reputationTier: { type: string, enum: [UNTRUSTED, NOVICE, RELIABLE, TRUSTED, ELITE] }
+        status: { type: string, enum: [active, paused, revoked, expired] }
+        totalActionsExecuted: { type: integer }
+        description: { type: string }
+
+    GateResult:
+      type: object
+      properties:
+        gate: { type: string }
+        passed: { type: boolean }
+        reason: { type: string }
+        latency_ms: { type: integer }
+
+    PipelineResult:
+      type: object
+      properties:
+        action_id: { type: string }
+        agent_id: { type: string }
+        approved: { type: boolean }
+        gates: { type: array, items: { $ref: '#/components/schemas/GateResult' } }
+        reputation_delta: { type: integer }
+        audit_hash: { type: string }
+        timestamp: { type: string, format: date-time }
+        latency_ms: { type: integer }
+
+    Error:
+      type: object
+      properties:
+        error: { type: string }
+        request_id: { type: string }
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      security: []
+      responses:
+        '200':
+          description: API status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string }
+                  version: { type: string }
+
+  /pricing:
+    get:
+      summary: Get endpoint pricing
+      security: []
+      responses:
+        '200':
+          description: Pricing info
+
+  /agents:
+    post:
+      summary: Register a new agent
+      tags: [Agents]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, role, sponsor_address]
+              properties:
+                name: { type: string, minLength: 2, maxLength: 64 }
+                role: { type: string, enum: [TRADER, RESEARCHER, MONITOR, CODER, GOVERNANCE_ASSISTANT, FILE_INDEXER, RISK_AUDITOR] }
+                sponsor_address: { type: string }
+                stake_bond: { type: string }
+                expiry_days: { type: integer }
+                description: { type: string }
+      responses:
+        '201':
+          description: Agent created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  agent: { $ref: '#/components/schemas/Agent' }
+    get:
+      summary: List agents
+      tags: [Agents]
+      parameters:
+        - name: sponsor
+          in: query
+          schema: { type: string }
+        - name: status
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: Agent list
+
+  /agents/{id}:
+    get:
+      summary: Get agent details
+      tags: [Agents]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Agent details
+        '404':
+          description: Not found
+    patch:
+      summary: Update agent (pause/resume/renew)
+      tags: [Agents]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action, caller_address]
+              properties:
+                action: { type: string, enum: [pause, resume, renew] }
+                caller_address: { type: string }
+      responses:
+        '200':
+          description: Agent updated
+    delete:
+      summary: Revoke agent
+      tags: [Agents]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Agent revoked
+
+  /actions/execute:
+    post:
+      summary: Execute action through 8-gate pipeline
+      tags: [Actions]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [agent_id, action, tool]
+              properties:
+                agent_id: { type: string }
+                action: { type: string }
+                tool: { type: string }
+                params: { type: object }
+      responses:
+        '200':
+          description: Action approved
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PipelineResult' }
+        '403':
+          description: Action blocked
+
+  /actions/batch:
+    post:
+      summary: Batch execute up to 100 actions
+      tags: [Actions]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                actions:
+                  type: array
+                  maxItems: 100
+                  items:
+                    type: object
+                    required: [agent_id, action, tool]
+                    properties:
+                      agent_id: { type: string }
+                      action: { type: string }
+                      tool: { type: string }
+                      params: { type: object }
+      responses:
+        '200':
+          description: Batch results
+
+  /reputation/{agentId}:
+    get:
+      summary: Get reputation score
+      tags: [Reputation]
+      parameters:
+        - name: agentId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Reputation info
+
+  /webhooks:
+    post:
+      summary: Subscribe to events
+      tags: [Webhooks]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [url, event_types]
+              properties:
+                url: { type: string, format: uri }
+                event_types: { type: array, items: { type: string } }
+      responses:
+        '201':
+          description: Subscription created
+    get:
+      summary: List webhook subscriptions
+      tags: [Webhooks]
+      responses:
+        '200':
+          description: Webhook list
+
+  /events/stream:
+    get:
+      summary: SSE event stream
+      tags: [Events]
+      parameters:
+        - name: agent_id
+          in: query
+          schema: { type: string }
+        - name: event_types
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: SSE stream
+
+  /audit/{agentId}:
+    get:
+      summary: Get audit log
+      tags: [Audit]
+      parameters:
+        - name: agentId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Audit data
+
+  /compliance/{agentId}:
+    get:
+      summary: Generate compliance report
+      tags: [Compliance]
+      parameters:
+        - name: agentId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: format
+          in: query
+          schema: { type: string, enum: [eu-ai-act, nist-ai-rmf, soc2] }
+        - name: from
+          in: query
+          schema: { type: string, format: date-time }
+        - name: to
+          in: query
+          schema: { type: string, format: date-time }
+      responses:
+        '200':
+          description: Compliance report
+
+  /marketplace/listings:
+    post:
+      summary: List agent for hire
+      tags: [Marketplace]
+      responses:
+        '201':
+          description: Listing created
+    get:
+      summary: Browse agents
+      tags: [Marketplace]
+      responses:
+        '200':
+          description: Listing list
+
+  /marketplace/hire:
+    post:
+      summary: Hire an agent
+      tags: [Marketplace]
+      responses:
+        '201':
+          description: Engagement started

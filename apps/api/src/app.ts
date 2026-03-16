@@ -13,6 +13,7 @@ import { errorHandler } from './middleware/error-handler'
 import { requestId } from './middleware/request-id'
 import { x402Middleware, getPricing } from './middleware/x402'
 import { marketplaceRouter } from './routes/marketplace'
+import { complianceRouter } from './routes/compliance'
 
 export type Env = {
   Variables: {
@@ -45,6 +46,7 @@ app.route('/v1/webhooks', webhooksRouter)
 app.route('/v1/events', eventsRouter)
 app.route('/v1/audit', auditRouter)
 app.route('/v1/marketplace', marketplaceRouter)
+app.route('/v1/compliance', complianceRouter)
 
 // 404
 app.notFound((c) => c.json({ error: 'Not found', path: c.req.path }, 404))
