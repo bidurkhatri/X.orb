@@ -191,10 +191,10 @@ export default async function handler(req: any, res: any) {
       description: 'Orchestration layer for AI agent trust infrastructure',
       persistence: store.persistence,
       integrations: {
-        erc8004: { registry: ERC_8004_REGISTRY_BASE, chain: 'base', status: 'connected' },
-        agentscore: { api: AGENTSCORE_API, status: 'available' },
-        x402: { protocol: 'x402', package: '@x402/hono@2.7.0', status: 'integrated' },
-        paycrow: { api: PAYCROW_API, status: 'available' },
+        erc8004: { registry: ERC_8004_REGISTRY_BASE, chain: 'base', status: 'lookup_on_register' },
+        agentscore: { api: AGENTSCORE_API, status: 'query_on_action', note: 'falls back to local score 50 if API unreachable' },
+        x402: { protocol: 'x402', package: '@x402/hono@2.7.0', status: 'header_validation', note: 'free tier active — payments accepted but not required' },
+        paycrow: { api: PAYCROW_API, status: 'query_on_action', note: 'falls back to local score 50 if API unreachable' },
         supabase: { status: store.persistence === 'supabase' ? 'connected' : 'not_configured' },
       },
       pipeline: '8-gate sequential check',
@@ -215,6 +215,12 @@ export default async function handler(req: any, res: any) {
       free_tier: { limit: 1000, period: 'monthly' },
       payment_protocol: 'https://x402.org',
     })
+  }
+
+  // ─── GET /v1/docs — OpenAPI documentation ───
+  if (path.includes('/docs')) {
+    res.setHeader('Content-Type', 'text/html')
+    return res.send(`<!DOCTYPE html><html><head><title>X.orb API Docs</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css"><style>body{margin:0;background:#0A0A0A}.swagger-ui .topbar{display:none}.swagger-ui{max-width:1200px;margin:0 auto}</style></head><body><div id="swagger-ui"></div><script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script><script>SwaggerUIBundle({url:'https://raw.githubusercontent.com/bidurkhatri/X.orb/main/apps/api/openapi.yaml',dom_id:'#swagger-ui',deepLinking:true,presets:[SwaggerUIBundle.presets.apis],layout:"BaseLayout"})</script></body></html>`)
   }
 
   // ─── POST /v1/agents ───
@@ -258,7 +264,10 @@ export default async function handler(req: any, res: any) {
     const id = path.split('/').filter(Boolean).pop()!
     const agent = store.agents[id]
     if (!agent) return res.status(404).json({ error: 'Agent not found' })
-    const { action } = req.body || {}
+    if (agent.trustSource === 'demo') return res.status(403).json({ error: 'Cannot modify demo agents. Register your own agent via POST /v1/agents' })
+    const { action, caller_address } = req.body || {}
+    if (!caller_address) return res.status(400).json({ error: 'caller_address required — only the sponsor can modify their agent' })
+    if (caller_address.toLowerCase() !== agent.sponsorAddress.toLowerCase()) return res.status(403).json({ error: 'Only the sponsor can modify this agent' })
     if (action === 'pause') { agent.status = 'paused'; await saveAgent(agent); return res.json({ agent }) }
     if (action === 'resume') { agent.status = 'active'; await saveAgent(agent); return res.json({ agent }) }
     return res.status(400).json({ error: 'Invalid action' })
@@ -269,6 +278,10 @@ export default async function handler(req: any, res: any) {
     const id = path.split('/').filter(Boolean).pop()!
     const agent = store.agents[id]
     if (!agent) return res.status(404).json({ error: 'Agent not found' })
+    if (agent.trustSource === 'demo') return res.status(403).json({ error: 'Cannot revoke demo agents. Register your own agent via POST /v1/agents' })
+    const { caller_address } = req.body || {}
+    if (!caller_address) return res.status(400).json({ error: 'caller_address required — only the sponsor can revoke their agent' })
+    if (caller_address.toLowerCase() !== agent.sponsorAddress.toLowerCase()) return res.status(403).json({ error: 'Only the sponsor can revoke this agent' })
     agent.status = 'revoked'; agent.stakeBond = '0'
     await saveAgent(agent)
     return res.json({ agent })
