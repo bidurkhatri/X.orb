@@ -3,6 +3,8 @@ import { PageHeader } from '../components/layout/PageHeader'
 
 const API = import.meta.env.VITE_API_URL || 'https://api.xorb.xyz'
 
+// TODO: Align with canonical XorbEventType from @xorb/types when event payload schema is stabilized.
+// See packages/xorb-types/src/index.ts for XorbEventType and WebhookPayload.
 interface ActionEvent {
   id: string
   type: string

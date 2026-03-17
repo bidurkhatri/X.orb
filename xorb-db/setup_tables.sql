@@ -1,0 +1,4 @@
+CREATE TABLE IF NOT EXISTS api_keys (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), sponsor_wallet TEXT NOT NULL, key_hash TEXT NOT NULL, name TEXT, permissions TEXT[] NOT NULL DEFAULT '{read,write}', last_used_at TIMESTAMPTZ, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), revoked_at TIMESTAMPTZ);
+CREATE TABLE IF NOT EXISTS agent_events (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), agent_id TEXT, event_type TEXT NOT NULL, data JSONB, created_at TIMESTAMPTZ DEFAULT NOW());
+CREATE INDEX IF NOT EXISTS idx_events_agent ON agent_events(agent_id);
+INSERT INTO api_keys (sponsor_wallet, key_hash, name) SELECT '0x742d35Cc6634C0532925a3b844Bc9e7595f2bD28', encode(sha256('xorb_live_bidur_2026'::bytea), 'hex'), 'Bidur primary key' WHERE NOT EXISTS (SELECT 1 FROM api_keys WHERE name = 'Bidur primary key');

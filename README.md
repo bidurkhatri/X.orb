@@ -82,7 +82,7 @@ curl -X POST https://api.xorb.xyz/v1/agents \
   -d '{
     "name": "my-research-bot",
     "scope": "research",
-    "sponsor_address": "0x742d35Cc6634C0532925a3b844Bc9e7595f2bD28",
+    "sponsor_address": "0xDEMO000000000000000000000000000000000001",
     "description": "Monitors whale wallets"
   }'
 ```
