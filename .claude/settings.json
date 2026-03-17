@@ -51,7 +51,11 @@
       "Bash(curl -s https://xorb-api.vercel.app/v1/health)",
       "Bash(curl -s https://xorb-api.vercel.app/v1/pricing)",
       "Bash(pnpm --filter @xorb/api add -D @types/node @types/uuid)",
-      "Bash(pnpm --filter @xorb/agent-core add -D @types/uuid)"
+      "Bash(pnpm --filter @xorb/agent-core add -D @types/uuid)",
+      "Bash(vercel rm:*)",
+      "Bash(vercel --yes --prod --scope bidur-khatris-projects --name sylos)",
+      "Bash(curl -s https://sylos-seven.vercel.app/v1/health)",
+      "Bash(vercel inspect:*)"
     ]
   }
 }
