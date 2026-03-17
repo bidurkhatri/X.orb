@@ -4,7 +4,8 @@
   "buildCommand": "",
   "outputDirectory": ".",
   "framework": null,
-  "routes": [
-    { "src": "/v1/(.*)", "dest": "/api" }
+  "rewrites": [
+    { "source": "/v1/(.*)", "destination": "/api" },
+    { "source": "/(.*)", "destination": "/api" }
   ]
 }
