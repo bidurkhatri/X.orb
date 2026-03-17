@@ -1,8 +1,12 @@
 import { useQuery } from '@tanstack/react-query'
+import { useState, useMemo } from 'react'
 import { Bot, Zap, Shield, TrendingUp } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { PageHeader } from '../components/layout/PageHeader'
 import { MetricCard } from '../components/glass/MetricCard'
 import { api } from '../lib/api'
+
+type SortKey = 'score' | 'actions' | 'name'
 
 export function Overview() {
   const { data: agentsData } = useQuery({
@@ -18,6 +22,9 @@ export function Overview() {
     refetchInterval: 5000,
   })
 
+  const navigate = useNavigate()
+  const [leaderboardSort, setLeaderboardSort] = useState<SortKey>('score')
+
   const agents = agentsData?.agents || []
   const events = eventsData?.events || []
   const activeCount = agents.filter((a: any) => a.status === 'active').length
@@ -25,6 +32,18 @@ export function Overview() {
   const blockedToday = events.filter((e: any) => e.type === 'action.blocked').length
   const violations = events.filter((e: any) => e.type === 'agent.slashed').length
 
+  // Sort agents for the leaderboard
+  const sortedAgents = useMemo(() => {
+    const sorted = [...agents]
+    switch (leaderboardSort) {
+      case 'score':
+        return sorted.sort((a: any, b: any) => (b.trustScore ?? b.reputation ?? 0) - (a.trustScore ?? a.reputation ?? 0))
+      case 'actions':
+        return sorted.sort((a: any, b: any) => (b.totalActionsExecuted ?? 0) - (a.totalActionsExecuted ?? 0))
+      case 'name':
+        return sorted.sort((a: any, b: any) => (a.name || '').localeCompare(b.name || ''))
+    }
+  }, [agents, leaderboardSort])
 
   return (
     <div>
@@ -82,6 +101,51 @@ export function Overview() {
           </div>
         </div>
       </div>
+
+      {/* Agent Leaderboard */}
+      {agents.length > 0 && (
+        <div className="glass-card p-5 mt-4">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-medium text-xorb-muted">Agent Leaderboard</h3>
+            <select
+              value={leaderboardSort}
+              onChange={e => setLeaderboardSort(e.target.value as SortKey)}
+              className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-xorb-blue/50 transition-colors"
+            >
+              <option value="score">Sort by Score</option>
+              <option value="actions">Sort by Actions</option>
+              <option value="name">Sort by Name</option>
+            </select>
+          </div>
+          <div className="space-y-1">
+            <div className="grid grid-cols-[2rem_1fr_5rem_5rem_4.5rem] gap-2 px-2 py-1 text-xs text-xorb-muted uppercase tracking-wider">
+              <span>#</span>
+              <span>Agent</span>
+              <span className="text-right">Score</span>
+              <span className="text-right">Actions</span>
+              <span className="text-right">Status</span>
+            </div>
+            {sortedAgents.slice(0, 10).map((a: any, i: number) => (
+              <div
+                key={a.agentId}
+                onClick={() => navigate(`/agents/${a.agentId}`)}
+                className="grid grid-cols-[2rem_1fr_5rem_5rem_4.5rem] gap-2 px-2 py-2 rounded-lg hover:bg-white/5 cursor-pointer transition-colors text-sm items-center"
+              >
+                <span className="text-xorb-muted font-mono text-xs">{i + 1}</span>
+                <div className="truncate">
+                  <span className="font-medium">{a.name}</span>
+                  <span className="text-xs text-xorb-muted ml-2">{a.scope || a.role}</span>
+                </div>
+                <span className="font-mono text-right">{a.trustScore ?? a.reputation ?? '—'}</span>
+                <span className="font-mono text-right">{a.totalActionsExecuted ?? 0}</span>
+                <span className={`text-right text-xs ${a.status === 'active' ? 'text-xorb-green' : a.status === 'paused' ? 'text-xorb-amber' : 'text-xorb-red'}`}>
+                  {a.status}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

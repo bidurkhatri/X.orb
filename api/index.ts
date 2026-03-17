@@ -142,18 +142,54 @@ async function saveEvent(evt: any) {
 }
 
 // ─── External Lookups ───
-async function lookupERC8004Identity(agentAddress: string): Promise<{ registered: boolean; handle?: string }> {
+/**
+ * ERC-8004 identity check — heuristic approach.
+ *
+ * LIMITATION: The ERC-8004 standard's exact ABI is not publicly finalized.
+ * We use two heuristics in sequence:
+ *   1. ownerOf(uint256) — selector 0x6352211e — treats the address as a token ID
+ *      and checks if it has an owner (i.e., has been minted/registered). A non-revert
+ *      response with a non-zero address indicates registration.
+ *   2. balanceOf(address) — selector 0x70a08231 — fallback that checks whether the
+ *      address holds any identity tokens. A balance > 0 suggests registration.
+ *
+ * Neither approach is a definitive identity-registry lookup. When the ERC-8004 ABI
+ * is finalized, replace these with the canonical registry function (e.g., isRegistered
+ * or getIdentity).
+ */
+async function lookupERC8004Identity(agentAddress: string): Promise<{ registered: boolean; handle?: string; method?: string }> {
   if (!ETH_ADDR_RE.test(agentAddress)) return { registered: false }
+  const paddedAddr = agentAddress.replace('0x', '').padStart(64, '0')
+
+  // Attempt 1: ownerOf(uint256) — selector 0x6352211e
+  // Interpret the address as a token ID; a non-zero owner means the identity exists.
   try {
     const res = await fetch(BASE_RPC, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_call',
-        params: [{ to: ERC_8004_REGISTRY_BASE, data: `0x70a08231000000000000000000000000${agentAddress.replace('0x', '')}` }, 'latest'] }),
+        params: [{ to: ERC_8004_REGISTRY_BASE, data: `0x6352211e${paddedAddr}` }, 'latest'] }),
+      signal: AbortSignal.timeout(5000),
+    })
+    const json = await res.json()
+    if (json.result && json.result !== '0x' && json.result !== '0x' + '0'.repeat(64)) {
+      const owner = '0x' + json.result.slice(-40)
+      if (owner !== '0x' + '0'.repeat(40)) {
+        return { registered: true, handle: `erc8004:${agentAddress.slice(0, 10)}`, method: 'ownerOf' }
+      }
+    }
+  } catch { /* ownerOf not supported or reverted — fall through to balanceOf */ }
+
+  // Attempt 2: balanceOf(address) — selector 0x70a08231 (balance-based heuristic)
+  try {
+    const res = await fetch(BASE_RPC, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'eth_call',
+        params: [{ to: ERC_8004_REGISTRY_BASE, data: `0x70a08231${paddedAddr}` }, 'latest'] }),
       signal: AbortSignal.timeout(5000),
     })
     const json = await res.json()
     const balance = parseInt(json.result, 16)
-    return { registered: balance > 0, handle: balance > 0 ? `erc8004:${agentAddress.slice(0, 10)}` : undefined }
+    return { registered: balance > 0, handle: balance > 0 ? `erc8004:${agentAddress.slice(0, 10)}` : undefined, method: 'balanceOf' }
   } catch { return { registered: false } }
 }
 
@@ -339,7 +375,7 @@ export default async function handler(req: any, res: any) {
         { endpoint: 'GET /v1/trust/:id', price_usdc: 0.001, via: 'x402', auth: 'optional' },
       ],
       free_tier: { limit: 1000, period: 'monthly' },
-      free_endpoints: ['GET /v1/health', 'GET /v1/agents', 'GET /v1/pricing', 'GET /v1/docs', 'PATCH /v1/agents/:id (pause/resume)', 'DELETE /v1/agents/:id (revoke)'],
+      free_endpoints: ['GET /v1/health', 'GET /v1/agents', 'GET /v1/pricing', 'GET /v1/docs', 'GET /v1/usage', 'PATCH /v1/agents/:id (pause/resume)', 'DELETE /v1/agents/:id (revoke)'],
       payment_protocol: 'https://x402.org',
     })
   }
@@ -370,7 +406,7 @@ export default async function handler(req: any, res: any) {
           '/reputation/{agentId}': { get: { summary: 'Get reputation score', tags: ['Reputation'], parameters: [{ name: 'agentId', in: 'path', required: true, schema: { type: 'string' } }], responses: { '200': { description: 'Reputation info' } } } },
           '/reputation/leaderboard': { get: { summary: 'Trust leaderboard', tags: ['Reputation'], responses: { '200': { description: 'Leaderboard' } } } },
           '/events': { get: { summary: 'List events', tags: ['Events'], responses: { '200': { description: 'Event list' } } } },
-          '/events/stream': { get: { summary: 'Long-polling event stream (returns latest events, client re-polls)', tags: ['Events'], parameters: [{ name: 'agent_id', in: 'query', schema: { type: 'string' } }], responses: { '200': { description: 'Event batch with poll_again flag' } } } },
+          '/events/stream': { get: { summary: 'Long-polling event stream. Pass ?since= for proper long-poll (holds up to 20s)', tags: ['Events'], parameters: [{ name: 'agent_id', in: 'query', schema: { type: 'string' } }, { name: 'since', in: 'query', schema: { type: 'string', format: 'date-time' }, description: 'ISO timestamp. Returns events after this time. Enables long-polling (holds up to 20s if no events).' }], responses: { '200': { description: 'Event batch with poll_again flag and recommended_backoff' } } } },
           '/audit/{agentId}': { get: { summary: 'Get audit log', tags: ['Audit'], parameters: [{ name: 'agentId', in: 'path', required: true, schema: { type: 'string' } }], responses: { '200': { description: 'Audit data' } } } },
           '/compliance/{agentId}': { get: { summary: 'Generate compliance report', tags: ['Compliance'], parameters: [{ name: 'agentId', in: 'path', required: true, schema: { type: 'string' } }, { name: 'format', in: 'query', schema: { type: 'string', enum: ['eu-ai-act', 'nist-ai-rmf', 'soc2'] } }], responses: { '200': { description: 'Compliance report' } } } },
           '/webhooks': {
@@ -382,6 +418,7 @@ export default async function handler(req: any, res: any) {
             get: { summary: 'Browse agents', tags: ['Marketplace'], responses: { '200': { description: 'Listing list' } } },
           },
           '/marketplace/hire': { post: { summary: 'Hire an agent', tags: ['Marketplace'], responses: { '201': { description: 'Engagement started' } } } },
+          '/usage': { get: { summary: 'Platform usage stats for billing', tags: ['Billing'], responses: { '200': { description: 'Usage summary: total agents, total actions, free tier remaining, top agent' } } } },
         },
       })
     }
@@ -397,7 +434,7 @@ export default async function handler(req: any, res: any) {
   }
 
   // ─── GET /v1/agents/:id (public, read-only) ───
-  if (req.method === 'GET' && path.match(/\/agents\/.+/) && !path.includes('/actions')) {
+  if (req.method === 'GET' && path.match(/\/agents\/[^/]+\/?$/) && !path.includes('/actions')) {
     const id = path.split('/').filter(Boolean).pop()!
     const agent = store.agents[id]
     if (!agent) return res.status(404).json({ error: 'Agent not found' })
@@ -458,9 +495,67 @@ export default async function handler(req: any, res: any) {
 
   // ─── GET /v1/events/stream (long-poll) ───
   if (path.includes('/events/stream')) {
-    const events = (store.events || []).slice(-20)
     res.setHeader('Cache-Control', 'no-cache')
-    return res.json({ events, count: events.length, poll_again: true, retry_after_ms: 2000 })
+    const url = new URL(`http://x${req.url}`)
+    const since = url.searchParams.get('since')
+    const agentFilter = url.searchParams.get('agent_id')
+
+    // Helper: get events newer than `since`, optionally filtered by agent_id
+    function getNewEvents() {
+      let evts = store.events || []
+      if (since) {
+        const sinceTime = new Date(since).getTime()
+        evts = evts.filter((e: any) => new Date(e.timestamp).getTime() > sinceTime)
+      } else {
+        // No since param — return last 20 as before
+        evts = evts.slice(-20)
+      }
+      if (agentFilter) evts = evts.filter((e: any) => e.agentId === agentFilter)
+      return evts
+    }
+
+    // If events exist immediately, return them
+    let events = getNewEvents()
+    if (events.length > 0 || !since) {
+      return res.json({
+        events, count: events.length, poll_again: true, retry_after_ms: 2000,
+        recommended_backoff: { strategy: 'exponential', sequence_ms: [1000, 2000, 4000, 8000], max_ms: 8000, note: 'Use exponential backoff when no new events are returned. Reset to 1s after receiving events.' },
+      })
+    }
+
+    // Long-poll: hold connection up to 20s, checking every 2s
+    const maxWait = 20000
+    const pollInterval = 2000
+    const startTime = Date.now()
+    while (Date.now() - startTime < maxWait) {
+      await new Promise(resolve => setTimeout(resolve, pollInterval))
+      events = getNewEvents()
+      if (events.length > 0) break
+    }
+
+    return res.json({
+      events, count: events.length, poll_again: true, retry_after_ms: events.length > 0 ? 1000 : 4000,
+      recommended_backoff: { strategy: 'exponential', sequence_ms: [1000, 2000, 4000, 8000], max_ms: 8000, note: 'Use exponential backoff when no new events are returned. Reset to 1s after receiving events.' },
+    })
+  }
+
+  // ─── GET /v1/usage (billing summary) ───
+  if (req.method === 'GET' && path.match(/\/usage\/?$/)) {
+    const agents = Object.values(store.agents) as any[]
+    const totalAgents = agents.length
+    const totalActions = agents.reduce((sum: number, a: any) => sum + (a.totalActionsExecuted || 0), 0)
+    const freeTierLimit = 1000
+    const freeTierRemaining = Math.max(0, freeTierLimit - totalActions)
+    const topAgent = agents.length > 0
+      ? agents.reduce((best: any, a: any) => (a.totalActionsExecuted || 0) > (best.totalActionsExecuted || 0) ? a : best, agents[0])
+      : null
+    return res.json({
+      total_agents: totalAgents,
+      total_actions: totalActions,
+      free_tier: { limit: freeTierLimit, used: totalActions, remaining: freeTierRemaining, period: 'monthly' },
+      top_agent: topAgent ? { agent_id: topAgent.agentId, name: topAgent.name, actions: topAgent.totalActionsExecuted || 0, role: topAgent.scope || topAgent.permissionScope } : null,
+      timestamp: new Date().toISOString(),
+    })
   }
 
   // ─── GET /v1/actions/:id ───

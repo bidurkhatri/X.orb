@@ -39,12 +39,12 @@ components:
       properties:
         agentId: { type: string }
         name: { type: string }
-        role: { type: string, enum: [TRADER, RESEARCHER, MONITOR, CODER, GOVERNANCE_ASSISTANT, FILE_INDEXER, RISK_AUDITOR] }
+        role: { type: string, enum: ["TRADER", "RESEARCHER", "MONITOR", "CODER", "GOVERNANCE_ASSISTANT", "FILE_INDEXER", "RISK_AUDITOR"] }
         sponsorAddress: { type: string }
         stakeBond: { type: string }
         reputation: { type: integer }
-        reputationTier: { type: string, enum: [UNTRUSTED, NOVICE, RELIABLE, TRUSTED, ELITE] }
-        status: { type: string, enum: [active, paused, revoked, expired] }
+        reputationTier: { type: string, enum: ["UNTRUSTED", "NOVICE", "RELIABLE", "TRUSTED", "ELITE"] }
+        status: { type: string, enum: ["active", "paused", "revoked", "expired"] }
         totalActionsExecuted: { type: integer }
         description: { type: string }
 
@@ -111,7 +111,7 @@ paths:
               required: [name, role, sponsor_address]
               properties:
                 name: { type: string, minLength: 2, maxLength: 64 }
-                role: { type: string, enum: [TRADER, RESEARCHER, MONITOR, CODER, GOVERNANCE_ASSISTANT, FILE_INDEXER, RISK_AUDITOR] }
+                role: { type: string, enum: ["TRADER", "RESEARCHER", "MONITOR", "CODER", "GOVERNANCE_ASSISTANT", "FILE_INDEXER", "RISK_AUDITOR"] }
                 sponsor_address: { type: string }
                 stake_bond: { type: string }
                 expiry_days: { type: integer }
@@ -168,7 +168,7 @@ paths:
               type: object
               required: [action, caller_address]
               properties:
-                action: { type: string, enum: [pause, resume, renew] }
+                action: { type: string, enum: ["pause", "resume", "renew"] }
                 caller_address: { type: string }
       responses:
         '200':
@@ -315,7 +315,7 @@ paths:
           schema: { type: string }
         - name: format
           in: query
-          schema: { type: string, enum: [eu-ai-act, nist-ai-rmf, soc2] }
+          schema: { type: string, enum: ["eu-ai-act", "nist-ai-rmf", "soc2"] }
         - name: from
           in: query
           schema: { type: string, format: date-time }

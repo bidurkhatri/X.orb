@@ -89,6 +89,11 @@ export function AgentDetail() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        {/*
+         * Backward compat: the API returns both `trustScore` (canonical) and `reputation`
+         * (legacy field). Older SDK versions (<= 0.2.x) only send `reputation`, so we
+         * fall back to it to avoid showing undefined for agents registered via older clients.
+         */}
         <MetricCard label="Trust Score" value={agent.trustScore ?? agent.reputation} />
         <MetricCard label="Trust Source" value={agent.trustSource || 'local'} />
         <MetricCard label="Bond (USDC)" value={`$${bondUsdc}`} />

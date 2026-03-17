@@ -1,16 +1,20 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { Plus } from 'lucide-react'
-import { useState } from 'react'
+import { Plus, Search, ChevronLeft, ChevronRight } from 'lucide-react'
+import { useState, useMemo } from 'react'
 import { PageHeader } from '../components/layout/PageHeader'
 import { GlassTable } from '../components/glass/GlassTable'
 import { api } from '../lib/api'
+
+const PAGE_SIZE = 20
 
 export function Agents() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [showCreate, setShowCreate] = useState(false)
   const [form, setForm] = useState({ name: '', role: 'RESEARCHER', sponsor_address: '', description: '' })
+  const [searchQuery, setSearchQuery] = useState('')
+  const [page, setPage] = useState(1)
 
   const { data, isLoading } = useQuery({
     queryKey: ['agents'],
@@ -28,6 +32,22 @@ export function Agents() {
   })
 
   const agents = data?.agents || []
+
+  // Filter agents by search query (name or scope/role)
+  const filteredAgents = useMemo(() => {
+    if (!searchQuery.trim()) return agents
+    const q = searchQuery.toLowerCase()
+    return agents.filter((a: any) =>
+      (a.name || '').toLowerCase().includes(q) ||
+      (a.scope || a.permissionScope || a.role || '').toLowerCase().includes(q) ||
+      (a.agentId || '').toLowerCase().includes(q)
+    )
+  }, [agents, searchQuery])
+
+  // Reset to page 1 when search query changes
+  const totalPages = Math.max(1, Math.ceil(filteredAgents.length / PAGE_SIZE))
+  const currentPage = Math.min(page, totalPages)
+  const paginatedAgents = filteredAgents.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
 
   const columns = [
     {
@@ -50,6 +70,11 @@ export function Agents() {
       header: 'Trust',
       render: (a: any) => (
         <div className="flex items-center gap-2">
+          {/*
+           * Backward compat: the API returns both `trustScore` (canonical) and `reputation`
+           * (legacy field). Older SDK versions (<= 0.2.x) only send `reputation`, so we
+           * fall back to it to avoid showing "—" for agents registered via older clients.
+           */}
           <span className="font-mono">{a.trustScore ?? a.reputation ?? '—'}/100</span>
           <span className="text-xs text-xorb-muted">{a.trustSource || 'local'}</span>
         </div>
@@ -76,7 +101,7 @@ export function Agents() {
     <div>
       <PageHeader
         title="Agents"
-        description={`${agents.length} registered`}
+        description={`${filteredAgents.length}${searchQuery ? ` of ${agents.length}` : ''} registered`}
         action={
           <button
             onClick={() => setShowCreate(!showCreate)}
@@ -132,12 +157,54 @@ export function Agents() {
         </div>
       )}
 
+      {/* Search / filter bar */}
+      <div className="mb-4">
+        <div className="relative max-w-sm">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-xorb-muted" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={e => { setSearchQuery(e.target.value); setPage(1) }}
+            placeholder="Search by name, scope, or ID..."
+            className="w-full bg-white/5 border border-white/10 rounded-lg pl-9 pr-3 py-2 text-sm placeholder:text-xorb-muted/60 focus:outline-none focus:border-xorb-blue/50 transition-colors"
+          />
+        </div>
+      </div>
+
       <GlassTable
         columns={columns}
-        data={agents}
+        data={paginatedAgents}
         onRowClick={(a: any) => navigate(`/agents/${a.agentId}`)}
-        emptyMessage={isLoading ? 'Loading agents...' : "No agents registered yet. Click 'Register Agent' to create your first agent."}
+        emptyMessage={isLoading ? 'Loading agents...' : searchQuery ? 'No agents match your search.' : "No agents registered yet. Click 'Register Agent' to create your first agent."}
       />
+
+      {/* Pagination controls */}
+      {filteredAgents.length > PAGE_SIZE && (
+        <div className="flex items-center justify-between mt-4 px-1">
+          <span className="text-xs text-xorb-muted">
+            Showing {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filteredAgents.length)} of {filteredAgents.length}
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={currentPage <= 1}
+              className="flex items-center gap-1 px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-sm transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              <ChevronLeft size={14} /> Previous
+            </button>
+            <span className="text-sm text-xorb-muted font-mono">
+              {currentPage} / {totalPages}
+            </span>
+            <button
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage >= totalPages}
+              className="flex items-center gap-1 px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-sm transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              Next <ChevronRight size={14} />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
