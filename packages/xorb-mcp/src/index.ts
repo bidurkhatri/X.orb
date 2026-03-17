@@ -77,14 +77,14 @@ server.tool(
   },
   async ({ name, role, sponsor_address, description }) => {
     const result = await xorbRequest('POST', '/v1/agents', {
-      name, role, sponsor_address, description,
+      name, scope: role, sponsor_address, description,
     })
 
     if (result.agent) {
       return {
         content: [{
           type: 'text',
-          text: `Agent registered!\nID: ${result.agent.agentId}\nName: ${result.agent.name}\nRole: ${result.agent.role}\nReputation: ${result.agent.reputation} (${result.agent.reputationTier})`,
+          text: `Agent registered!\nID: ${result.agent.agentId}\nName: ${result.agent.name}\nScope: ${result.agent.scope || result.agent.role}\nTrust: ${result.agent.reputation ?? result.agent.trustScore}/100 (${result.agent.reputationTier || 'NOVICE'})`,
         }],
       }
     }
@@ -108,7 +108,7 @@ server.tool(
     return {
       content: [{
         type: 'text',
-        text: `Agent: ${agent_id}\nScore: ${result.score}/10000\nTier: ${result.tier}\nTotal Actions: ${result.total_actions}\nSlash Events: ${result.slash_events}`,
+        text: `Agent: ${agent_id}\nScore: ${result.score ?? result.reputation}/100\nTier: ${result.tier ?? result.reputationTier}\nTotal Actions: ${result.total_actions}\nSlash Events: ${result.slash_events}\nSource: ${result.trust_source || 'local'}`,
       }],
     }
   }

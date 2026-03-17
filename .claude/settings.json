@@ -75,7 +75,17 @@
       "Bash(vercel env:*)",
       "Bash(npx vite:*)",
       "Bash(vercel --yes --prod --scope bidur-khatris-projects --name xorb-landing)",
-      "Bash(npx supabase:*)"
+      "Bash(npx supabase:*)",
+      "Bash(curl -s https://api.xorb.xyz/v1/health)",
+      "Bash(curl -s -X POST https://api.xorb.xyz/v1/agents -H \"Content-Type: application/json\" -d '{\"\"\"\"name\"\"\"\":\"\"\"\"test-bot\"\"\"\",\"\"\"\"scope\"\"\"\":\"\"\"\"research\"\"\"\",\"\"\"\"sponsor_address\"\"\"\":\"\"\"\"0xTestSponsor1234567890abcdef1234567890ab\"\"\"\",\"\"\"\"description\"\"\"\":\"\"\"\"E2E test agent\"\"\"\"}')",
+      "Bash(curl -s -X POST https://api.xorb.xyz/v1/actions/execute -H \"Content-Type: application/json\" -d '{\"\"\"\"agent_id\"\"\"\":\"\"\"\"agent_mmu4vpb7f55oup\"\"\"\",\"\"\"\"action\"\"\"\":\"\"\"\"query\"\"\"\",\"\"\"\"tool\"\"\"\":\"\"\"\"get_balance\"\"\"\",\"\"\"\"params\"\"\"\":{}}')",
+      "Bash(curl -s -X POST https://api.xorb.xyz/v1/actions/execute -H \"Content-Type: application/json\" -d '{\"\"\"\"agent_id\"\"\"\":\"\"\"\"agent_mmu4vpb7f55oup\"\"\"\",\"\"\"\"action\"\"\"\":\"\"\"\"trade\"\"\"\",\"\"\"\"tool\"\"\"\":\"\"\"\"swap\"\"\"\",\"\"\"\"params\"\"\"\":{}}')",
+      "Bash(curl -s -X PATCH https://api.xorb.xyz/v1/agents/agent_mmu4vpb7f55oup -H \"Content-Type: application/json\" -d '{\"\"\"\"action\"\"\"\":\"\"\"\"pause\"\"\"\"}')",
+      "Bash(curl -s -X PATCH https://api.xorb.xyz/v1/agents/agent_mmu4vpb7f55oup -H \"Content-Type: application/json\" -d '{\"\"\"\"action\"\"\"\":\"\"\"\"pause\"\"\"\",\"\"\"\"caller_address\"\"\"\":\"\"\"\"0xWRONG\"\"\"\"}')",
+      "Bash(curl -s -X PATCH https://api.xorb.xyz/v1/agents/agent_mmu4vpb7f55oup -H \"Content-Type: application/json\" -d '{\"\"\"\"action\"\"\"\":\"\"\"\"pause\"\"\"\",\"\"\"\"caller_address\"\"\"\":\"\"\"\"0xTestSponsor1234567890abcdef1234567890ab\"\"\"\"}')",
+      "Bash(curl -s -X DELETE https://api.xorb.xyz/v1/agents/agent_alpha -H \"Content-Type: application/json\" -d '{\"\"\"\"caller_address\"\"\"\":\"\"\"\"0x742d35Cc6634C0532925a3b844Bc9e7595f2bD28\"\"\"\"}')",
+      "Bash(curl -s https://api.xorb.xyz/v1/trust/agent_mmu4vpb7f55oup)",
+      "Bash(curl -s https://api.xorb.xyz/v1/docs)"
     ]
   }
 }
