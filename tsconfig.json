@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "types": ["node"]
+  },
+  "include": ["api/**/*", "apps/**/*", "packages/**/*"],
+  "exclude": ["node_modules", "dist", "xorb-contracts"]
+}

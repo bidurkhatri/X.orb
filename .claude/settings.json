@@ -55,7 +55,8 @@
       "Bash(vercel rm:*)",
       "Bash(vercel --yes --prod --scope bidur-khatris-projects --name sylos)",
       "Bash(curl -s https://sylos-seven.vercel.app/v1/health)",
-      "Bash(vercel inspect:*)"
+      "Bash(vercel inspect:*)",
+      "Bash(pnpm add:*)"
     ]
   }
 }
