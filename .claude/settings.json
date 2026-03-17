@@ -34,7 +34,17 @@
       "Bash(grep -r \"IpfsAdapter\\\\|pin\\(\" 'c:\\\\Users\\\\Crater\\\\Downloads\\\\SYLOS system - NEW\\\\packages\\\\agent-core' --include=*.ts)",
       "Bash(find '/c/Users/Crater/Downloads/SYLOS system - NEW' -type f \\\\\\(-iname *dashboard* -o -iname *plan* -o -iname *spec* \\\\\\))",
       "Bash(cmd //c \"rename \"\"SYLOS system - NEW\"\" xORB\")",
-      "Bash(powershell -Command \"Rename-Item -Path ''SYLOS system - NEW'' -NewName ''xORB''\")"
+      "Bash(powershell -Command \"Rename-Item -Path ''SYLOS system - NEW'' -NewName ''xORB''\")",
+      "Bash(pnpm install:*)",
+      "Bash(curl -s -X POST http://localhost:3000/v1/agents -H \"Content-Type: application/json\" -H \"x-api-key: xorb_test_key_123\" -d '{\"\"\"\"name\"\"\"\":\"\"\"\"research-bot\"\"\"\",\"\"\"\"role\"\"\"\":\"\"\"\"RESEARCHER\"\"\"\",\"\"\"\"sponsor_address\"\"\"\":\"\"\"\"0xAbCdEf1234567890AbCdEf1234567890AbCdEf12\"\"\"\",\"\"\"\"description\"\"\"\":\"\"\"\"My first X.orb agent\"\"\"\"}')",
+      "Bash(curl -s -X POST http://localhost:3000/v1/actions/execute -H \"Content-Type: application/json\" -H \"x-api-key: xorb_test_key_123\" -d '{\"\"\"\"agent_id\"\"\"\":\"\"\"\"agent_cc8680356bde42de\"\"\"\",\"\"\"\"action\"\"\"\":\"\"\"\"query_balance\"\"\"\",\"\"\"\"tool\"\"\"\":\"\"\"\"get_balance\"\"\"\",\"\"\"\"params\"\"\"\":{\"\"\"\"address\"\"\"\":\"\"\"\"0x123\"\"\"\"}}')",
+      "Bash(curl -s -X POST http://localhost:3000/v1/actions/execute -H \"Content-Type: application/json\" -H \"x-api-key: xorb_test_key_123\" -d '{\"\"\"\"agent_id\"\"\"\":\"\"\"\"agent_cc8680356bde42de\"\"\"\",\"\"\"\"action\"\"\"\":\"\"\"\"send_money\"\"\"\",\"\"\"\"tool\"\"\"\":\"\"\"\"submit_transaction_proposal\"\"\"\",\"\"\"\"params\"\"\"\":{}}')",
+      "Bash(curl -s http://localhost:3000/v1/reputation/agent_cc8680356bde42de -H \"x-api-key: xorb_test_key_123\")",
+      "Bash(curl -s http://localhost:3000/v1/agents -H \"x-api-key: xorb_test_key_123\")",
+      "Bash(curl -s http://localhost:3000/v1/pricing)",
+      "Bash(pkill -f \"tsx src/server.ts\")",
+      "Bash(pkill -f \"node.*server\")",
+      "Bash(vercel --version)"
     ]
   }
 }

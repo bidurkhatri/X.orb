@@ -1,9 +1,17 @@
 {
   "version": 2,
-  "buildCommand": "cd apps/api && npm run build",
-  "outputDirectory": "apps/api/.vercel/output",
-  "framework": null,
+  "installCommand": "pnpm install --no-frozen-lockfile",
+  "builds": [
+    {
+      "src": "apps/api/api/[[...route]].ts",
+      "use": "@vercel/node"
+    }
+  ],
   "rewrites": [
-    { "source": "/v1/(.*)", "destination": "/api/v1/$1" }
+    { "source": "/v1/(.*)", "destination": "/apps/api/api/[[...route]]" }
+  ],
+  "crons": [
+    { "path": "/v1/cron/decay", "schedule": "0 0 * * *" },
+    { "path": "/v1/cron/cleanup", "schedule": "0 */6 * * *" }
   ]
 }
