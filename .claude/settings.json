@@ -66,7 +66,10 @@
       "Bash(curl -s --max-time 30 https://sylos-seven.vercel.app/v1/health)",
       "Bash(vercel ls:*)",
       "Bash(VITE_API_URL=https://sylos-seven.vercel.app npx vite build)",
-      "Bash(vercel --yes --prod --scope bidur-khatris-projects --name xorb-dashboard)"
+      "Bash(vercel --yes --prod --scope bidur-khatris-projects --name xorb-dashboard)",
+      "Bash(vercel deploy:*)",
+      "Bash(mv apps/dashboard/logo.png apps/dashboard/public/logo.png)",
+      "Bash(mv apps/dashboard/facivon.png apps/dashboard/public/favicon.png)"
     ]
   }
 }
