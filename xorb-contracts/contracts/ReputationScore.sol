@@ -262,7 +262,10 @@ contract ReputationScore is AccessControl, ReentrancyGuard, Pausable, IReputatio
 
     // --- View Functions ---
 
-    function getReputation(bytes32 _agentId) external view returns (uint256) {
+    // getReputation(bytes32) is defined below via IReputationFeedback override
+    // which returns (score, totalFeedback, positiveFeedback, negativeFeedback)
+
+    function getReputationScore(bytes32 _agentId) external view returns (uint256) {
         return reputations[_agentId].score;
     }
 

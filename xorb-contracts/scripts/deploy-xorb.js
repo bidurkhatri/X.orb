@@ -157,39 +157,10 @@ async function main() {
   console.log(`  AgentMarketplace: ${agentMarketplaceAddr}`);
 
   // ---------------------------------------------------------------
-  // Configure Cross-Contract Permissions
-  // ---------------------------------------------------------------
-
-  console.log("\n[8/10] Configuring cross-contract permissions...");
-
-  // AgentRegistry needs to know about ReputationScore and SlashingEngine
-  await agentRegistry.setReputationContract(reputationScoreAddr);
-  console.log("  AgentRegistry.reputationContract = ReputationScore");
-
-  await agentRegistry.setSlashingContract(slashingEngineAddr);
-  console.log("  AgentRegistry.slashingContract = SlashingEngine");
-
-  // SlashingEngine needs ORACLE_ROLE on ReputationScore to apply deltas
-  console.log("\n[9/10] Granting roles...");
-  const ORACLE_ROLE = ethers.keccak256(ethers.toUtf8Bytes("ORACLE_ROLE"));
-  await reputationScore.grantRole(ORACLE_ROLE, slashingEngineAddr);
-  console.log("  SlashingEngine granted ORACLE_ROLE on ReputationScore");
-
-  // Grant OPERATOR_ROLE on AgentRegistry to deployer (for recordAction calls)
-  const OPERATOR_ROLE = ethers.keccak256(ethers.toUtf8Bytes("OPERATOR_ROLE"));
-  await agentRegistry.grantRole(OPERATOR_ROLE, deployer.address);
-  console.log("  Deployer granted OPERATOR_ROLE on AgentRegistry");
-
-  // Grant REPORTER_ROLE on SlashingEngine to deployer
-  const REPORTER_ROLE = ethers.keccak256(ethers.toUtf8Bytes("REPORTER_ROLE"));
-  await slashingEngine.grantRole(REPORTER_ROLE, deployer.address);
-  console.log("  Deployer granted REPORTER_ROLE on SlashingEngine");
-
-  // ---------------------------------------------------------------
   // Summary
   // ---------------------------------------------------------------
 
-  console.log("\n[10/10] Verifying configuration...");
+  console.log("\n[8/8] Verifying configuration...");
   console.log(`  AgentRegistry.reputationContract: ${await agentRegistry.reputationContract()}`);
   console.log(`  AgentRegistry.slashingContract: ${await agentRegistry.slashingContract()}`);
   console.log(`  AgentRegistry.minStakeBond: ${ethers.formatEther(await agentRegistry.minStakeBond())} USDC`);
