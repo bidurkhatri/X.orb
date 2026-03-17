@@ -1,6 +1,5 @@
 import { handle } from 'hono/vercel'
 import { Hono } from 'hono'
-import { cors } from 'hono/cors'
 
 function uuidv4(): string {
   return crypto.randomUUID()
@@ -11,8 +10,12 @@ function uuidv4(): string {
 type Env = { Variables: { requestId: string } }
 const app = new Hono<Env>()
 
-app.use('*', cors())
+// CORS + request ID
 app.use('*', async (c, next) => {
+  c.header('Access-Control-Allow-Origin', '*')
+  c.header('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE, OPTIONS')
+  c.header('Access-Control-Allow-Headers', 'Content-Type, x-api-key')
+  if (c.req.method === 'OPTIONS') return c.text('', 204)
   c.set('requestId', uuidv4())
   c.header('x-request-id', c.get('requestId'))
   await next()
