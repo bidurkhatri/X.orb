@@ -69,7 +69,8 @@
       "Bash(vercel --yes --prod --scope bidur-khatris-projects --name xorb-dashboard)",
       "Bash(vercel deploy:*)",
       "Bash(mv apps/dashboard/logo.png apps/dashboard/public/logo.png)",
-      "Bash(mv apps/dashboard/facivon.png apps/dashboard/public/favicon.png)"
+      "Bash(mv apps/dashboard/facivon.png apps/dashboard/public/favicon.png)",
+      "Bash(VITE_API_URL=https://api.xorb.xyz npx vite build)"
     ]
   }
 }
