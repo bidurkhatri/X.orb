@@ -32,7 +32,56 @@ export default function handler(req: any, res: any) {
 
   // ─── In-memory store (persists across warm invocations) ───
   const g = globalThis as any
-  if (!g._xorb_agents) g._xorb_agents = {}
+  if (!g._xorb_agents) {
+    // Seed demo agents so dashboard looks alive on first visit
+    g._xorb_agents = {
+      'agent_demo_alpha': {
+        agentId: 'agent_demo_alpha', name: 'alpha-trader', role: 'TRADER',
+        sponsorAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f2bD28',
+        stakeBond: '50000000', reputation: 7200, reputationTier: 'TRUSTED',
+        status: 'active', createdAt: Date.now() - 86400000 * 14, expiresAt: 0,
+        lastActiveAt: Date.now() - 300000, totalActionsExecuted: 1847, slashEvents: 2,
+        description: 'DeFi trading agent — executes swaps within risk parameters',
+        permissionScope: { allowedTools: ROLE_TOOLS.TRADER, maxActionsPerHour: 60 },
+      },
+      'agent_demo_beta': {
+        agentId: 'agent_demo_beta', name: 'research-sentinel', role: 'RESEARCHER',
+        sponsorAddress: '0x8626f6940E2eb28930eFb4CeF49B2d1F2C9C1199',
+        stakeBond: '50000000', reputation: 4500, reputationTier: 'RELIABLE',
+        status: 'active', createdAt: Date.now() - 86400000 * 7, expiresAt: 0,
+        lastActiveAt: Date.now() - 60000, totalActionsExecuted: 523, slashEvents: 0,
+        description: 'On-chain research agent — monitors whale wallets and DEX activity',
+        permissionScope: { allowedTools: ROLE_TOOLS.RESEARCHER, maxActionsPerHour: 120 },
+      },
+      'agent_demo_gamma': {
+        agentId: 'agent_demo_gamma', name: 'risk-watcher', role: 'RISK_AUDITOR',
+        sponsorAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f2bD28',
+        stakeBond: '25000000', reputation: 8900, reputationTier: 'ELITE',
+        status: 'active', createdAt: Date.now() - 86400000 * 30, expiresAt: 0,
+        lastActiveAt: Date.now() - 10000, totalActionsExecuted: 12450, slashEvents: 0,
+        description: 'Portfolio risk auditor — flags anomalous contract interactions',
+        permissionScope: { allowedTools: ROLE_TOOLS.RISK_AUDITOR, maxActionsPerHour: 120 },
+      },
+      'agent_demo_delta': {
+        agentId: 'agent_demo_delta', name: 'code-assist', role: 'CODER',
+        sponsorAddress: '0x8626f6940E2eb28930eFb4CeF49B2d1F2C9C1199',
+        stakeBond: '50000000', reputation: 1800, reputationTier: 'NOVICE',
+        status: 'paused', createdAt: Date.now() - 86400000 * 3, expiresAt: 0,
+        lastActiveAt: Date.now() - 86400000, totalActionsExecuted: 89, slashEvents: 1,
+        description: 'Code review agent — paused after permission violation',
+        permissionScope: { allowedTools: ROLE_TOOLS.CODER, maxActionsPerHour: 60 },
+      },
+      'agent_demo_epsilon': {
+        agentId: 'agent_demo_epsilon', name: 'market-monitor', role: 'MONITOR',
+        sponsorAddress: '0xdD2FD4581271e230360230F9337D5c0430Bf44C0',
+        stakeBond: '0', reputation: 200, reputationTier: 'UNTRUSTED',
+        status: 'revoked', createdAt: Date.now() - 86400000 * 21, expiresAt: 0,
+        lastActiveAt: Date.now() - 86400000 * 5, totalActionsExecuted: 3200, slashEvents: 8,
+        description: 'REVOKED — exceeded rate limits repeatedly, bond fully slashed',
+        permissionScope: { allowedTools: ROLE_TOOLS.MONITOR, maxActionsPerHour: 300 },
+      },
+    }
+  }
   if (!g._xorb_rl) g._xorb_rl = {}
   const agents: Record<string, any> = g._xorb_agents
   const rateLimits: Record<string, { count: number; resetAt: number }> = g._xorb_rl
