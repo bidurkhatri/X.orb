@@ -18,13 +18,12 @@ const navItems = [
 export function Sidebar() {
   return (
     <aside className="glass-sidebar w-[220px] flex flex-col h-screen shrink-0">
-      <div className="p-5 border-b border-white/8">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-xorb-blue flex items-center justify-center">
-            <span className="text-white font-bold text-sm">X</span>
-          </div>
-          <span className="font-semibold text-lg">X.orb</span>
+      <div className="p-5 border-b border-white/10">
+        <div className="flex items-center gap-2.5">
+          <img src="/logo.png" alt="X.orb" className="w-8 h-8 object-contain invert" />
+          <span className="font-semibold text-lg tracking-tight">X.orb</span>
         </div>
+        <p className="text-[10px] text-xorb-muted mt-1.5 tracking-wide uppercase">Agent Trust Infrastructure</p>
       </div>
 
       <nav className="flex-1 py-3 px-3 space-y-0.5">
