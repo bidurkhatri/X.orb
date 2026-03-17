@@ -16,6 +16,8 @@ const AGENTSCORE_API = 'https://api.agentscore.dev'
 const PAYCROW_API = 'https://api.paycrow.xyz'
 const BASE_RPC = 'https://mainnet.base.org'
 
+import { createClient } from '@supabase/supabase-js'
+
 // ─── Supabase Client (lazy init) ───
 let _supabase: any = null
 function getSupabase() {
@@ -23,11 +25,8 @@ function getSupabase() {
   const url = process.env.SUPABASE_URL
   const key = process.env.SUPABASE_SERVICE_KEY
   if (!url || !key) return null
-  try {
-    const { createClient } = require('@supabase/supabase-js')
-    _supabase = createClient(url, key)
-    return _supabase
-  } catch { return null }
+  _supabase = createClient(url, key)
+  return _supabase
 }
 
 // ─── Persistence Layer ───
