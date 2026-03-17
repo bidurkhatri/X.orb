@@ -1,18 +1,7 @@
 {
   "version": 2,
   "installCommand": "pnpm install --no-frozen-lockfile",
-  "builds": [
-    {
-      "src": "api/[[...route]].ts",
-      "use": "@vercel/node"
-    }
-  ],
   "routes": [
-    { "src": "/v1/(.*)", "dest": "/api/[[...route]]" },
-    { "src": "/api/(.*)", "dest": "/api/[[...route]]" }
-  ],
-  "crons": [
-    { "path": "/v1/cron/decay", "schedule": "0 0 * * *" },
-    { "path": "/v1/cron/cleanup", "schedule": "0 */6 * * *" }
+    { "src": "/v1/(.*)", "dest": "/api" }
   ]
 }
