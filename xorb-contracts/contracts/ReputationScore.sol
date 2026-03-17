@@ -84,8 +84,8 @@ contract ReputationScore is AccessControl, ReentrancyGuard, Pausable, IReputatio
     /// @dev Default starting score for new agents
     uint256 public constant DEFAULT_SCORE = 5000;
 
-    /// @dev Auto-pause threshold
-    uint256 public constant PAUSE_THRESHOLD = 500;
+    /// @dev Auto-pause threshold (aligns with NOVICE tier lower bound)
+    uint256 public constant PAUSE_THRESHOLD = 1000;
 
     /// @dev Max score
     uint256 public constant MAX_SCORE = 10000;
@@ -352,7 +352,6 @@ contract ReputationScore is AccessControl, ReentrancyGuard, Pausable, IReputatio
 
         emit DecayApplied(_agentId, totalDecay, newScore);
     }
-}
 
     // ═══════════════════════════════════════════
     // ═══  ERC-8004: IReputationFeedback  ════

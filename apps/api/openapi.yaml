@@ -274,7 +274,11 @@ paths:
 
   /events/stream:
     get:
-      summary: SSE event stream
+      summary: Long-polling event stream
+      description: |
+        Returns the latest events as a JSON array. The response includes a `poll_again: true` flag
+        and `retry_after_ms` hint so the client knows to re-poll. This is NOT an SSE endpoint —
+        Vercel Serverless does not support persistent connections.
       tags: [Events]
       parameters:
         - name: agent_id
@@ -285,7 +289,7 @@ paths:
           schema: { type: string }
       responses:
         '200':
-          description: SSE stream
+          description: Event batch (long-polling — client re-polls after retry_after_ms)
 
   /audit/{agentId}:
     get:

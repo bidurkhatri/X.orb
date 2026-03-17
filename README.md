@@ -142,6 +142,12 @@ X.orb orchestrates — it doesn't replace.
 | [x402](https://x402.org) | Per-action micropayments | HTTP 402 | `@x402/hono` |
 | [PayCrow](https://paycrow.xyz) | Escrow + dispute resolution | USDC | Integrated |
 
+> **Fallback behavior when external APIs are unreachable:**
+> - **ERC-8004** (Base RPC): If the on-chain identity lookup times out or fails, the agent is treated as *not registered* (`registered: false`). Registration still succeeds but without on-chain identity verification.
+> - **AgentScore**: If the AgentScore API is unreachable, a local fallback score of **50** is used (source: `local_fallback`). Scores are cached for 5 minutes, so transient outages are masked by the cache.
+> - **PayCrow**: If the PayCrow trust API is unreachable, a fallback trust score of **50** is returned (source: `local_fallback`). The escrow gate still passes — it is advisory, not blocking.
+> - **x402 payments**: Payment validation is structural (checks header encoding, required fields, expiry). If no payment header is attached, the free tier (1000 actions/month) is used. The gate always passes regardless of payment validity.
+
 ## Project Structure
 
 ```

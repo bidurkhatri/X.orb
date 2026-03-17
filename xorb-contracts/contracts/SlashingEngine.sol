@@ -206,13 +206,21 @@ contract SlashingEngine is AccessControl, ReentrancyGuard, Pausable {
     }
 
     /**
-     * @notice Report a violation without immediate execution (for governance review).
+     * @notice Report a violation and auto-execute the slash immediately.
+     * @dev Previously required a separate executeSlash() call. Now records and
+     *      executes atomically for faster enforcement. Governance can still
+     *      review via slash records after the fact.
      */
     function reportViolation(
         bytes32 _agentId,
         ViolationType _violationType,
         string calldata _evidence
-    ) external onlyRole(REPORTER_ROLE) whenNotPaused returns (uint256 recordId) {
+    ) external onlyRole(REPORTER_ROLE) nonReentrant whenNotPaused returns (uint256 recordId) {
+        // Check cooldown
+        if (block.timestamp - lastSlashTime[_agentId] < slashCooldown) {
+            revert AgentOnCooldown();
+        }
+
         SlashConfig memory config = slashConfigs[_violationType];
 
         IAgentRegistrySlash.AgentRecord memory agent = agentRegistry.getAgent(_agentId);
@@ -228,13 +236,29 @@ contract SlashingEngine is AccessControl, ReentrancyGuard, Pausable {
             evidence: _evidence,
             reporter: msg.sender,
             timestamp: block.timestamp,
-            executed: false
+            executed: true
         }));
 
         agentSlashRecordIds[_agentId].push(recordId);
+        lastSlashTime[_agentId] = block.timestamp;
+        totalSlashed += slashAmount;
         totalViolations++;
 
         emit ViolationReported(recordId, _agentId, _violationType, msg.sender, _evidence);
+
+        // Auto-execute: slash stake on AgentRegistry
+        if (slashAmount > 0) {
+            agentRegistry.slashAgent(_agentId, slashAmount, config.autoRevoke);
+        }
+
+        // Auto-execute: apply reputation penalty
+        reputationScore.applyCustomDelta(
+            _agentId,
+            config.reputationDelta,
+            string(abi.encodePacked("Violation: ", _evidence))
+        );
+
+        emit SlashExecuted(recordId, _agentId, slashAmount, config.reputationDelta, config.autoRevoke);
     }
 
     /**

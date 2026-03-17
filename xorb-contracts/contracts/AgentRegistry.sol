@@ -324,8 +324,8 @@ contract AgentRegistry is AccessControl, ReentrancyGuard, Pausable {
         AgentRecord storage agent = _getAgent(_agentId);
         agent.reputationScore = _newScore > 10000 ? 10000 : _newScore;
 
-        // Auto-pause if reputation drops below 500
-        if (agent.reputationScore < 500 && agent.status == AgentStatus.Active) {
+        // Auto-pause if reputation drops below NOVICE tier threshold (1000)
+        if (agent.reputationScore < 1000 && agent.status == AgentStatus.Active) {
             agent.status = AgentStatus.Paused;
             sponsorActiveCount[agent.sponsor]--;
             emit AgentPaused(_agentId, address(this));

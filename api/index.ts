@@ -243,6 +243,8 @@ export default async function handler(req: any, res: any) {
   const path = req.url || '/'
   const clientIp = req.headers?.['x-forwarded-for']?.split(',')[0]?.trim() || 'unknown'
 
+  // CORS: Allow-Origin is intentionally set to '*' — this is a public API designed
+  // for cross-origin access by any agent, SDK, or dashboard client.
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,DELETE,OPTIONS')
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-api-key, x-agent-name, x-payment, Authorization')
@@ -344,8 +346,48 @@ export default async function handler(req: any, res: any) {
 
   // ─── Docs ───
   if (path.includes('/docs')) {
+    // Return the OpenAPI spec as inline JSON so docs work without fetching from GitHub
+    if (req.headers?.['accept']?.includes('application/json') || path.includes('/docs/openapi')) {
+      return res.json({
+        openapi: '3.1.0',
+        info: { title: 'X.orb API', version: '0.4.0', description: 'Agent Trust Infrastructure API. Every AI agent action — validated, bonded, and auditable.' },
+        servers: [{ url: 'https://api.xorb.xyz/v1', description: 'Production' }, { url: 'http://localhost:3000/v1', description: 'Local development' }],
+        paths: {
+          '/health': { get: { summary: 'Health check', security: [], responses: { '200': { description: 'API status' } } } },
+          '/pricing': { get: { summary: 'Get endpoint pricing', security: [], responses: { '200': { description: 'Pricing info' } } } },
+          '/agents': {
+            post: { summary: 'Register a new agent', tags: ['Agents'], requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', required: ['name', 'sponsor_address'], properties: { name: { type: 'string' }, role: { type: 'string' }, sponsor_address: { type: 'string' }, description: { type: 'string' } } } } } }, responses: { '201': { description: 'Agent created' } } },
+            get: { summary: 'List agents', tags: ['Agents'], responses: { '200': { description: 'Agent list' } } },
+          },
+          '/agents/{id}': {
+            get: { summary: 'Get agent details', tags: ['Agents'], parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }], responses: { '200': { description: 'Agent details' }, '404': { description: 'Not found' } } },
+            patch: { summary: 'Update agent (pause/resume/renew)', tags: ['Agents'], parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }], requestBody: { content: { 'application/json': { schema: { type: 'object', required: ['action', 'caller_address'], properties: { action: { type: 'string', enum: ['pause', 'resume', 'renew'] }, caller_address: { type: 'string' } } } } } }, responses: { '200': { description: 'Agent updated' } } },
+            delete: { summary: 'Revoke agent', tags: ['Agents'], parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }], responses: { '200': { description: 'Agent revoked' } } },
+          },
+          '/actions/execute': { post: { summary: 'Execute action through 8-gate pipeline', tags: ['Actions'], requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', required: ['agent_id', 'tool'], properties: { agent_id: { type: 'string' }, action: { type: 'string' }, tool: { type: 'string' }, params: { type: 'object' } } } } } }, responses: { '200': { description: 'Action approved' }, '403': { description: 'Action blocked' } } } },
+          '/actions/batch': { post: { summary: 'Batch execute up to 100 actions', tags: ['Actions'], responses: { '200': { description: 'Batch results' } } } },
+          '/actions/{id}': { get: { summary: 'Get action by ID', tags: ['Actions'], parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }], responses: { '200': { description: 'Action details' }, '404': { description: 'Not found' } } } },
+          '/reputation/{agentId}': { get: { summary: 'Get reputation score', tags: ['Reputation'], parameters: [{ name: 'agentId', in: 'path', required: true, schema: { type: 'string' } }], responses: { '200': { description: 'Reputation info' } } } },
+          '/reputation/leaderboard': { get: { summary: 'Trust leaderboard', tags: ['Reputation'], responses: { '200': { description: 'Leaderboard' } } } },
+          '/events': { get: { summary: 'List events', tags: ['Events'], responses: { '200': { description: 'Event list' } } } },
+          '/events/stream': { get: { summary: 'Long-polling event stream (returns latest events, client re-polls)', tags: ['Events'], parameters: [{ name: 'agent_id', in: 'query', schema: { type: 'string' } }], responses: { '200': { description: 'Event batch with poll_again flag' } } } },
+          '/audit/{agentId}': { get: { summary: 'Get audit log', tags: ['Audit'], parameters: [{ name: 'agentId', in: 'path', required: true, schema: { type: 'string' } }], responses: { '200': { description: 'Audit data' } } } },
+          '/compliance/{agentId}': { get: { summary: 'Generate compliance report', tags: ['Compliance'], parameters: [{ name: 'agentId', in: 'path', required: true, schema: { type: 'string' } }, { name: 'format', in: 'query', schema: { type: 'string', enum: ['eu-ai-act', 'nist-ai-rmf', 'soc2'] } }], responses: { '200': { description: 'Compliance report' } } } },
+          '/webhooks': {
+            post: { summary: 'Subscribe to events', tags: ['Webhooks'], responses: { '201': { description: 'Subscription created' } } },
+            get: { summary: 'List webhook subscriptions', tags: ['Webhooks'], responses: { '200': { description: 'Webhook list' } } },
+          },
+          '/marketplace/listings': {
+            post: { summary: 'List agent for hire', tags: ['Marketplace'], responses: { '201': { description: 'Listing created' } } },
+            get: { summary: 'Browse agents', tags: ['Marketplace'], responses: { '200': { description: 'Listing list' } } },
+          },
+          '/marketplace/hire': { post: { summary: 'Hire an agent', tags: ['Marketplace'], responses: { '201': { description: 'Engagement started' } } } },
+        },
+      })
+    }
     res.setHeader('Content-Type', 'text/html')
-    return res.send(`<!DOCTYPE html><html><head><title>X.orb API Docs</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css"><style>body{margin:0;background:#0A0A0A}.swagger-ui .topbar{display:none}.swagger-ui{max-width:1200px;margin:0 auto}</style></head><body><div id="swagger-ui"></div><script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script><script>SwaggerUIBundle({url:'https://raw.githubusercontent.com/bidurkhatri/X.orb/main/apps/api/openapi.yaml',dom_id:'#swagger-ui',deepLinking:true,presets:[SwaggerUIBundle.presets.apis],layout:"BaseLayout"})</script></body></html>`)
+    const specUrl = `${req.headers?.['x-forwarded-proto'] || 'https'}://${req.headers?.['host'] || 'api.xorb.xyz'}/api/v1/docs/openapi`
+    return res.send(`<!DOCTYPE html><html><head><title>X.orb API Docs</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css"><style>body{margin:0;background:#0A0A0A}.swagger-ui .topbar{display:none}.swagger-ui{max-width:1200px;margin:0 auto}</style></head><body><div id="swagger-ui"></div><script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script><script>SwaggerUIBundle({url:'${specUrl}',dom_id:'#swagger-ui',deepLinking:true,presets:[SwaggerUIBundle.presets.apis],layout:"BaseLayout"})</script></body></html>`)
   }
 
   // ─── GET /v1/agents (list — public, read-only) ───
@@ -419,6 +461,14 @@ export default async function handler(req: any, res: any) {
     const events = (store.events || []).slice(-20)
     res.setHeader('Cache-Control', 'no-cache')
     return res.json({ events, count: events.length, poll_again: true, retry_after_ms: 2000 })
+  }
+
+  // ─── GET /v1/actions/:id ───
+  if (req.method === 'GET' && path.match(/\/actions\/[^/]+$/) && !path.includes('execute') && !path.includes('batch')) {
+    const id = path.split('/').filter(Boolean).pop()!
+    const action = (store.actions || []).find((a: any) => a.actionId === id)
+    if (!action) return res.status(404).json({ error: 'Action not found' })
+    return res.json({ action })
   }
 
   // ─── GET /v1/audit/:id ───
@@ -548,7 +598,14 @@ export default async function handler(req: any, res: any) {
     if (caller_address.toLowerCase() !== agent.sponsorAddress.toLowerCase()) return res.status(403).json({ error: 'Only the sponsor can modify this agent' })
     if (action === 'pause') { agent.status = 'paused'; await saveAgent(agent); emitEvent('agent.paused', id, {}); return res.json({ agent: formatAgent(agent) }) }
     if (action === 'resume') { agent.status = 'active'; await saveAgent(agent); emitEvent('agent.resumed', id, {}); return res.json({ agent: formatAgent(agent) }) }
-    return res.status(400).json({ error: 'Invalid action. Use "pause" or "resume".' })
+    if (action === 'renew') {
+      const thirtyDays = 30 * 24 * 60 * 60 * 1000
+      agent.expiresAt = (agent.expiresAt && agent.expiresAt > Date.now() ? agent.expiresAt : Date.now()) + thirtyDays
+      await saveAgent(agent)
+      emitEvent('agent.renewed', id, { new_expiry: new Date(agent.expiresAt).toISOString() })
+      return res.json({ agent: formatAgent(agent) })
+    }
+    return res.status(400).json({ error: 'Invalid action. Use "pause", "resume", or "renew".' })
   }
 
   // ─── DELETE /v1/agents/:id (revoke — requires auth + sponsor match) ───

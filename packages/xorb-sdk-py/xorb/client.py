@@ -106,7 +106,8 @@ class _AgentsAPI:
         data = self._c._request("POST", "/v1/agents", json=body)
         return _parse_agent(data["agent"])
 
-    def list(self, sponsor: Optional[str] = None, status: Optional[str] = None) -> list[Agent]:
+    def list(self, sponsor: Optional[str] = None, status: Optional[str] = None) -> tuple[list[Agent], int]:
+        """List agents. Returns a tuple of (agents, total_count)."""
         params = []
         if sponsor:
             params.append(f"sponsor={sponsor}")
@@ -114,7 +115,9 @@ class _AgentsAPI:
             params.append(f"status={status}")
         qs = "?" + "&".join(params) if params else ""
         data = self._c._request("GET", f"/v1/agents{qs}")
-        return [_parse_agent(a) for a in data["agents"]]
+        agents = [_parse_agent(a) for a in data["agents"]]
+        count = data.get("count", len(agents))
+        return (agents, count)
 
     def get(self, agent_id: str) -> Agent:
         data = self._c._request("GET", f"/v1/agents/{agent_id}")
