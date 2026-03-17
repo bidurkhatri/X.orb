@@ -114,6 +114,12 @@ importers:
         specifier: ^5.4.0
         version: 5.4.21(@types/node@25.5.0)
 
+  apps/landing:
+    devDependencies:
+      vite:
+        specifier: ^5.4.0
+        version: 5.4.21(@types/node@25.5.0)
+
   packages/agent-core:
     dependencies:
       uuid:
