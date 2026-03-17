@@ -59,7 +59,11 @@
       "Bash(pnpm add:*)",
       "Bash(curl -s -w \"\\\\nHTTP_CODE:%{http_code}\" https://sylos-seven.vercel.app/v1/health)",
       "Bash(curl -s https://sylos-seven.vercel.app/api/v1/health)",
-      "Bash(vercel logs:*)"
+      "Bash(vercel logs:*)",
+      "Bash(curl -s \"https://sylos-seven.vercel.app/api\")",
+      "Bash(curl -s --max-time 30 \"https://sylos-kocwvedap-bidur-khatris-projects.vercel.app/api\")",
+      "Bash(vercel curl:*)",
+      "Bash(curl -s --max-time 30 https://sylos-seven.vercel.app/v1/health)"
     ]
   }
 }
