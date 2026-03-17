@@ -44,7 +44,14 @@
       "Bash(curl -s http://localhost:3000/v1/pricing)",
       "Bash(pkill -f \"tsx src/server.ts\")",
       "Bash(pkill -f \"node.*server\")",
-      "Bash(vercel --version)"
+      "Bash(vercel --version)",
+      "Bash(vercel --yes --prod)",
+      "Bash(vercel --yes --prod --scope bidur-khatris-projects)",
+      "Bash(vercel --yes --prod --scope bidur-khatris-projects --name xorb-api)",
+      "Bash(curl -s https://xorb-api.vercel.app/v1/health)",
+      "Bash(curl -s https://xorb-api.vercel.app/v1/pricing)",
+      "Bash(pnpm --filter @xorb/api add -D @types/node @types/uuid)",
+      "Bash(pnpm --filter @xorb/agent-core add -D @types/uuid)"
     ]
   }
 }
