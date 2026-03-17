@@ -7,10 +7,13 @@
     @apply bg-white/5 backdrop-blur-[20px] border border-white/10 rounded-xl;
   }
   .glass-card-hover {
-    @apply glass-card hover:bg-white/8 hover:border-white/15 transition-all duration-200;
+    @apply bg-white/5 backdrop-blur-[20px] border border-white/10 rounded-xl transition-all duration-200;
+  }
+  .glass-card-hover:hover {
+    @apply bg-white/10 border-white/20;
   }
   .glass-sidebar {
-    @apply bg-white/3 backdrop-blur-[20px] border-r border-white/8;
+    @apply bg-white/5 backdrop-blur-[20px] border-r border-white/10;
   }
   .text-mono {
     @apply font-mono text-sm tracking-tight;
@@ -19,15 +22,15 @@
     @apply text-xs font-medium px-2 py-0.5 rounded-full;
   }
   .badge-active {
-    @apply badge bg-xorb-green/20 text-xorb-green;
+    @apply text-xs font-medium px-2 py-0.5 rounded-full bg-green-500/20 text-green-400;
   }
   .badge-paused {
-    @apply badge bg-xorb-amber/20 text-xorb-amber;
+    @apply text-xs font-medium px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400;
   }
   .badge-revoked {
-    @apply badge bg-xorb-red/20 text-xorb-red;
+    @apply text-xs font-medium px-2 py-0.5 rounded-full bg-red-500/20 text-red-400;
   }
   .badge-tier {
-    @apply badge bg-xorb-purple/20 text-xorb-purple;
+    @apply text-xs font-medium px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-400;
   }
 }

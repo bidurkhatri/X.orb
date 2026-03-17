@@ -8,16 +8,13 @@ Every AI agent action — validated, bonded, and auditable — in a single API c
 
 Xorb is an API middleware that interposes an 8-gate security pipeline between autonomous AI agents and the tools they use. Agents post USDC bonds. Violations trigger automated slashing. Reputation is portable. Payments settle per-action via the x402 protocol. No tokens. No speculation. Just infrastructure.
 
-[![Build](https://img.shields.io/github/actions/workflow/status/xorb-xyz/xorb/ci.yml?branch=main&style=flat-square&label=build)](https://github.com/xorb-xyz/xorb/actions)
+[![API Status](https://img.shields.io/badge/API-LIVE-22C55E?style=flat-square)](https://sylos-seven.vercel.app/v1/health)
+[![Dashboard](https://img.shields.io/badge/Dashboard-LIVE-0066FF?style=flat-square)](https://xorb-dashboard.vercel.app)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.9.0-green?style=flat-square)](https://github.com/xorb-xyz/xorb/releases)
-[![Coverage](https://img.shields.io/badge/coverage-94%25-brightgreen?style=flat-square)](#testing)
-[![npm](https://img.shields.io/npm/v/@xorb/sdk?style=flat-square&label=npm)](https://www.npmjs.com/package/@xorb/sdk)
-[![PyPI](https://img.shields.io/pypi/v/xorb-sdk?style=flat-square&label=pypi)](https://pypi.org/project/xorb-sdk/)
 [![x402](https://img.shields.io/badge/x402-compatible-purple?style=flat-square)](https://x402.org)
 [![ERC-8004](https://img.shields.io/badge/ERC--8004-compatible-orange?style=flat-square)](https://eips.ethereum.org/EIPS/eip-8004)
-[![Base](https://img.shields.io/badge/Base-mainnet-0052FF?style=flat-square)](https://basescan.org)
-[![Discord](https://img.shields.io/discord/1234567890?style=flat-square&label=discord&color=5865F2)](https://discord.gg/xorb)
+[![Base](https://img.shields.io/badge/Base-L2-0052FF?style=flat-square)](https://basescan.org)
+[![GitHub](https://img.shields.io/badge/GitHub-X.orb-181717?style=flat-square)](https://github.com/bidurkhatri/X.orb)
 
 </div>
 
