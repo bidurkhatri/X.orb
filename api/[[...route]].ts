@@ -1,7 +1,10 @@
 import { handle } from 'hono/vercel'
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
-import { v4 as uuidv4 } from 'uuid'
+
+function uuidv4(): string {
+  return crypto.randomUUID()
+}
 
 // Self-contained API for Vercel — no workspace imports needed
 
