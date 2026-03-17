@@ -15,7 +15,7 @@ app.use('*', async (c, next) => {
   c.header('Access-Control-Allow-Origin', '*')
   c.header('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE, OPTIONS')
   c.header('Access-Control-Allow-Headers', 'Content-Type, x-api-key')
-  if (c.req.method === 'OPTIONS') return c.text('', 204)
+  if (c.req.method === 'OPTIONS') return new Response(null, { status: 204 })
   c.set('requestId', uuidv4())
   c.header('x-request-id', c.get('requestId'))
   await next()
