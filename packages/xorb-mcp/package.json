@@ -10,6 +10,10 @@
     "start": "npx tsx src/index.ts",
     "dev": "npx tsx --watch src/index.ts"
   },
+  "repository": { "type": "git", "url": "https://github.com/bidurkhatri/X.orb" },
+  "homepage": "https://xorb.xyz",
+  "author": "Fintex",
+  "files": ["src", "README.md", "package.json"],
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
     "zod": "^3.22.0"

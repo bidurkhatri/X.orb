@@ -14,8 +14,13 @@
   },
   "scripts": {
     "build": "tsup src/index.ts --format cjs,esm --dts",
-    "test": "vitest run"
+    "test": "vitest run",
+    "prepublishOnly": "npm run build"
   },
+  "repository": { "type": "git", "url": "https://github.com/bidurkhatri/X.orb" },
+  "homepage": "https://xorb.xyz",
+  "author": "Fintex",
+  "files": ["dist", "README.md", "package.json"],
   "dependencies": {
     "zod": "^3.22.0"
   },

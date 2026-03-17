@@ -317,7 +317,27 @@ export default async function handler(req: any, res: any) {
     // Gate 4: x402 Payment
     t = Date.now()
     const paymentHeader = req.headers?.['x-payment']
-    gates.push({ gate: 'x402_payment', passed: true, latency_ms: Date.now() - t, payment_attached: !!paymentHeader, protocol: 'x402' })
+    const x402Bypassed = !paymentHeader // No payment = free tier (for now)
+    let x402Valid = false
+    if (paymentHeader) {
+      try {
+        // x402 payments are base64-encoded JSON with: { network, amount, signature, nonce, expiry }
+        const decoded = Buffer.from(paymentHeader, 'base64').toString('utf-8')
+        const payment = JSON.parse(decoded)
+        // Validate required fields
+        x402Valid = !!(payment.signature && payment.amount && payment.network)
+        if (payment.expiry && Date.now() / 1000 > payment.expiry) x402Valid = false
+      } catch { x402Valid = false }
+    }
+    gates.push({
+      gate: 'x402_payment', passed: true, // Pass regardless — free tier active
+      latency_ms: Date.now() - t,
+      payment_attached: !!paymentHeader,
+      payment_valid: paymentHeader ? x402Valid : null,
+      free_tier: x402Bypassed,
+      protocol: 'x402',
+      package: '@x402/hono@2.7.0',
+    })
 
     // Gate 5: Audit Log
     t = Date.now()

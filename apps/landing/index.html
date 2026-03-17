@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>X.orb — The orchestration layer for AI agent trust</title>
+  <meta name="description" content="One API call. 8 gates. 4 integrations. X.orb orchestrates ERC-8004, AgentScore, x402, and PayCrow into a single security pipeline for AI agents.">
+  <meta property="og:title" content="X.orb — The orchestration layer for AI agent trust">
+  <meta property="og:description" content="One API call. 8 gates. 4 integrations. Identity, permissions, payments, trust scoring, and escrow — orchestrated.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://xorb.xyz">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="theme-color" content="#0A0A0A">
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #0A0A0A; color: #E5E5E5; font-family: 'Inter', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+    .mono { font-family: 'JetBrains Mono', monospace; }
+    a { color: #0066FF; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    .container { max-width: 900px; margin: 0 auto; padding: 0 24px; }
+
+    /* Hero */
+    .hero { padding: 120px 0 80px; text-align: center; }
+    .hero-logo { width: 64px; height: 64px; margin: 0 auto 24px; filter: invert(1); }
+    .hero h1 { font-size: 48px; font-weight: 700; letter-spacing: -1.5px; margin-bottom: 16px; }
+    .hero h1 span { color: #0066FF; }
+    .hero p { font-size: 20px; color: #737373; max-width: 600px; margin: 0 auto 40px; line-height: 1.6; }
+    .hero-cta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+    .btn { display: inline-flex; align-items: center; gap: 8px; padding: 12px 24px; border-radius: 8px; font-size: 14px; font-weight: 500; transition: all 0.2s; border: none; cursor: pointer; }
+    .btn-primary { background: #0066FF; color: white; }
+    .btn-primary:hover { background: #0052CC; text-decoration: none; }
+    .btn-secondary { background: rgba(255,255,255,0.05); color: #E5E5E5; border: 1px solid rgba(255,255,255,0.1); }
+    .btn-secondary:hover { background: rgba(255,255,255,0.1); text-decoration: none; }
+
+    /* Live badge */
+    .live-badge { display: inline-flex; align-items: center; gap: 6px; background: rgba(34,197,94,0.1); color: #22C55E; padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 500; margin-bottom: 24px; }
+    .live-dot { width: 6px; height: 6px; border-radius: 50%; background: #22C55E; animation: pulse 2s infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+    /* Pipeline */
+    .pipeline { padding: 60px 0; }
+    .pipeline h2 { font-size: 28px; font-weight: 600; text-align: center; margin-bottom: 40px; letter-spacing: -0.5px; }
+    .gates { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+    .gate { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 20px; }
+    .gate-num { font-size: 11px; color: #0066FF; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+    .gate-name { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+    .gate-desc { font-size: 13px; color: #737373; line-height: 1.4; }
+    .gate-powered { font-size: 11px; color: #0066FF; margin-top: 8px; }
+
+    /* Code */
+    .code-section { padding: 60px 0; }
+    .code-section h2 { font-size: 28px; font-weight: 600; text-align: center; margin-bottom: 32px; }
+    pre { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 24px; overflow-x: auto; font-size: 13px; line-height: 1.6; }
+    code { font-family: 'JetBrains Mono', monospace; }
+    .comment { color: #737373; }
+    .string { color: #22C55E; }
+    .keyword { color: #0066FF; }
+
+    /* Integrations */
+    .integrations { padding: 60px 0; }
+    .integrations h2 { font-size: 28px; font-weight: 600; text-align: center; margin-bottom: 12px; }
+    .integrations .sub { text-align: center; color: #737373; margin-bottom: 40px; font-size: 16px; }
+    .int-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+    .int-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 24px; text-align: center; }
+    .int-name { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
+    .int-role { font-size: 13px; color: #737373; }
+
+    /* Footer */
+    .footer { padding: 60px 0 40px; text-align: center; border-top: 1px solid rgba(255,255,255,0.06); margin-top: 60px; }
+    .footer-links { display: flex; gap: 24px; justify-content: center; margin-bottom: 16px; font-size: 14px; }
+    .footer-copy { font-size: 12px; color: #737373; }
+
+    @media (max-width: 640px) {
+      .hero h1 { font-size: 32px; }
+      .hero p { font-size: 16px; }
+      .gates { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Hero -->
+    <section class="hero">
+      <div class="live-badge"><div class="live-dot"></div> API Live</div>
+      <h1>The orchestration layer<br>for <span>AI agent trust</span></h1>
+      <p>One API call. 8 gates. 4 integrations. X.orb orchestrates ERC-8004, AgentScore, x402, and PayCrow into a single security pipeline.</p>
+      <div class="hero-cta">
+        <a href="https://api.xorb.xyz/v1/health" class="btn btn-primary" target="_blank">Try the API</a>
+        <a href="https://dashboard.xorb.xyz" class="btn btn-secondary" target="_blank">Dashboard</a>
+        <a href="https://github.com/bidurkhatri/X.orb" class="btn btn-secondary" target="_blank">GitHub</a>
+      </div>
+    </section>
+
+    <!-- Pipeline -->
+    <section class="pipeline">
+      <h2>The 8-Gate Pipeline</h2>
+      <div class="gates">
+        <div class="gate">
+          <div class="gate-num">Gate 1</div>
+          <div class="gate-name">Identity</div>
+          <div class="gate-desc">On-chain agent verification</div>
+          <div class="gate-powered">ERC-8004</div>
+        </div>
+        <div class="gate">
+          <div class="gate-num">Gate 2</div>
+          <div class="gate-name">Permissions</div>
+          <div class="gate-desc">Scope-based tool gating</div>
+          <div class="gate-powered">X.orb</div>
+        </div>
+        <div class="gate">
+          <div class="gate-num">Gate 3</div>
+          <div class="gate-name">Rate Limit</div>
+          <div class="gate-desc">Per-agent hourly caps</div>
+          <div class="gate-powered">X.orb</div>
+        </div>
+        <div class="gate">
+          <div class="gate-num">Gate 4</div>
+          <div class="gate-name">Payment</div>
+          <div class="gate-desc">Per-action micropayments</div>
+          <div class="gate-powered">x402</div>
+        </div>
+        <div class="gate">
+          <div class="gate-num">Gate 5</div>
+          <div class="gate-name">Audit</div>
+          <div class="gate-desc">Immutable action log</div>
+          <div class="gate-powered">X.orb</div>
+        </div>
+        <div class="gate">
+          <div class="gate-num">Gate 6</div>
+          <div class="gate-name">Trust Score</div>
+          <div class="gate-desc">Aggregated reputation check</div>
+          <div class="gate-powered">AgentScore</div>
+        </div>
+        <div class="gate">
+          <div class="gate-num">Gate 7</div>
+          <div class="gate-name">Execute</div>
+          <div class="gate-desc">Run the action</div>
+          <div class="gate-powered">X.orb</div>
+        </div>
+        <div class="gate">
+          <div class="gate-num">Gate 8</div>
+          <div class="gate-name">Escrow</div>
+          <div class="gate-desc">Payment protection</div>
+          <div class="gate-powered">PayCrow</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Code -->
+    <section class="code-section">
+      <h2>One API Call</h2>
+      <pre><code><span class="comment">// Execute action through 8-gate pipeline</span>
+<span class="keyword">const</span> result = <span class="keyword">await</span> fetch(<span class="string">'https://api.xorb.xyz/v1/actions/execute'</span>, {
+  method: <span class="string">'POST'</span>,
+  headers: { <span class="string">'Content-Type'</span>: <span class="string">'application/json'</span> },
+  body: JSON.stringify({
+    agent_id: <span class="string">'agent_alpha'</span>,
+    action: <span class="string">'query'</span>,
+    tool: <span class="string">'get_balance'</span>,
+    params: { address: <span class="string">'0x...'</span> }
+  })
+})
+
+<span class="comment">// Response: 8 gates checked, 4 integrations consulted</span>
+<span class="comment">// { approved: true, gates: [...], integrations_consulted: [...] }</span></code></pre>
+    </section>
+
+    <!-- Integrations -->
+    <section class="integrations">
+      <h2>Orchestrates, doesn't replace</h2>
+      <p class="sub">X.orb is the glue between the services that power the agent economy.</p>
+      <div class="int-grid">
+        <a href="https://eips.ethereum.org/EIPS/eip-8004" class="int-card" target="_blank">
+          <div class="int-name">ERC-8004</div>
+          <div class="int-role">On-chain Identity</div>
+        </a>
+        <a href="https://agentscore.dev" class="int-card" target="_blank">
+          <div class="int-name">AgentScore</div>
+          <div class="int-role">Trust Scoring</div>
+        </a>
+        <a href="https://x402.org" class="int-card" target="_blank">
+          <div class="int-name">x402</div>
+          <div class="int-role">Micropayments</div>
+        </a>
+        <a href="https://paycrow.xyz" class="int-card" target="_blank">
+          <div class="int-name">PayCrow</div>
+          <div class="int-role">Escrow</div>
+        </a>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <div class="footer-links">
+        <a href="https://api.xorb.xyz/v1/health">API</a>
+        <a href="https://dashboard.xorb.xyz">Dashboard</a>
+        <a href="https://github.com/bidurkhatri/X.orb">GitHub</a>
+        <a href="https://api.xorb.xyz/v1/integrations">Integrations</a>
+      </div>
+      <div class="footer-copy">X.orb — Fintex / Bidur. The orchestration layer for AI agent trust.</div>
+    </footer>
+  </div>
+</body>
+</html>
