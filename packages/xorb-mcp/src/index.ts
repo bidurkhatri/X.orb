@@ -77,7 +77,7 @@ server.tool(
   },
   async ({ name, role, sponsor_address, description }) => {
     const result = await xorbRequest('POST', '/v1/agents', {
-      name, scope: role, sponsor_address, description,
+      name, scope: role, role, sponsor_address, description,
     })
 
     if (result.agent) {

@@ -1,4 +1,5 @@
 const API_URL = import.meta.env.VITE_API_URL || 'https://api.xorb.xyz'
+export const API_BASE = API_URL
 
 function getApiKey(): string {
   return localStorage.getItem('xorb_api_key') || ''
