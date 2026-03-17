@@ -85,12 +85,12 @@ export function AgentDetail() {
         <span className={agent.status === 'active' ? 'badge-active' : agent.status === 'paused' ? 'badge-paused' : 'badge-revoked'}>
           {agent.status}
         </span>
-        <span className="badge-tier">{agent.reputationTier}</span>
+        <span className="badge-tier">{agent.trustSource || agent.reputationTier}</span>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <MetricCard label="Reputation" value={agent.reputation} />
-        <MetricCard label="Total Actions" value={agent.totalActionsExecuted} />
+        <MetricCard label="Trust Score" value={agent.trustScore ?? agent.reputation} />
+        <MetricCard label="Trust Source" value={agent.trustSource || 'local'} />
         <MetricCard label="Bond (USDC)" value={`$${bondUsdc}`} />
         <MetricCard label="Slash Events" value={agent.slashEvents} />
       </div>

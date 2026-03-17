@@ -1,4 +1,4 @@
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
+const API_URL = import.meta.env.VITE_API_URL || 'https://api.xorb.xyz'
 
 function getApiKey(): string {
   return localStorage.getItem('xorb_api_key') || ''
@@ -91,4 +91,10 @@ export const api = {
   },
 
   pricing: () => request<any>('GET', '/v1/pricing'),
+
+  trust: {
+    get: (agentId: string) => request<any>('GET', `/v1/trust/${agentId}`),
+    leaderboard: () => request<any>('GET', '/v1/trust/leaderboard'),
+  },
+  integrations: () => request<any>('GET', '/v1/integrations'),
 }

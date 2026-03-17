@@ -45,12 +45,15 @@ export function Sidebar() {
         ))}
       </nav>
 
-      <div className="p-4 border-t border-white/8">
-        <div className="glass-card p-3">
+      <div className="p-4 border-t border-white/10">
+        <div className="glass-card p-3 space-y-1.5">
           <div className="flex items-center gap-2 text-xs">
             <Activity size={14} className="text-xorb-green" />
-            <span className="text-xorb-muted">API Status:</span>
+            <span className="text-xorb-muted">API:</span>
             <span className="text-xorb-green font-medium">Live</span>
+          </div>
+          <div className="text-[10px] text-xorb-muted">
+            4 integrations orchestrated
           </div>
         </div>
       </div>

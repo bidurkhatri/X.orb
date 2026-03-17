@@ -41,17 +41,17 @@ export function Agents() {
       ),
     },
     {
-      key: 'role',
-      header: 'Role',
-      render: (a: any) => <span className="badge bg-xorb-blue/20 text-xorb-blue">{a.role}</span>,
+      key: 'scope',
+      header: 'Scope',
+      render: (a: any) => <span className="badge bg-xorb-blue/20 text-xorb-blue">{a.scope || a.permissionScope || a.role}</span>,
     },
     {
-      key: 'reputation',
-      header: 'Reputation',
+      key: 'trust',
+      header: 'Trust',
       render: (a: any) => (
         <div className="flex items-center gap-2">
-          <span className="font-mono">{a.reputation}</span>
-          <span className="badge-tier">{a.reputationTier}</span>
+          <span className="font-mono">{a.trustScore ?? a.reputation ?? '—'}/100</span>
+          <span className="text-xs text-xorb-muted">{a.trustSource || 'local'}</span>
         </div>
       ),
     },

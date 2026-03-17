@@ -25,12 +25,6 @@ export function Overview() {
   const blockedToday = events.filter((e: any) => e.type === 'action.blocked').length
   const violations = events.filter((e: any) => e.type === 'agent.slashed').length
 
-  const tiers = { ELITE: 0, TRUSTED: 0, RELIABLE: 0, NOVICE: 0, UNTRUSTED: 0 }
-  for (const a of agents) {
-    const tier = a.reputationTier as keyof typeof tiers
-    if (tier in tiers) tiers[tier]++
-  }
-  const totalAgents = Math.max(agents.length, 1)
 
   return (
     <div>
@@ -68,15 +62,21 @@ export function Overview() {
         </div>
 
         <div className="glass-card p-5">
-          <h3 className="text-sm font-medium text-xorb-muted mb-4">Reputation Distribution</h3>
+          <h3 className="text-sm font-medium text-xorb-muted mb-4">Orchestrated Services</h3>
           <div className="space-y-3">
-            {(Object.entries(tiers) as [string, number][]).map(([tier, count]) => (
-              <div key={tier} className="flex items-center gap-3">
-                <span className="text-xs text-xorb-muted w-20">{tier}</span>
-                <div className="flex-1 h-2 bg-white/5 rounded-full overflow-hidden">
-                  <div className="h-full bg-xorb-blue/40 rounded-full transition-all" style={{ width: `${(count / totalAgents) * 100}%` }} />
+            {[
+              { name: 'ERC-8004', role: 'Identity', status: 'connected', color: 'text-orange-400' },
+              { name: 'AgentScore', role: 'Trust Scoring', status: 'available', color: 'text-purple-400' },
+              { name: 'x402', role: 'Payments', status: 'available', color: 'text-blue-400' },
+              { name: 'PayCrow', role: 'Escrow', status: 'available', color: 'text-green-400' },
+            ].map(svc => (
+              <div key={svc.name} className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-xorb-green" />
+                  <span className="text-sm font-medium">{svc.name}</span>
+                  <span className="text-xs text-xorb-muted">— {svc.role}</span>
                 </div>
-                <span className="text-xs font-mono text-xorb-muted w-8">{count}</span>
+                <span className={`text-xs font-mono ${svc.color}`}>{svc.status}</span>
               </div>
             ))}
           </div>
