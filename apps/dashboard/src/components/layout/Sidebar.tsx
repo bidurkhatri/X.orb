@@ -1,7 +1,7 @@
-import { NavLink } from 'react-router-dom'
+import { NavLink, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, Bot, Zap, Store, Shield, Webhook,
-  CreditCard, Settings, Activity
+  CreditCard, Settings, Activity, LogOut
 } from 'lucide-react'
 
 const navItems = [
@@ -16,6 +16,13 @@ const navItems = [
 ]
 
 export function Sidebar() {
+  const navigate = useNavigate()
+
+  const handleLogout = () => {
+    sessionStorage.removeItem('xorb_api_key')
+    navigate('/login')
+  }
+
   return (
     <aside className="glass-sidebar w-[220px] flex flex-col h-screen shrink-0">
       <div className="p-5 border-b border-white/10">
@@ -45,7 +52,7 @@ export function Sidebar() {
         ))}
       </nav>
 
-      <div className="p-4 border-t border-white/10">
+      <div className="p-4 border-t border-white/10 space-y-3">
         <div className="glass-card p-3 space-y-1.5">
           <div className="flex items-center gap-2 text-xs">
             <Activity size={14} className="text-xorb-green" />
@@ -53,9 +60,16 @@ export function Sidebar() {
             <span className="text-xorb-green font-medium">Live</span>
           </div>
           <div className="text-[10px] text-xorb-muted">
-            4 integrations orchestrated
+            8-gate pipeline active
           </div>
         </div>
+        <button
+          onClick={handleLogout}
+          className="flex items-center gap-2 w-full px-3 py-2 text-sm text-xorb-muted hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+        >
+          <LogOut size={16} />
+          Sign Out
+        </button>
       </div>
     </aside>
   )

@@ -123,22 +123,16 @@ class _AgentsAPI:
         data = self._c._request("GET", f"/v1/agents/{agent_id}")
         return _parse_agent(data["agent"])
 
-    def pause(self, agent_id: str, caller_address: str) -> Agent:
-        data = self._c._request("PATCH", f"/v1/agents/{agent_id}", json={
-            "action": "pause", "caller_address": caller_address,
-        })
+    def pause(self, agent_id: str) -> Agent:
+        data = self._c._request("PATCH", f"/v1/agents/{agent_id}", json={"action": "pause"})
         return _parse_agent(data["agent"])
 
-    def resume(self, agent_id: str, caller_address: str) -> Agent:
-        data = self._c._request("PATCH", f"/v1/agents/{agent_id}", json={
-            "action": "resume", "caller_address": caller_address,
-        })
+    def resume(self, agent_id: str) -> Agent:
+        data = self._c._request("PATCH", f"/v1/agents/{agent_id}", json={"action": "resume"})
         return _parse_agent(data["agent"])
 
-    def revoke(self, agent_id: str, caller_address: str) -> Agent:
-        data = self._c._request("DELETE", f"/v1/agents/{agent_id}", json={
-            "caller_address": caller_address,
-        })
+    def revoke(self, agent_id: str) -> Agent:
+        data = self._c._request("DELETE", f"/v1/agents/{agent_id}")
         return _parse_agent(data["agent"])
 
 

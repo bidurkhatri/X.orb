@@ -5,7 +5,7 @@ import {
   createGateRateLimit,
   createGateSpendLimit,
   createGateAudit,
-  createGateWebhook,
+  createGateCompliance,
   createGateExecute,
   createGateReputation,
   ReputationEngine,
@@ -16,6 +16,25 @@ import {
   type PipelineResult,
 } from '@xorb/agent-core'
 import { getRegistry } from './registry'
+import {
+  checkAndIncrementRateLimit,
+  insertPlatformEvent,
+  insertReputationRecord,
+  insertSlashingRecord,
+} from '../adapters/supabase-services'
+import { anchorAuditHashOnChain, slashAgentOnChain } from './contracts'
+import { getPaymentService } from './payments'
+
+export interface PaymentContext {
+  paymentId: string
+  grossAmount: bigint
+  feeAmount: bigint
+  netAmount: bigint
+  collectTxHash: string
+  payerAddress: string
+  freeActionsRemaining: number
+  feeExempt: boolean
+}
 
 // Singleton services
 let reputationEngine: ReputationEngine | null = null
@@ -55,7 +74,8 @@ export async function runPipeline(
   action: string,
   tool: string,
   params: unknown,
-): Promise<PipelineResult> {
+  paymentCtx?: PaymentContext,
+): Promise<PipelineResult & { payment?: { status: string; fee_tx?: string; forward_tx?: string; refund_tx?: string } }> {
   const registry = await getRegistry()
   const reputation = getReputationEngine()
   const slashing = getSlashingService()
@@ -64,10 +84,10 @@ export async function runPipeline(
   const gates = [
     createGateRegistry(registry),
     createGatePermissions(),
-    createGateRateLimit(),
+    createGateRateLimit(checkAndIncrementRateLimit),
     createGateSpendLimit(),
     createGateAudit(),
-    createGateWebhook(),
+    createGateCompliance(),
     createGateExecute(),
     createGateReputation(registry),
   ]
@@ -90,6 +110,19 @@ export async function runPipeline(
     result.reputation_delta = repEvent.pointsDelta
     registry.updateReputation(agentId, repEvent.pointsDelta)
 
+    // Persist reputation change to Supabase
+    const agent = registry.getAgent(agentId)
+    insertReputationRecord({
+      agent_id: agentId,
+      event_type: 'action.approved',
+      delta: repEvent.pointsDelta,
+      score_before: (agent?.reputation ?? 0) - repEvent.pointsDelta,
+      score_after: agent?.reputation ?? 0,
+      streak_count: (repEvent as any).streak ?? 0,
+      tier_after: agent?.reputationTier,
+      action_id: result.action_id,
+    }).catch(e => console.error('[Pipeline] Reputation persist failed:', e))
+
     await events.emit({
       type: 'action.approved',
       agentId,
@@ -101,6 +134,60 @@ export async function runPipeline(
         reputation_delta: result.reputation_delta,
       },
     })
+
+    // Persist event to Supabase
+    insertPlatformEvent({
+      event_id: result.action_id,
+      agent_id: agentId,
+      event_type: 'action.approved',
+      payload: { action, tool, latency_ms: result.latency_ms, reputation_delta: result.reputation_delta },
+    }).catch(e => console.error('[Pipeline] Event persist failed:', e))
+
+    // Optional: Anchor audit hash on-chain (non-blocking)
+    if (process.env.ENABLE_ONCHAIN_ANCHORING === 'true') {
+      anchorAuditHashOnChain({
+        agentId,
+        auditHash: result.audit_hash,
+        actionId: result.action_id,
+      }).then(txHash => {
+        if (txHash) console.log(`[Pipeline] Audit hash anchored on-chain: ${txHash}`)
+      }).catch(e => console.error('[Pipeline] On-chain anchoring failed:', e))
+    }
+
+    // Post-pipeline payment settlement: split fee to treasury, forward net to recipient
+    if (paymentCtx && paymentCtx.grossAmount > 0n) {
+      const payments = getPaymentService()
+      try {
+        if (payments.isConfigured() && !paymentCtx.feeExempt) {
+          const { feeTxHash, forwardTxHash } = await payments.splitAndForward(
+            '', // recipient (sponsor address or escrow — could be configurable)
+            paymentCtx.grossAmount,
+            paymentCtx.feeAmount,
+          )
+          await payments.updatePayment(paymentCtx.paymentId, {
+            action_id: result.action_id,
+            agent_id: agentId,
+            status: 'completed',
+            fee_tx_hash: feeTxHash,
+            forward_tx_hash: forwardTxHash,
+            completed_at: new Date().toISOString(),
+            fee_matures_at: new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString(),
+          });
+          (result as any).payment = { status: 'completed', fee_tx: feeTxHash, forward_tx: forwardTxHash }
+        } else {
+          // Dev mode or fee-exempt: just mark completed
+          await payments.updatePayment(paymentCtx.paymentId, {
+            action_id: result.action_id,
+            agent_id: agentId,
+            status: 'completed',
+            completed_at: new Date().toISOString(),
+          })
+        }
+      } catch (err) {
+        console.error('[Pipeline] Payment settlement failed:', err)
+        // Funds are still in facilitator wallet — safe to retry
+      }
+    }
   } else {
     // Failure path
     const failedGate = result.gates.find(g => !g.passed)
@@ -128,6 +215,19 @@ export async function runPipeline(
       }
     }
 
+    // Persist reputation change
+    const failedAgent = registry.getAgent(agentId)
+    insertReputationRecord({
+      agent_id: agentId,
+      event_type: 'action.blocked',
+      delta: repEvent.pointsDelta,
+      score_before: (failedAgent?.reputation ?? 0) - repEvent.pointsDelta,
+      score_after: failedAgent?.reputation ?? 0,
+      streak_count: 0,
+      tier_after: failedAgent?.reputationTier,
+      action_id: result.action_id,
+    }).catch(e => console.error('[Pipeline] Reputation persist failed:', e))
+
     await events.emit({
       type: 'action.blocked',
       agentId,
@@ -139,6 +239,44 @@ export async function runPipeline(
         reason: failedGate?.reason,
       },
     })
+
+    // Persist event
+    insertPlatformEvent({
+      event_id: result.action_id,
+      agent_id: agentId,
+      event_type: 'action.blocked',
+      payload: { action, tool, gate_failed: failedGate?.gate, reason: failedGate?.reason },
+    }).catch(e => console.error('[Pipeline] Event persist failed:', e))
+
+    // Post-pipeline refund: full gross amount returned to payer (M-8a)
+    if (paymentCtx && paymentCtx.grossAmount > 0n) {
+      const payments = getPaymentService()
+      try {
+        if (payments.isConfigured()) {
+          const { txHash } = await payments.refund(paymentCtx.payerAddress, paymentCtx.grossAmount)
+          await payments.updatePayment(paymentCtx.paymentId, {
+            action_id: result.action_id,
+            agent_id: agentId,
+            status: 'refunded',
+            refund_tx_hash: txHash,
+            refund_reason: failedGate?.reason || 'Pipeline rejected',
+            refunded_at: new Date().toISOString(),
+          });
+          (result as any).payment = { status: 'refunded', refund_tx: txHash }
+        } else {
+          await payments.updatePayment(paymentCtx.paymentId, {
+            action_id: result.action_id,
+            agent_id: agentId,
+            status: 'refunded',
+            refund_reason: failedGate?.reason || 'Pipeline rejected',
+            refunded_at: new Date().toISOString(),
+          })
+        }
+      } catch (err) {
+        console.error('[Pipeline] Refund failed:', err)
+        // Critical: funds are in facilitator — alert admin for manual resolution
+      }
+    }
   }
 
   return result

@@ -1,4 +1,5 @@
 import { v4 as uuidv4 } from 'uuid'
+import { randomBytes } from 'node:crypto'
 import type { DataStore, AgentRow } from './adapters'
 import type { RegisteredAgent, SpawnAgentConfig, AgentRole, AgentStatus, ReputationTier, PermissionScope } from './types'
 import { ROLE_PERMISSIONS, getReputationTier } from './roles'
@@ -83,8 +84,8 @@ export class AgentRegistryService {
       Object.assign(baseScope, config.customPermissions)
     }
 
-    const agentId = `agent_${uuidv4().replace(/-/g, '').slice(0, 16)}`
-    const sessionWallet = `0x${agentId.replace('agent_', '').padEnd(40, '0')}`
+    const agentId = `agent_${uuidv4().replace(/-/g, '')}` // A-4: full UUID (32 hex = 128 bits)
+    const sessionWallet = `0x${randomBytes(20).toString('hex')}` // A-3: cryptographically random wallet
     const now = Date.now()
     const expiryMs = (config.expiryDays ?? 30) > 0
       ? now + ((config.expiryDays ?? 30) * 24 * 60 * 60 * 1000)

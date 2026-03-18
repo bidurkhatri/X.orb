@@ -75,6 +75,7 @@ contract XorbEscrow is AccessControl, ReentrancyGuard, Pausable {
     event EscrowRefunded(uint256 indexed escrowId, address depositor, uint256 amount);
     event ProtocolFeeCollected(uint256 indexed escrowId, uint256 feeAmount);
     event FacilitatorUpdated(address facilitator, bool whitelisted);
+    event TreasuryUpdated(address indexed oldTreasury, address indexed newTreasury);
 
     // --- Constructor ---
 
@@ -272,7 +273,9 @@ contract XorbEscrow is AccessControl, ReentrancyGuard, Pausable {
 
     function setTreasury(address _treasury) external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(_treasury != address(0), "Invalid treasury");
+        address old = protocolTreasury;
         protocolTreasury = _treasury;
+        emit TreasuryUpdated(old, _treasury);
     }
 
     function pause() external onlyRole(OPERATOR_ROLE) { _pause(); }

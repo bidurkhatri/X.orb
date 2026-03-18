@@ -6,12 +6,12 @@
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "outDir": "./dist",
-    "rootDir": "./src",
+    "noEmit": true,
     "paths": {
-      "@xorb/agent-core": ["../../packages/agent-core/src"]
+      "@xorb/agent-core": ["../../packages/agent-core/src"],
+      "@xorb/types": ["../../packages/xorb-types/src"]
     }
   },
-  "include": ["src/**/*", "api/**/*"],
-  "exclude": ["node_modules", "dist"]
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "api"]
 }

@@ -115,3 +115,8 @@ export type XorbEventType =
   | 'listing.created'
   | 'engagement.started'
   | 'engagement.completed'
+  | 'payment.completed'
+  | 'payment.refunded'
+  | 'payment.failed'
+  | 'payment.free_tier_warning'
+  | 'payment.free_tier_exhausted'

@@ -3,6 +3,8 @@ import { zValidator } from '@hono/zod-validator'
 import { z } from 'zod'
 import type { Env } from '../app'
 import { getRegistry } from '../services/registry'
+import { authorizeSponsor } from '../middleware/auth'
+import { ok, err } from '../lib/response'
 
 const createAgentSchema = z.object({
   name: z.string().min(2).max(64),
@@ -15,93 +17,90 @@ const createAgentSchema = z.object({
 
 const updateAgentSchema = z.object({
   action: z.enum(['pause', 'resume', 'renew']),
-  caller_address: z.string().min(10),
   renew_days: z.number().min(1).max(365).optional(),
 })
 
 export const agentsRouter = new Hono<Env>()
 
-// POST /v1/agents — Register a new agent
 agentsRouter.post('/', zValidator('json', createAgentSchema), async (c) => {
   const body = c.req.valid('json')
   const registry = await getRegistry()
-
   const agent = await registry.spawnAgent({
-    name: body.name,
-    role: body.role,
-    sponsorAddress: body.sponsor_address,
-    stakeBond: body.stake_bond,
-    expiryDays: body.expiry_days,
-    description: body.description,
+    name: body.name, role: body.role, sponsorAddress: body.sponsor_address,
+    stakeBond: body.stake_bond, expiryDays: body.expiry_days, description: body.description,
   })
-
-  return c.json({ agent }, 201)
+  return ok(c, { agent }, 201)
 })
 
-// GET /v1/agents — List agents
 agentsRouter.get('/', async (c) => {
   const registry = await getRegistry()
-  const sponsorAddress = c.req.query('sponsor')
-  const status = c.req.query('status')
+  const callerAddress = c.get('sponsorAddress')
+  const searchTerm = c.req.query('search')
+  const statusFilter = c.req.query('status')
+  const limitParam = Math.min(parseInt(c.req.query('limit') || '100'), 500)
 
   let agents = registry.getAllAgents()
-  if (sponsorAddress) {
-    agents = agents.filter(a => a.sponsorAddress.toLowerCase() === sponsorAddress.toLowerCase())
+    .filter(a => a.sponsorAddress.toLowerCase() === callerAddress.toLowerCase())
+  if (statusFilter) agents = agents.filter(a => a.status === statusFilter)
+  if (searchTerm) {
+    const term = searchTerm.toLowerCase()
+    agents = agents.filter(a =>
+      a.name.toLowerCase().includes(term) || a.agentId.toLowerCase().includes(term) || a.role.toLowerCase().includes(term)
+    )
   }
-  if (status) {
-    agents = agents.filter(a => a.status === status)
-  }
-
-  return c.json({ agents, count: agents.length })
+  const pageAgents = agents.slice(0, limitParam)
+  return c.json({ success: true, data: pageAgents, pagination: { has_more: agents.length > limitParam }, total: agents.length })
 })
 
-// GET /v1/agents/:id — Get agent details
 agentsRouter.get('/:id', async (c) => {
+  const authErr = await authorizeSponsor(c, c.req.param('id'))
+  if (authErr) return authErr
   const registry = await getRegistry()
   const agent = registry.getAgent(c.req.param('id'))
-  if (!agent) return c.json({ error: 'Agent not found' }, 404)
-  return c.json({ agent })
+  if (!agent) return err(c, 'not_found', 'Agent not found', 404)
+  return ok(c, { agent })
 })
 
-// PATCH /v1/agents/:id — Update agent (pause/resume/renew)
+agentsRouter.get('/:id/public', async (c) => {
+  const registry = await getRegistry()
+  const agent = registry.getAgent(c.req.param('id'))
+  if (!agent) return err(c, 'not_found', 'Agent not found', 404)
+  return ok(c, {
+    agent_id: agent.agentId, name: agent.name, role: agent.role,
+    reputation: agent.reputation, reputation_tier: agent.reputationTier,
+    status: agent.status, total_actions: agent.totalActionsExecuted,
+    registered_at: new Date(agent.createdAt).toISOString(),
+  })
+})
+
 agentsRouter.patch('/:id', zValidator('json', updateAgentSchema), async (c) => {
-  const { action, caller_address, renew_days } = c.req.valid('json')
+  const { action, renew_days } = c.req.valid('json')
   const agentId = c.req.param('id')
+  const callerAddress = c.get('sponsorAddress')
   const registry = await getRegistry()
 
   let agent
   switch (action) {
-    case 'pause':
-      agent = await registry.pauseAgent(agentId, caller_address)
-      break
-    case 'resume':
-      agent = await registry.resumeAgent(agentId, caller_address)
-      break
+    case 'pause': agent = await registry.pauseAgent(agentId, callerAddress); break
+    case 'resume': agent = await registry.resumeAgent(agentId, callerAddress); break
     case 'renew': {
-      const agentToRenew = registry.getAgent(agentId)
-      if (!agentToRenew) return c.json({ error: 'Agent not found' }, 404)
-      if (agentToRenew.sponsorAddress.toLowerCase() !== caller_address.toLowerCase()) {
-        return c.json({ error: 'Only the sponsor can renew this agent' }, 403)
-      }
-      const thirtyDays = (renew_days || 30) * 24 * 60 * 60 * 1000
-      agentToRenew.expiresAt = (agentToRenew.expiresAt && agentToRenew.expiresAt > Date.now() ? agentToRenew.expiresAt : Date.now()) + thirtyDays
-      if (agentToRenew.status === 'expired') agentToRenew.status = 'active'
-      agent = agentToRenew
-      break
+      const a = registry.getAgent(agentId)
+      if (!a) return err(c, 'not_found', 'Agent not found', 404)
+      if (a.sponsorAddress.toLowerCase() !== callerAddress.toLowerCase())
+        return err(c, 'forbidden', 'Only the sponsor can renew this agent', 403)
+      const days = (renew_days || 30) * 24 * 60 * 60 * 1000
+      a.expiresAt = (a.expiresAt && a.expiresAt > Date.now() ? a.expiresAt : Date.now()) + days
+      if (a.status === 'expired') a.status = 'active'
+      agent = a; break
     }
-    default:
-      return c.json({ error: 'Invalid action' }, 400)
+    default: return err(c, 'validation_error', 'Invalid action', 400)
   }
-
-  return c.json({ agent })
+  return ok(c, { agent })
 })
 
-// DELETE /v1/agents/:id — Revoke agent
 agentsRouter.delete('/:id', async (c) => {
-  const callerAddress = c.req.header('x-caller-address')
-  if (!callerAddress) return c.json({ error: 'Missing x-caller-address header' }, 400)
-
+  const callerAddress = c.get('sponsorAddress')
   const registry = await getRegistry()
   const agent = await registry.revokeAgent(c.req.param('id'), callerAddress)
-  return c.json({ agent })
+  return ok(c, { agent })
 })

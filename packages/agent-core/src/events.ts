@@ -1,19 +1,6 @@
-export type XorbEventType =
-  | 'agent.registered'
-  | 'agent.paused'
-  | 'agent.resumed'
-  | 'agent.revoked'
-  | 'action.approved'
-  | 'action.blocked'
-  | 'action.verified'
-  | 'reputation.changed'
-  | 'reputation.tier_changed'
-  | 'agent.warned'
-  | 'agent.slashed'
-  | 'agent.suspended'
-  | 'listing.created'
-  | 'engagement.started'
-  | 'engagement.completed'
+// Re-export from shared types to avoid duplication
+export type { XorbEventType } from '@xorb/types'
+import type { XorbEventType } from '@xorb/types'
 
 export interface XorbEvent {
   id: string

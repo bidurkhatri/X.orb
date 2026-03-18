@@ -166,6 +166,57 @@ export class SlashingService {
   }
 
   /**
+   * Recover bond for an agent after meeting conditions (A-17: M-03).
+   * Requirements: agent must have reputation >= recoveryThreshold and
+   * no violations in the last `graceDays` days.
+   */
+  recoverBond(
+    agent: RegisteredAgent,
+    amount: string,
+    reason: string,
+    opts: { recoveryThreshold?: number; graceDays?: number } = {}
+  ): { recovered: boolean; newBondAmount: string; reason?: string } {
+    const threshold = opts.recoveryThreshold ?? 3000
+    const graceDays = opts.graceDays ?? 30
+
+    if (agent.reputation < threshold) {
+      return { recovered: false, newBondAmount: agent.stakeBond, reason: `Reputation ${agent.reputation} below recovery threshold ${threshold}` }
+    }
+
+    const records = this.violations.get(agent.agentId) || []
+    const recentViolation = records.find(r => {
+      const age = Date.now() - new Date(r.createdAt).getTime()
+      return age < graceDays * 24 * 60 * 60 * 1000
+    })
+    if (recentViolation) {
+      return { recovered: false, newBondAmount: agent.stakeBond, reason: `Violation within last ${graceDays} days` }
+    }
+
+    const currentBond = BigInt(agent.stakeBond)
+    const recoveryAmount = BigInt(amount)
+    const newBond = currentBond + recoveryAmount
+    agent.stakeBond = newBond.toString()
+
+    // Record recovery
+    const recovery: ViolationRecord = {
+      id: `recovery_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      agentId: agent.agentId,
+      severity: 'minor',
+      violationType: 'bond_recovery',
+      description: reason,
+      slashAmountUsdc: `-${amount}`, // Negative = recovery
+      slashPercentage: 0,
+      reputationLost: 0,
+      autoRevoked: false,
+      createdAt: new Date().toISOString(),
+    }
+    records.push(recovery)
+    this.violations.set(agent.agentId, records)
+
+    return { recovered: true, newBondAmount: agent.stakeBond }
+  }
+
+  /**
    * Check if repeated violations should trigger escalation.
    */
   shouldEscalate(agentId: string): { escalate: boolean; reason?: string } {

@@ -1,5 +1,9 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-import type { DataStore, AgentRow, AgentUpsert, ActionInsert } from '@xorb/agent-core'
+import {
+  PersistenceError,
+  type DataStore, type AgentRow, type AgentUpsert, type ActionInsert,
+  type PaginationOptions, type PaginatedResult,
+} from '@xorb/agent-core'
 
 export class SupabaseDataStore implements DataStore {
   private client: SupabaseClient
@@ -17,7 +21,7 @@ export class SupabaseDataStore implements DataStore {
 
     if (error) {
       if (error.code === 'PGRST116') return null // not found
-      throw new Error(`[Supabase] fetchAgent failed: ${error.message}`)
+      throw new PersistenceError(`fetchAgent failed: ${error.message}`, true)
     }
     return data as AgentRow
   }
@@ -28,7 +32,7 @@ export class SupabaseDataStore implements DataStore {
       .select('*')
       .order('spawned_at', { ascending: false })
 
-    if (error) throw new Error(`[Supabase] fetchAllAgents failed: ${error.message}`)
+    if (error) throw new PersistenceError(`fetchAllAgents failed: ${error.message}`, true)
     return (data || []) as AgentRow[]
   }
 
@@ -38,7 +42,7 @@ export class SupabaseDataStore implements DataStore {
       .select('*')
       .ilike('sponsor_address', sponsorAddress)
 
-    if (error) throw new Error(`[Supabase] fetchAgentsBySponsor failed: ${error.message}`)
+    if (error) throw new PersistenceError(`fetchAgentsBySponsor failed: ${error.message}`, true)
     return (data || []) as AgentRow[]
   }
 
@@ -63,7 +67,7 @@ export class SupabaseDataStore implements DataStore {
         llm_provider: agent.llm_provider,
       }, { onConflict: 'agent_id' })
 
-    if (error) throw new Error(`[Supabase] upsertAgent failed: ${error.message}`)
+    if (error) throw new PersistenceError(`upsertAgent failed: ${error.message}`, false)
   }
 
   async deleteAgent(agentId: string): Promise<void> {
@@ -72,7 +76,7 @@ export class SupabaseDataStore implements DataStore {
       .delete()
       .eq('agent_id', agentId)
 
-    if (error) throw new Error(`[Supabase] deleteAgent failed: ${error.message}`)
+    if (error) throw new PersistenceError(`deleteAgent failed: ${error.message}`, false)
   }
 
   async insertAction(action: ActionInsert): Promise<void> {
@@ -91,18 +95,36 @@ export class SupabaseDataStore implements DataStore {
         latency_ms: action.latency_ms,
       })
 
-    if (error) throw new Error(`[Supabase] insertAction failed: ${error.message}`)
+    if (error) throw new PersistenceError(`insertAction failed: ${error.message}`, false)
   }
 
-  async fetchAgentActions(agentId: string, limit = 100): Promise<ActionInsert[]> {
-    const { data, error } = await this.client
+  async fetchAgentActions(agentId: string, opts?: PaginationOptions): Promise<PaginatedResult<ActionInsert>> {
+    const limit = opts?.limit || 100
+
+    let query = this.client
       .from('agent_actions')
       .select('*')
       .eq('agent_id', agentId)
       .order('created_at', { ascending: false })
-      .limit(limit)
+      .limit(limit + 1) // fetch one extra to detect has_more
 
-    if (error) throw new Error(`[Supabase] fetchAgentActions failed: ${error.message}`)
-    return (data || []) as ActionInsert[]
+    if (opts?.cursor) {
+      query = query.lt('created_at', opts.cursor)
+    }
+
+    const { data, error } = await query
+
+    if (error) throw new PersistenceError(`fetchAgentActions failed: ${error.message}`, true)
+
+    const rows = (data || []) as (ActionInsert & { created_at: string })[]
+    const hasMore = rows.length > limit
+    const pageRows = hasMore ? rows.slice(0, limit) : rows
+    const nextCursor = hasMore ? pageRows[pageRows.length - 1].created_at : undefined
+
+    return {
+      data: pageRows,
+      next_cursor: nextCursor,
+      has_more: hasMore,
+    }
   }
 }

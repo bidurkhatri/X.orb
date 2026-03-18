@@ -21,7 +21,7 @@ async function xorbRequest(method: string, path: string, body?: unknown) {
 
 const server = new McpServer({
   name: 'xorb',
-  version: '0.4.0',
+  version: '0.5.0',
 })
 
 // Tool: Execute a gated action
@@ -77,14 +77,14 @@ server.tool(
   },
   async ({ name, role, sponsor_address, description }) => {
     const result = await xorbRequest('POST', '/v1/agents', {
-      name, scope: role, role, sponsor_address, description,
+      name, role, sponsor_address, description,
     })
 
     if (result.agent) {
       return {
         content: [{
           type: 'text',
-          text: `Agent registered!\nID: ${result.agent.agentId}\nName: ${result.agent.name}\nScope: ${result.agent.scope || result.agent.role}\nTrust: ${result.agent.reputation ?? result.agent.trustScore}/100 (${result.agent.reputationTier || 'NOVICE'})`,
+          text: `Agent registered!\nID: ${result.agent.agentId}\nName: ${result.agent.name}\nRole: ${result.agent.role}\nReputation: ${result.agent.reputation}/10000 (${result.agent.reputationTier})`,
         }],
       }
     }
@@ -108,7 +108,7 @@ server.tool(
     return {
       content: [{
         type: 'text',
-        text: `Agent: ${agent_id}\nScore: ${result.score ?? result.reputation}/100\nTier: ${result.tier ?? result.reputationTier}\nTotal Actions: ${result.total_actions}\nSlash Events: ${result.slash_events}\nSource: ${result.trust_source || 'local'}`,
+        text: `Agent: ${agent_id}\nScore: ${result.score}/10000\nTier: ${result.tier}\nTotal Actions: ${result.total_actions}\nSlash Events: ${result.slash_events}`,
       }],
     }
   }
@@ -117,14 +117,13 @@ server.tool(
 // Tool: Emergency stop
 server.tool(
   'emergency_stop',
-  'Immediately pause an agent. Free operation — no x402 payment required.',
+  'Immediately pause an agent. Free operation — no x402 payment required. Uses authenticated API key for identity.',
   {
     agent_id: z.string().describe('Agent ID to pause'),
-    caller_address: z.string().describe('Sponsor wallet address'),
   },
-  async ({ agent_id, caller_address }) => {
+  async ({ agent_id }) => {
     const result = await xorbRequest('PATCH', `/v1/agents/${agent_id}`, {
-      action: 'pause', caller_address,
+      action: 'pause',
     })
     if (result.agent) {
       return { content: [{ type: 'text', text: `Agent ${agent_id} PAUSED successfully.` }] }
@@ -148,6 +147,83 @@ server.tool(
         text: JSON.stringify(result, null, 2),
       }],
     }
+  }
+)
+
+// Tool: Browse marketplace
+server.tool(
+  'marketplace_browse',
+  'Browse available agent listings in the X.orb marketplace.',
+  {},
+  async () => {
+    const result = await xorbRequest('GET', '/v1/marketplace/listings')
+    if (result.listings && result.listings.length > 0) {
+      const summary = result.listings.map((l: any) =>
+        `- ${l.id}: ${l.description} (${l.rate_usdc_per_hour ? `$${l.rate_usdc_per_hour}/hr` : `$${l.rate_usdc_per_action}/action`}) [${l.status}]`
+      ).join('\n')
+      return { content: [{ type: 'text', text: `${result.count} listings:\n${summary}` }] }
+    }
+    return { content: [{ type: 'text', text: 'No marketplace listings available.' }] }
+  }
+)
+
+// Tool: List agent for hire
+server.tool(
+  'marketplace_list',
+  'List an agent for hire on the X.orb marketplace.',
+  {
+    agent_id: z.string().describe('Agent ID to list'),
+    description: z.string().describe('Listing description'),
+    rate_usdc_per_hour: z.number().optional().describe('Hourly rate in USDC'),
+    rate_usdc_per_action: z.number().optional().describe('Per-action rate in USDC'),
+  },
+  async ({ agent_id, description, rate_usdc_per_hour, rate_usdc_per_action }) => {
+    const result = await xorbRequest('POST', '/v1/marketplace/listings', {
+      agent_id, description, rate_usdc_per_hour, rate_usdc_per_action,
+    })
+    if (result.id) {
+      return { content: [{ type: 'text', text: `Listed! ID: ${result.id}` }] }
+    }
+    return { content: [{ type: 'text', text: `Error: ${result.error || 'Failed to list'}` }] }
+  }
+)
+
+// Tool: Generate compliance report
+server.tool(
+  'compliance_report',
+  'Generate a compliance report for an agent (EU AI Act, NIST AI RMF, or SOC 2).',
+  {
+    agent_id: z.string().describe('Agent ID'),
+    framework: z.enum(['eu-ai-act', 'nist-ai-rmf', 'soc2']).default('eu-ai-act').describe('Compliance framework'),
+  },
+  async ({ agent_id, framework }) => {
+    const result = await xorbRequest('GET', `/v1/compliance/${agent_id}?format=${framework}`)
+    if (result.summary) {
+      return {
+        content: [{
+          type: 'text',
+          text: `Compliance Report (${framework})\nStatus: ${result.summary.overallStatus}\nScore: ${result.summary.score}/100\nPassed: ${result.summary.passedControls}/${result.summary.totalControls}\nWarnings: ${result.summary.warnings}`,
+        }],
+      }
+    }
+    return { content: [{ type: 'text', text: `Error: ${result.error || 'Failed to generate report'}` }] }
+  }
+)
+
+// Tool: Subscribe to webhooks
+server.tool(
+  'webhook_subscribe',
+  'Subscribe to X.orb events via webhook.',
+  {
+    url: z.string().url().describe('HTTPS URL for webhook delivery'),
+    event_types: z.array(z.string()).describe('Event types to subscribe to (e.g., action.approved, agent.slashed)'),
+  },
+  async ({ url, event_types }) => {
+    const result = await xorbRequest('POST', '/v1/webhooks', { url, event_types })
+    if (result.id) {
+      return { content: [{ type: 'text', text: `Webhook created!\nID: ${result.id}\nSecret: ${result.secret}\nEvents: ${event_types.join(', ')}` }] }
+    }
+    return { content: [{ type: 'text', text: `Error: ${result.error || 'Failed to subscribe'}` }] }
   }
 )
 

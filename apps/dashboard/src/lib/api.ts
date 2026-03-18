@@ -35,12 +35,12 @@ export const api = {
     get: (id: string) => request<{ agent: any }>('GET', `/v1/agents/${id}`),
     register: (body: { name: string; role: string; sponsor_address: string; description?: string }) =>
       request<{ agent: any }>('POST', '/v1/agents', body),
-    pause: (id: string, callerAddress: string) =>
-      request<{ agent: any }>('PATCH', `/v1/agents/${id}`, { action: 'pause', caller_address: callerAddress }),
-    resume: (id: string, callerAddress: string) =>
-      request<{ agent: any }>('PATCH', `/v1/agents/${id}`, { action: 'resume', caller_address: callerAddress }),
-    revoke: (id: string, callerAddress: string) =>
-      request<{ agent: any }>('DELETE', `/v1/agents/${id}`, { caller_address: callerAddress }),
+    pause: (id: string) =>
+      request<{ agent: any }>('PATCH', `/v1/agents/${id}`, { action: 'pause' }),
+    resume: (id: string) =>
+      request<{ agent: any }>('PATCH', `/v1/agents/${id}`, { action: 'resume' }),
+    revoke: (id: string) =>
+      request<any>('DELETE', `/v1/agents/${id}`),
   },
 
   actions: {

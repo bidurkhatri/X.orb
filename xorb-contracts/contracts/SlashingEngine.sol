@@ -157,7 +157,7 @@ contract SlashingEngine is AccessControl, ReentrancyGuard, Pausable {
         bytes32 _agentId,
         ViolationType _violationType,
         string calldata _evidence
-    ) external onlyRole(REPORTER_ROLE) nonReentrant whenNotPaused {
+    ) external onlyRole(GOVERNOR_ROLE) nonReentrant whenNotPaused {
         // Check cooldown
         if (block.timestamp - lastSlashTime[_agentId] < slashCooldown) {
             revert AgentOnCooldown();
@@ -206,10 +206,9 @@ contract SlashingEngine is AccessControl, ReentrancyGuard, Pausable {
     }
 
     /**
-     * @notice Report a violation and auto-execute the slash immediately.
-     * @dev Previously required a separate executeSlash() call. Now records and
-     *      executes atomically for faster enforcement. Governance can still
-     *      review via slash records after the fact.
+     * @notice Report a violation without executing the slash. Creates a PENDING
+     *         record that must be executed separately via executeSlash().
+     * @dev Two-step flow for governance review: report first, execute after approval.
      */
     function reportViolation(
         bytes32 _agentId,
@@ -236,29 +235,13 @@ contract SlashingEngine is AccessControl, ReentrancyGuard, Pausable {
             evidence: _evidence,
             reporter: msg.sender,
             timestamp: block.timestamp,
-            executed: true
+            executed: false
         }));
 
         agentSlashRecordIds[_agentId].push(recordId);
-        lastSlashTime[_agentId] = block.timestamp;
-        totalSlashed += slashAmount;
         totalViolations++;
 
         emit ViolationReported(recordId, _agentId, _violationType, msg.sender, _evidence);
-
-        // Auto-execute: slash stake on AgentRegistry
-        if (slashAmount > 0) {
-            agentRegistry.slashAgent(_agentId, slashAmount, config.autoRevoke);
-        }
-
-        // Auto-execute: apply reputation penalty
-        reputationScore.applyCustomDelta(
-            _agentId,
-            config.reputationDelta,
-            string(abi.encodePacked("Violation: ", _evidence))
-        );
-
-        emit SlashExecuted(recordId, _agentId, slashAmount, config.reputationDelta, config.autoRevoke);
     }
 
     /**

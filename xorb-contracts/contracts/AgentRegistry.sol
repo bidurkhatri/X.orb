@@ -95,6 +95,7 @@ contract AgentRegistry is AccessControl, ReentrancyGuard, Pausable {
     event AgentActionRecorded(bytes32 indexed agentId, uint256 totalActions);
     event AgentIdentityUpdated(bytes32 indexed agentId, string identityCID);
     event ConfigUpdated(string param, uint256 value);
+    event TreasuryUpdated(address indexed oldTreasury, address indexed newTreasury);
 
     // --- Errors ---
 
@@ -258,6 +259,21 @@ contract AgentRegistry is AccessControl, ReentrancyGuard, Pausable {
         agent.expiresAt = _newExpiry;
 
         emit AgentRenewed(_agentId, _newExpiry);
+    }
+
+    /**
+     * @notice Expire an agent whose expiry has passed. Permissionless — anyone can call.
+     * Decrements sponsor's active count so they can register new agents.
+     */
+    function expireAgent(bytes32 _agentId) external {
+        AgentRecord storage agent = _getAgent(_agentId);
+        require(agent.status == AgentStatus.Active, "Agent not active");
+        require(agent.expiresAt != 0 && block.timestamp >= agent.expiresAt, "Agent not expired");
+
+        agent.status = AgentStatus.Expired;
+        sponsorActiveCount[agent.sponsor]--;
+
+        emit AgentExpired(_agentId);
     }
 
     /**
@@ -426,7 +442,9 @@ contract AgentRegistry is AccessControl, ReentrancyGuard, Pausable {
 
     function setTreasury(address _addr) external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(_addr != address(0), "Invalid address");
+        address old = treasury;
         treasury = _addr;
+        emit TreasuryUpdated(old, _addr);
     }
 
     function setMinStakeBond(uint256 _amount) external onlyRole(DEFAULT_ADMIN_ROLE) {

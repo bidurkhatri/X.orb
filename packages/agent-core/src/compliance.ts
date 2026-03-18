@@ -32,7 +32,7 @@ export interface ComplianceSummary {
 export interface ComplianceSection {
   id: string
   title: string
-  status: 'pass' | 'fail' | 'warning' | 'not_applicable'
+  status: 'pass' | 'fail' | 'warning' | 'not_applicable' | 'requires_manual_review'
   description: string
   evidence: string[]
   recommendations: string[]
@@ -94,14 +94,17 @@ export class ComplianceReporter {
       {
         id: 'art-13',
         title: 'Article 13 — Transparency and Information',
-        status: 'pass',
+        status: data.auditHashesAnchored > 0 ? 'pass' : 'requires_manual_review',
         description: 'All agent actions are logged with full gate results and audit hashes.',
         evidence: [
           `${data.auditHashesAnchored} audit hashes anchored on-chain`,
           'Every action records: agent ID, tool, parameters, gate results, timestamp',
           'Audit logs available via GET /v1/audit/:agentId',
+          ...(data.auditHashesAnchored === 0 ? ['NOTE: On-chain anchoring not yet active — audit trail is off-chain only'] : []),
         ],
-        recommendations: [],
+        recommendations: data.auditHashesAnchored === 0
+          ? ['Enable on-chain audit hash anchoring for immutable transparency evidence']
+          : [],
       },
       {
         id: 'art-14',
@@ -120,15 +123,18 @@ export class ComplianceReporter {
       {
         id: 'art-15',
         title: 'Article 15 — Accuracy, Robustness, Cybersecurity',
-        status: 'pass',
+        status: BigInt(data.bondAmount || '0') > 0n ? 'pass' : 'requires_manual_review',
         description: 'Economic bonding and reputation system ensure agent accountability.',
         evidence: [
           `Bond amount: ${data.bondAmount} USDC`,
           `Total slashed: ${data.totalSlashed} USDC`,
           'Rate limiting enforced per-agent (Gate 3)',
           'Spend limits enforced per-action (Gate 4)',
+          ...(BigInt(data.bondAmount || '0') === 0n ? ['NOTE: No economic bond posted — robustness assessment requires manual review'] : []),
         ],
-        recommendations: [],
+        recommendations: BigInt(data.bondAmount || '0') === 0n
+          ? ['Post an economic bond to provide financial accountability for agent behavior']
+          : [],
       },
     ]
 
@@ -261,7 +267,7 @@ export class ComplianceReporter {
   ): ComplianceReport {
     const passed = sections.filter(s => s.status === 'pass').length
     const failed = sections.filter(s => s.status === 'fail').length
-    const warnings = sections.filter(s => s.status === 'warning').length
+    const warnings = sections.filter(s => s.status === 'warning' || s.status === 'requires_manual_review').length
     const total = sections.length
 
     let status: ComplianceSummary['overallStatus'] = 'compliant'

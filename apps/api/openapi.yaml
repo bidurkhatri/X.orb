@@ -1,26 +1,28 @@
 openapi: 3.1.0
 info:
   title: X.orb API
-  version: 0.1.0
+  version: '0.5.0'
   description: |
-    Agent Trust Infrastructure API. Every AI agent action — validated, bonded, and auditable.
+    X.orb — The orchestration layer for AI agent trust.
+    8-gate security pipeline, reputation scoring, economic bonding, and x402 micropayments.
 
-    Base URL: https://api.xorb.xyz/v1
+    All responses use a standard envelope: `{ success: boolean, data: T, pagination?: {...}, error?: { code, message } }`
 
-    Authentication: Pass your API key via the `x-api-key` header.
-
-    Payments: Paid endpoints return HTTP 402 when free tier is exhausted.
-    Include payment via `x-payment` header (x402 protocol).
+    Free tier: 500 actions/month, no wallet required.
+    Standard: 501+ actions, 30 basis points (0.30%) per action in USDC.
+    High Volume: 50,001+ actions, 15 basis points (0.15%).
   contact:
-    name: X.orb
-    url: https://xorb.xyz
+    name: X.orb Support
+    email: contact@xorb.xyz
+    url: https://www.xorb.xyz
   license:
-    name: MIT
+    name: Proprietary
+    url: https://www.xorb.xyz/terms
 
 servers:
-  - url: https://api.xorb.xyz/v1
+  - url: https://api.xorb.xyz
     description: Production
-  - url: http://localhost:3000/v1
+  - url: http://localhost:3000
     description: Local development
 
 security:
@@ -32,90 +34,283 @@ components:
       type: apiKey
       in: header
       name: x-api-key
+      description: API key starting with xorb_sk_. Obtain via POST /v1/auth/keys.
+
+  headers:
+    X-RateLimit-Limit:
+      schema: { type: integer }
+      description: Requests allowed per second
+    X-RateLimit-Remaining:
+      schema: { type: integer }
+      description: Remaining requests in current window
+    X-RateLimit-Reset:
+      schema: { type: integer }
+      description: Unix timestamp when rate limit resets
+    X-Xorb-Payment-Status:
+      schema: { type: string, enum: [held, completed, free_tier, refunded] }
+    X-Xorb-Fee-Amount:
+      schema: { type: string }
+      description: Fee amount in USDC micro-units (6 decimals)
+    X-Xorb-Fee-Basis-Points:
+      schema: { type: integer }
+    X-Xorb-Free-Remaining:
+      schema: { type: integer }
+      description: Free tier actions remaining this month
+    X-Content-Hash:
+      schema: { type: string }
+      description: SHA-256 hash of response content (for tamper evidence)
 
   schemas:
+    Envelope:
+      type: object
+      required: [success]
+      properties:
+        success: { type: boolean }
+        data: {}
+        pagination:
+          type: object
+          properties:
+            next_cursor: { type: string, nullable: true }
+            has_more: { type: boolean }
+        error:
+          type: object
+          properties:
+            code: { type: string }
+            message: { type: string }
+
     Agent:
       type: object
+      required: [agentId, name, role, sponsorAddress, status, reputation]
       properties:
-        agentId: { type: string }
-        name: { type: string }
-        role: { type: string, enum: ["TRADER", "RESEARCHER", "MONITOR", "CODER", "GOVERNANCE_ASSISTANT", "FILE_INDEXER", "RISK_AUDITOR"] }
+        agentId: { type: string, example: agent_a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4 }
+        name: { type: string, example: research-bot }
+        role: { type: string, enum: [TRADER, RESEARCHER, MONITOR, CODER, GOVERNANCE_ASSISTANT, FILE_INDEXER, RISK_AUDITOR] }
         sponsorAddress: { type: string }
-        stakeBond: { type: string }
-        reputation: { type: integer }
-        reputationTier: { type: string, enum: ["UNTRUSTED", "NOVICE", "RELIABLE", "TRUSTED", "ELITE"] }
-        status: { type: string, enum: ["active", "paused", "revoked", "expired"] }
+        sessionWalletAddress: { type: string }
+        stakeBond: { type: string, description: USDC in 6 decimals }
+        reputation: { type: integer, minimum: 0, maximum: 10000 }
+        reputationTier: { type: string, enum: [UNTRUSTED, NOVICE, RELIABLE, TRUSTED, ELITE] }
+        status: { type: string, enum: [active, paused, revoked, expired] }
+        createdAt: { type: integer }
+        expiresAt: { type: integer }
         totalActionsExecuted: { type: integer }
+        slashEvents: { type: integer }
         description: { type: string }
 
     GateResult:
       type: object
+      required: [gate, passed, latency_ms]
       properties:
         gate: { type: string }
         passed: { type: boolean }
-        reason: { type: string }
-        latency_ms: { type: integer }
+        reason: { type: string, nullable: true }
+        latency_ms: { type: number }
 
     PipelineResult:
       type: object
+      required: [action_id, agent_id, approved, gates, audit_hash, timestamp]
       properties:
         action_id: { type: string }
         agent_id: { type: string }
         approved: { type: boolean }
         gates: { type: array, items: { $ref: '#/components/schemas/GateResult' } }
         reputation_delta: { type: integer }
-        audit_hash: { type: string }
+        audit_hash: { type: string, pattern: '^0x[0-9a-f]{64}$' }
         timestamp: { type: string, format: date-time }
-        latency_ms: { type: integer }
+        latency_ms: { type: number }
+        payment:
+          type: object
+          nullable: true
+          properties:
+            status: { type: string }
+            fee_tx: { type: string, nullable: true }
+            forward_tx: { type: string, nullable: true }
+            refund_tx: { type: string, nullable: true }
 
-    Error:
+    CreateAgentRequest:
+      type: object
+      required: [name, role, sponsor_address]
+      properties:
+        name: { type: string, minLength: 2, maxLength: 64 }
+        role: { type: string, enum: [TRADER, RESEARCHER, MONITOR, CODER, GOVERNANCE_ASSISTANT, FILE_INDEXER, RISK_AUDITOR] }
+        sponsor_address: { type: string, minLength: 10 }
+        stake_bond: { type: string }
+        expiry_days: { type: integer, minimum: 0, maximum: 365 }
+        description: { type: string, maxLength: 256 }
+
+    ExecuteActionRequest:
+      type: object
+      required: [agent_id, action, tool]
+      properties:
+        agent_id: { type: string, minLength: 5 }
+        action: { type: string, minLength: 1 }
+        tool: { type: string, minLength: 1 }
+        params: { type: object, additionalProperties: true }
+
+    WebhookSubscription:
       type: object
       properties:
-        error: { type: string }
-        request_id: { type: string }
+        id: { type: string }
+        url: { type: string, format: uri }
+        event_types: { type: array, items: { type: string } }
+        secret: { type: string }
+        active: { type: boolean }
+
+    PaymentRecord:
+      type: object
+      properties:
+        id: { type: string }
+        action_id: { type: string }
+        agent_id: { type: string }
+        gross_usdc: { type: string }
+        fee_usdc: { type: string }
+        net_usdc: { type: string }
+        fee_bps: { type: integer }
+        status: { type: string, enum: [held, completed, escrowed, refunded, failed] }
+        collect_tx: { type: string, nullable: true }
+        fee_tx: { type: string, nullable: true }
+        forward_tx: { type: string, nullable: true }
+        refund_tx: { type: string, nullable: true }
+        chain: { type: string }
+        created_at: { type: string, format: date-time }
+
+    Error400:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - properties:
+            success: { enum: [false] }
+            error: { properties: { code: { example: validation_error }, message: { example: Name must be 2-64 characters } } }
+
+    Error401:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - properties:
+            error: { properties: { code: { example: invalid_api_key }, message: { example: Invalid API key } } }
+
+    Error403:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - properties:
+            error: { properties: { code: { example: forbidden }, message: { example: You do not own this agent } } }
+
+    Error404:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - properties:
+            error: { properties: { code: { example: not_found }, message: { example: Agent not found } } }
+
+    Error429:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - properties:
+            error: { properties: { code: { example: rate_limit_exceeded }, message: { example: Rate limit exceeded. Retry after 1 second. } } }
+
+    Error500:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - properties:
+            error: { properties: { code: { example: internal_error }, message: { example: Internal server error } } }
+
+  responses:
+    BadRequest:
+      description: Validation error
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error400' } } }
+    Unauthorized:
+      description: Missing or invalid API key
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error401' } } }
+    Forbidden:
+      description: Insufficient permissions
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error403' } } }
+    NotFound:
+      description: Resource not found
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error404' } } }
+    RateLimited:
+      description: Rate limit exceeded
+      headers:
+        Retry-After: { schema: { type: integer } }
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error429' } } }
+    ServerError:
+      description: Internal server error
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error500' } } }
+
+  parameters:
+    x-payment:
+      name: x-payment
+      in: header
+      description: Base64-encoded x402 payment header
+      schema: { type: string }
+    x-xorb-sandbox:
+      name: x-xorb-sandbox
+      in: header
+      description: Set to true for sandbox mode
+      schema: { type: string, enum: ['true'] }
 
 paths:
-  /health:
+  /v1/health:
     get:
       summary: Health check
       security: []
+      tags: [Health]
       responses:
         '200':
-          description: API status
+          description: OK
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  status: { type: string }
-                  version: { type: string }
+                  status: { type: string, example: ok }
+                  service: { type: string, example: xorb-api }
+                  version: { type: string, example: '0.5.0' }
+                  timestamp: { type: string, format: date-time }
+                  pipeline: { type: string }
+                  auth: { type: string, example: required }
 
-  /pricing:
+  /v1/health/deep:
     get:
-      summary: Get endpoint pricing
+      summary: Deep health check (requires auth for details)
+      tags: [Health]
+      responses:
+        '200': { description: Health status with dependency checks }
+        '503': { description: Service unhealthy }
+
+  /v1/pricing:
+    get:
+      summary: Endpoint pricing and free tier info
       security: []
+      tags: [Pricing]
       responses:
         '200':
-          description: Pricing info
+          description: Pricing data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  endpoints:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        endpoint: { type: string }
+                        price_usdc: { type: number }
+                        description: { type: string }
+                  free_tier:
+                    type: object
+                    properties:
+                      limit: { type: integer, example: 500 }
+                      period: { type: string, example: monthly }
 
-  /agents:
+  /v1/agents:
     post:
       summary: Register a new agent
       tags: [Agents]
+      parameters: [{ $ref: '#/components/parameters/x-payment' }]
       requestBody:
         required: true
         content:
           application/json:
-            schema:
-              type: object
-              required: [name, role, sponsor_address]
-              properties:
-                name: { type: string, minLength: 2, maxLength: 64 }
-                role: { type: string, enum: ["TRADER", "RESEARCHER", "MONITOR", "CODER", "GOVERNANCE_ASSISTANT", "FILE_INDEXER", "RISK_AUDITOR"] }
-                sponsor_address: { type: string }
-                stake_bond: { type: string }
-                expiry_days: { type: integer }
-                description: { type: string }
+            schema: { $ref: '#/components/schemas/CreateAgentRequest' }
       responses:
         '201':
           description: Agent created
@@ -124,93 +319,111 @@ paths:
               schema:
                 type: object
                 properties:
-                  agent: { $ref: '#/components/schemas/Agent' }
+                  success: { type: boolean, example: true }
+                  data: { type: object, properties: { agent: { $ref: '#/components/schemas/Agent' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '402': { description: Free tier exhausted }
+        '429': { $ref: '#/components/responses/RateLimited' }
     get:
-      summary: List agents
+      summary: List agents (owned by authenticated sponsor)
       tags: [Agents]
       parameters:
-        - name: sponsor
-          in: query
-          schema: { type: string }
-        - name: status
-          in: query
-          schema: { type: string }
+        - { name: search, in: query, schema: { type: string } }
+        - { name: status, in: query, schema: { type: string } }
+        - { name: limit, in: query, schema: { type: integer, default: 100, maximum: 500 } }
       responses:
         '200':
-          description: Agent list
+          description: Agent list with pagination
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { type: array, items: { $ref: '#/components/schemas/Agent' } }
+                  pagination: { type: object, properties: { has_more: { type: boolean } } }
+                  total: { type: integer }
+        '401': { $ref: '#/components/responses/Unauthorized' }
 
-  /agents/{id}:
+  /v1/agents/{id}:
     get:
       summary: Get agent details
       tags: [Agents]
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema: { type: string }
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
       responses:
-        '200':
-          description: Agent details
-        '404':
-          description: Not found
+        '200': { description: Agent details }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
     patch:
       summary: Update agent (pause/resume/renew)
       tags: [Agents]
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema: { type: string }
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [action, caller_address]
-              properties:
-                action: { type: string, enum: ["pause", "resume", "renew"] }
-                caller_address: { type: string }
-      responses:
-        '200':
-          description: Agent updated
-    delete:
-      summary: Revoke agent
-      tags: [Agents]
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema: { type: string }
-      responses:
-        '200':
-          description: Agent revoked
-
-  /actions/execute:
-    post:
-      summary: Execute action through 8-gate pipeline
-      tags: [Actions]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [agent_id, action, tool]
+              required: [action]
               properties:
-                agent_id: { type: string }
-                action: { type: string }
-                tool: { type: string }
-                params: { type: object }
+                action: { type: string, enum: [pause, resume, renew] }
+                renew_days: { type: integer, minimum: 1, maximum: 365 }
+      responses:
+        '200': { description: Agent updated }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      summary: Revoke agent permanently
+      tags: [Agents]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses:
+        '200': { description: Agent revoked }
+
+  /v1/agents/{id}/public:
+    get:
+      summary: Public agent profile (no auth)
+      security: []
+      tags: [Agents]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses:
+        '200': { description: Public profile (name, role, reputation, status) }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /v1/actions/execute:
+    post:
+      summary: Execute action through 8-gate pipeline
+      tags: [Actions]
+      parameters:
+        - { $ref: '#/components/parameters/x-payment' }
+        - { $ref: '#/components/parameters/x-xorb-sandbox' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ExecuteActionRequest' }
       responses:
         '200':
           description: Action approved
+          headers:
+            X-Xorb-Payment-Status: { $ref: '#/components/headers/X-Xorb-Payment-Status' }
+            X-Xorb-Fee-Amount: { $ref: '#/components/headers/X-Xorb-Fee-Amount' }
+            X-Xorb-Fee-Basis-Points: { $ref: '#/components/headers/X-Xorb-Fee-Basis-Points' }
+            X-Xorb-Free-Remaining: { $ref: '#/components/headers/X-Xorb-Free-Remaining' }
+            X-RateLimit-Limit: { $ref: '#/components/headers/X-RateLimit-Limit' }
+            X-RateLimit-Remaining: { $ref: '#/components/headers/X-RateLimit-Remaining' }
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/PipelineResult' }
-        '403':
-          description: Action blocked
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { $ref: '#/components/schemas/PipelineResult' }
+        '402': { description: Payment required }
+        '403': { description: Action blocked by pipeline }
+        '429': { $ref: '#/components/responses/RateLimited' }
 
-  /actions/batch:
+  /v1/actions/batch:
     post:
       summary: Batch execute up to 100 actions
       tags: [Actions]
@@ -220,40 +433,124 @@ paths:
           application/json:
             schema:
               type: object
+              required: [actions]
               properties:
-                actions:
-                  type: array
-                  maxItems: 100
-                  items:
-                    type: object
-                    required: [agent_id, action, tool]
-                    properties:
-                      agent_id: { type: string }
-                      action: { type: string }
-                      tool: { type: string }
-                      params: { type: object }
+                actions: { type: array, minItems: 1, maxItems: 100, items: { $ref: '#/components/schemas/ExecuteActionRequest' } }
       responses:
         '200':
           description: Batch results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: object
+                    properties:
+                      total: { type: integer }
+                      approved: { type: integer }
+                      blocked: { type: integer }
+                      results: { type: array, items: { $ref: '#/components/schemas/PipelineResult' } }
 
-  /reputation/{agentId}:
+  /v1/reputation/leaderboard:
     get:
-      summary: Get reputation score
+      summary: Top agents by reputation
       tags: [Reputation]
-      parameters:
-        - name: agentId
-          in: path
-          required: true
-          schema: { type: string }
+      responses:
+        '200': { description: Leaderboard }
+
+  /v1/reputation/{agentId}:
+    get:
+      summary: Get agent reputation score
+      tags: [Reputation]
+      parameters: [{ name: agentId, in: path, required: true, schema: { type: string } }]
       responses:
         '200':
-          description: Reputation info
+          description: Reputation data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: object
+                    properties:
+                      agent_id: { type: string }
+                      score: { type: integer, minimum: 0, maximum: 10000 }
+                      tier: { type: string, enum: [UNTRUSTED, NOVICE, RELIABLE, TRUSTED, ELITE] }
+                      total_actions: { type: integer }
+                      slash_events: { type: integer }
+        '404': { $ref: '#/components/responses/NotFound' }
 
-  /webhooks:
+  /v1/audit/{agentId}:
+    get:
+      summary: Get audit log
+      tags: [Audit]
+      parameters: [{ name: agentId, in: path, required: true, schema: { type: string } }]
+      responses:
+        '200': { description: Audit log with events, violations, reputation }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /v1/audit/{actionId}/evidence:
     post:
-      summary: Subscribe to events
+      summary: Upload audit evidence (PDF/PNG/JPG, max 10MB)
+      tags: [Audit]
+      parameters: [{ name: actionId, in: path, required: true, schema: { type: string } }]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file: { type: string, format: binary }
+      responses:
+        '201': { description: Evidence uploaded }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  /v1/audit/export/{agentId}:
+    get:
+      summary: Export audit log (CSV or PDF)
+      tags: [Audit]
+      parameters:
+        - { name: agentId, in: path, required: true, schema: { type: string } }
+        - { name: format, in: query, schema: { type: string, enum: [csv, pdf], default: csv } }
+      responses:
+        '200':
+          description: File download
+          headers:
+            X-Content-Hash: { $ref: '#/components/headers/X-Content-Hash' }
+
+  /v1/compliance/{agentId}:
+    get:
+      summary: Generate compliance report
+      tags: [Compliance]
+      parameters:
+        - { name: agentId, in: path, required: true, schema: { type: string } }
+        - { name: format, in: query, schema: { type: string, enum: [eu-ai-act, nist-ai-rmf, soc2], default: eu-ai-act } }
+        - { name: from, in: query, schema: { type: string, format: date-time } }
+        - { name: to, in: query, schema: { type: string, format: date-time } }
+      responses:
+        '200': { description: Compliance report }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /v1/compliance/{agentId}/frameworks:
+    get:
+      summary: List available compliance frameworks
+      tags: [Compliance]
+      parameters: [{ name: agentId, in: path, required: true, schema: { type: string } }]
+      responses:
+        '200': { description: Framework list }
+
+  /v1/webhooks:
+    post:
+      summary: Subscribe to webhook events
       tags: [Webhooks]
       requestBody:
+        required: true
         content:
           application/json:
             schema:
@@ -261,89 +558,275 @@ paths:
               required: [url, event_types]
               properties:
                 url: { type: string, format: uri }
-                event_types: { type: array, items: { type: string } }
+                event_types: { type: array, items: { type: string }, minItems: 1, description: 'Event types: agent.registered, action.approved, action.blocked, agent.slashed, reputation.changed, payment.completed, payment.refunded, etc.' }
       responses:
         '201':
-          description: Subscription created
+          description: Webhook created (includes signing secret)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { $ref: '#/components/schemas/WebhookSubscription' }
     get:
       summary: List webhook subscriptions
       tags: [Webhooks]
       responses:
-        '200':
-          description: Webhook list
+        '200': { description: Webhook list }
 
-  /events/stream:
-    get:
-      summary: Long-polling event stream
-      description: |
-        Returns the latest events as a JSON array. The response includes a `poll_again: true` flag
-        and `retry_after_ms` hint so the client knows to re-poll. This is NOT an SSE endpoint —
-        Vercel Serverless does not support persistent connections.
-      tags: [Events]
-      parameters:
-        - name: agent_id
-          in: query
-          schema: { type: string }
-        - name: event_types
-          in: query
-          schema: { type: string }
+  /v1/webhooks/{id}:
+    delete:
+      summary: Delete webhook
+      tags: [Webhooks]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
       responses:
-        '200':
-          description: Event batch (long-polling — client re-polls after retry_after_ms)
+        '200': { description: Webhook deleted }
 
-  /audit/{agentId}:
+  /v1/webhooks/{id}/deliveries:
     get:
-      summary: Get audit log
-      tags: [Audit]
-      parameters:
-        - name: agentId
-          in: path
-          required: true
-          schema: { type: string }
+      summary: Webhook delivery history
+      tags: [Webhooks]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
       responses:
-        '200':
-          description: Audit data
+        '200': { description: Delivery log }
 
-  /compliance/{agentId}:
-    get:
-      summary: Generate compliance report
-      tags: [Compliance]
-      parameters:
-        - name: agentId
-          in: path
-          required: true
-          schema: { type: string }
-        - name: format
-          in: query
-          schema: { type: string, enum: ["eu-ai-act", "nist-ai-rmf", "soc2"] }
-        - name: from
-          in: query
-          schema: { type: string, format: date-time }
-        - name: to
-          in: query
-          schema: { type: string, format: date-time }
-      responses:
-        '200':
-          description: Compliance report
-
-  /marketplace/listings:
+  /v1/marketplace/listings:
     post:
-      summary: List agent for hire
+      summary: List an agent for hire
       tags: [Marketplace]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [agent_id, description]
+              properties:
+                agent_id: { type: string }
+                price_per_unit: { type: string }
+                pricing_model: { type: string, enum: [PerHour, PerDay, PerTask] }
+                description: { type: string, maxLength: 500 }
       responses:
-        '201':
-          description: Listing created
+        '201': { description: Listing created }
     get:
-      summary: Browse agents
+      summary: Browse marketplace listings
       tags: [Marketplace]
       responses:
-        '200':
-          description: Listing list
+        '200': { description: Listing list }
 
-  /marketplace/hire:
+  /v1/marketplace/hire:
     post:
       summary: Hire an agent
       tags: [Marketplace]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [listing_id, escrow_amount_usdc]
+              properties:
+                listing_id: { type: string }
+                escrow_amount_usdc: { type: number, minimum: 1 }
+      responses:
+        '201': { description: Engagement started }
+        '409': { description: Listing not available }
+
+  /v1/events:
+    get:
+      summary: Get recent events (ownership-filtered)
+      tags: [Events]
+      parameters:
+        - { name: agent_id, in: query, schema: { type: string } }
+        - { name: type, in: query, schema: { type: string } }
+        - { name: since, in: query, schema: { type: string, format: date-time } }
+        - { name: limit, in: query, schema: { type: integer, default: 100, maximum: 500 } }
+        - { name: cursor, in: query, schema: { type: string } }
+      responses:
+        '200':
+          description: Events with cursor pagination
+
+  /v1/events/stream:
+    get:
+      summary: Poll for new events (single query, no long-poll)
+      tags: [Events]
+      parameters:
+        - { name: agent_id, in: query, schema: { type: string } }
+        - { name: event_types, in: query, schema: { type: string, description: Comma-separated } }
+        - { name: since, in: query, schema: { type: string, format: date-time } }
+      responses:
+        '200': { description: New events since timestamp }
+
+  /v1/auth/keys:
+    post:
+      summary: Generate a new API key
+      security: []
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [owner_address, label]
+              properties:
+                owner_address: { type: string, minLength: 10 }
+                label: { type: string, minLength: 1, maxLength: 100 }
+                scopes: { type: array, items: { type: string } }
+                expires_days: { type: integer, minimum: 1, maximum: 365 }
       responses:
         '201':
-          description: Engagement started
+          description: Key generated (shown once — store securely)
+
+  /v1/auth/keys/rotate:
+    post:
+      summary: Rotate an existing API key
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [current_key]
+              properties:
+                current_key: { type: string }
+      responses:
+        '201': { description: New key generated, old key revoked }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /v1/revenue/summary:
+    get:
+      summary: Revenue overview (today, month, all-time)
+      tags: [Revenue]
+      responses:
+        '200': { description: Revenue metrics with treasury balance }
+
+  /v1/payments:
+    get:
+      summary: Payment history for authenticated sponsor
+      tags: [Payments]
+      parameters:
+        - { name: limit, in: query, schema: { type: integer, default: 20, maximum: 100 } }
+        - { name: cursor, in: query, schema: { type: string } }
+      responses:
+        '200':
+          description: Payment list with pagination
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { type: array, items: { $ref: '#/components/schemas/PaymentRecord' } }
+                  pagination: { type: object, properties: { next_cursor: { type: string }, has_more: { type: boolean } } }
+
+  /v1/payments/{actionId}/receipt:
+    get:
+      summary: On-chain verifiable payment receipt
+      tags: [Payments]
+      parameters: [{ name: actionId, in: path, required: true, schema: { type: string } }]
+      responses:
+        '200': { description: Receipt with block explorer links }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /v1/payments/{actionId}/refund:
+    post:
+      summary: Manual refund (within 72h window)
+      tags: [Payments]
+      parameters: [{ name: actionId, in: path, required: true, schema: { type: string } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason: { type: string }
+      responses:
+        '200': { description: Refund processed }
+        '400': { description: Refund window expired }
+
+  /v1/billing/usage:
+    get:
+      summary: Usage and billing info
+      tags: [Billing]
+      responses:
+        '200':
+          description: Usage meter
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: object
+                    properties:
+                      sponsor_address: { type: string }
+                      month: { type: string, example: '2026-03' }
+                      actions_used: { type: integer }
+                      free_tier_limit: { type: integer, example: 500 }
+                      free_remaining: { type: integer }
+                      current_fee_rate_bps: { type: integer }
+                      tier: { type: string, enum: [free, standard, high_volume, enterprise] }
+                      wallet_approved: { type: boolean }
+                      facilitator_address: { type: string, nullable: true }
+
+  /v1/billing/wallet-status:
+    get:
+      summary: Wallet readiness check
+      tags: [Billing]
+      responses:
+        '200': { description: USDC balance, allowance, setup requirements }
+
+  /v1/billing/spending-caps:
+    put:
+      summary: Set daily/monthly spending caps
+      tags: [Billing]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                daily_spend_cap_usdc: { type: string, nullable: true }
+                monthly_spend_cap_usdc: { type: string, nullable: true }
+      responses:
+        '200': { description: Caps updated }
+
+  /v1/export/agents:
+    get:
+      summary: Export agents as CSV
+      tags: [Export]
+      responses:
+        '200': { description: CSV file download, content: { text/csv: {} } }
+
+  /v1/export/audit/{agentId}:
+    get:
+      summary: Export audit log as CSV
+      tags: [Export]
+      parameters: [{ name: agentId, in: path, required: true, schema: { type: string } }]
+      responses:
+        '200': { description: CSV file download }
+
+tags:
+  - { name: Health, description: Service health checks }
+  - { name: Pricing, description: Endpoint pricing }
+  - { name: Auth, description: API key management }
+  - { name: Agents, description: Agent lifecycle }
+  - { name: Actions, description: 8-gate pipeline execution }
+  - { name: Reputation, description: Reputation scoring }
+  - { name: Audit, description: Audit logs and evidence }
+  - { name: Compliance, description: Compliance reports }
+  - { name: Webhooks, description: Event subscriptions }
+  - { name: Marketplace, description: Agent marketplace }
+  - { name: Events, description: Event streaming }
+  - { name: Revenue, description: Revenue metrics }
+  - { name: Payments, description: Payment history and receipts }
+  - { name: Billing, description: Usage and wallet management }
+  - { name: Export, description: Data export }

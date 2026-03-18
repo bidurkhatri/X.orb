@@ -27,9 +27,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: TypeScript type check (agent-core)
+        run: cd packages/agent-core && npx tsc --noEmit
+
+      - name: Run unit tests
+        run: cd packages/agent-core && pnpm run test
+
       - name: Build dashboard
         run: cd apps/dashboard && npx vite build
-
-      - name: TypeScript type check
-        continue-on-error: true
-        run: npx tsc --noEmit

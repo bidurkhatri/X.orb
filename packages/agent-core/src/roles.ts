@@ -74,11 +74,23 @@ export const ROLE_PERMISSIONS: Record<AgentRole, PermissionScope> = {
   },
 }
 
+/**
+ * Default tier thresholds. In production, these should be loaded from
+ * platform_config table via getConfig() to stay in sync with on-chain values.
+ * See: xorb-db/migrations/003_persistence_tables.sql (tier_* config keys).
+ */
+let tierThresholds = { ELITE: 8500, TRUSTED: 6000, RELIABLE: 3000, NOVICE: 1000 }
+
+/** Override tier thresholds (call on startup with values from platform_config) */
+export function setTierThresholds(thresholds: typeof tierThresholds): void {
+  tierThresholds = { ...thresholds }
+}
+
 export function getReputationTier(score: number): ReputationTier {
-  if (score >= 8500) return 'ELITE'
-  if (score >= 6000) return 'TRUSTED'
-  if (score >= 3000) return 'RELIABLE'
-  if (score >= 1000) return 'NOVICE'
+  if (score >= tierThresholds.ELITE) return 'ELITE'
+  if (score >= tierThresholds.TRUSTED) return 'TRUSTED'
+  if (score >= tierThresholds.RELIABLE) return 'RELIABLE'
+  if (score >= tierThresholds.NOVICE) return 'NOVICE'
   return 'UNTRUSTED'
 }
 

@@ -72,6 +72,7 @@ contract PaymentStreaming is AccessControl, ReentrancyGuard, Pausable {
     event StreamResumed(uint256 indexed streamId);
     event StreamCancelled(uint256 indexed streamId, uint256 refundedToSponsor, uint256 paidToAgent);
     event Withdrawal(uint256 indexed streamId, bytes32 indexed agentId, uint256 amount, uint256 fee);
+    event TreasuryUpdated(address indexed oldTreasury, address indexed newTreasury);
 
     // --- Constructor ---
 
@@ -138,15 +139,17 @@ contract PaymentStreaming is AccessControl, ReentrancyGuard, Pausable {
     function topUp(uint256 streamId, uint256 amount) external nonReentrant {
         Stream storage s = streams[streamId];
         require(s.sponsor == msg.sender, "Not sponsor");
-        require(s.status == StreamStatus.Active || s.status == StreamStatus.Paused, "Stream ended");
+        require(s.status == StreamStatus.Active || s.status == StreamStatus.Paused || s.status == StreamStatus.Depleted, "Stream ended");
         require(amount > 0, "Amount must be > 0");
 
         paymentToken.safeTransferFrom(msg.sender, address(this), amount);
         s.deposit += amount;
 
-        // Reactivate if was depleted
-        if (s.status == StreamStatus.Paused && _getEarned(s) < s.deposit) {
-            s.status = StreamStatus.Active;
+        // Reactivate if after topUp there are still unearned funds
+        if (s.status == StreamStatus.Paused || s.status == StreamStatus.Depleted) {
+            if (s.deposit > _getEarned(s)) {
+                s.status = StreamStatus.Active;
+            }
         }
 
         emit StreamTopUp(streamId, amount, s.deposit);
@@ -302,7 +305,9 @@ contract PaymentStreaming is AccessControl, ReentrancyGuard, Pausable {
 
     function setTreasury(address _treasury) external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(_treasury != address(0), "Invalid treasury");
+        address old = treasury;
         treasury = _treasury;
+        emit TreasuryUpdated(old, _treasury);
     }
 
     function pause() external onlyRole(OPERATOR_ROLE) { _pause(); }

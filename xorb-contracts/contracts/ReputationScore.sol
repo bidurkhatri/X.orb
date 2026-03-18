@@ -328,24 +328,15 @@ contract ReputationScore is AccessControl, ReentrancyGuard, Pausable, IReputatio
         if (rep.lastUpdatedAt == 0) return;
         if (decayPerDay == 0) return;
 
-        uint256 timeSinceLastActive = block.timestamp - rep.lastUpdatedAt;
+        // Decay applies from the MORE RECENT of lastDecayAt or lastUpdatedAt
+        uint256 lastActive = rep.lastDecayAt > rep.lastUpdatedAt ? rep.lastDecayAt : rep.lastUpdatedAt;
+        uint256 timeSinceLastActive = block.timestamp - lastActive;
         if (timeSinceLastActive <= decayGracePeriod) return;
 
-        uint256 decayableDays = (timeSinceLastActive - decayGracePeriod) / 1 days;
-        uint256 lastDecayDays = 0;
+        uint256 daysInactive = (timeSinceLastActive - decayGracePeriod) / 1 days;
+        if (daysInactive == 0) return;
 
-        if (rep.lastDecayAt > rep.lastUpdatedAt) {
-            // Decay already partially applied
-            uint256 alreadyDecayed = (rep.lastDecayAt - rep.lastUpdatedAt);
-            if (alreadyDecayed > decayGracePeriod) {
-                lastDecayDays = (alreadyDecayed - decayGracePeriod) / 1 days;
-            }
-        }
-
-        uint256 newDecayDays = decayableDays > lastDecayDays ? decayableDays - lastDecayDays : 0;
-        if (newDecayDays == 0) return;
-
-        uint256 totalDecay = newDecayDays * decayPerDay;
+        uint256 totalDecay = daysInactive * decayPerDay;
         uint256 newScore = totalDecay >= rep.score ? 0 : rep.score - totalDecay;
 
         rep.score = newScore;

@@ -36,8 +36,30 @@ export function createGatePermissions() {
 }
 
 // Gate 3: Rate Limit
-export function createGateRateLimit() {
+// Accepts an optional persistent rate limiter function for production use.
+// Falls back to in-memory for tests/dev.
+export type RateLimitChecker = (key: string, limit: number, windowMs: number) =>
+  Promise<{ allowed: boolean; count: number; resetAt: number }>
+
+export function createGateRateLimit(rateLimitFn?: RateLimitChecker) {
+  // In-memory fallback for tests and dev
   const counters = new Map<string, { count: number; resetAt: number }>()
+
+  const defaultChecker: RateLimitChecker = async (key, limit, windowMs) => {
+    const now = Date.now()
+    let counter = counters.get(key)
+    if (!counter || now > counter.resetAt) {
+      counter = { count: 0, resetAt: now + windowMs }
+      counters.set(key, counter)
+    }
+    if (counter.count >= limit) {
+      return { allowed: false, count: counter.count, resetAt: counter.resetAt }
+    }
+    counter.count++
+    return { allowed: true, count: counter.count, resetAt: counter.resetAt }
+  }
+
+  const checker = rateLimitFn || defaultChecker
 
   return async (ctx: PipelineContext): Promise<GateResult> => {
     const start = Date.now()
@@ -45,16 +67,11 @@ export function createGateRateLimit() {
       return { gate: 'rate_limit', passed: false, reason: 'No agent', latency_ms: Date.now() - start }
     }
 
-    const now = Date.now()
-    let counter = counters.get(ctx.agentId)
-    if (!counter || now > counter.resetAt) {
-      counter = { count: 0, resetAt: now + 3600000 }
-      counters.set(ctx.agentId, counter)
-    }
-
     const limit = ctx.agent.permissionScope.maxActionsPerHour
-    if (counter.count >= limit) {
-      const resetIn = Math.ceil((counter.resetAt - now) / 60000)
+    const result = await checker(`agent:${ctx.agentId}`, limit, 3600000)
+
+    if (!result.allowed) {
+      const resetIn = Math.ceil((result.resetAt - Date.now()) / 60000)
       return {
         gate: 'rate_limit',
         passed: false,
@@ -63,7 +80,6 @@ export function createGateRateLimit() {
       }
     }
 
-    counter.count++
     return { gate: 'rate_limit', passed: true, latency_ms: Date.now() - start }
   }
 }
@@ -100,23 +116,45 @@ export function createGateSpendLimit() {
   }
 }
 
-// Gate 5: Audit Log
-export function createGateAudit() {
+// Gate 5: Audit Integrity Check
+// Verifies the agent hasn't accumulated too many unresolved violations.
+// Configurable threshold; blocks actions for agents under active investigation.
+export function createGateAudit(maxUnresolvedViolations = 5) {
   return async (ctx: PipelineContext): Promise<GateResult> => {
     const start = Date.now()
-    // Audit gate always passes — its purpose is to record the attempt.
-    // The actual audit record is written after the pipeline completes.
+    if (!ctx.agent) {
+      return { gate: 'audit', passed: false, reason: 'No agent', latency_ms: Date.now() - start }
+    }
+    // Check violation count (slash events recorded on the agent)
+    if (ctx.agent.slashEvents >= maxUnresolvedViolations) {
+      return {
+        gate: 'audit',
+        passed: false,
+        reason: `Agent has ${ctx.agent.slashEvents} violations (threshold: ${maxUnresolvedViolations}). Action blocked pending review.`,
+        latency_ms: Date.now() - start,
+      }
+    }
     return { gate: 'audit', passed: true, latency_ms: Date.now() - start }
   }
 }
 
-// Gate 6: Webhook Dispatch
-export function createGateWebhook() {
+// Gate 6: Compliance Pre-check
+// Validates the action context has required fields for audit trail completeness.
+// Ensures every action passing through the pipeline is traceable.
+export function createGateCompliance() {
   return async (ctx: PipelineContext): Promise<GateResult> => {
     const start = Date.now()
-    // Webhook dispatch is fire-and-forget.
-    // Actual delivery happens post-pipeline via the WebhookService.
-    return { gate: 'webhook', passed: true, latency_ms: Date.now() - start }
+    // Verify minimum traceability requirements
+    if (!ctx.agentId || ctx.agentId.length < 5) {
+      return { gate: 'compliance', passed: false, reason: 'Invalid agent ID for audit trail', latency_ms: Date.now() - start }
+    }
+    if (!ctx.action || ctx.action.length < 1) {
+      return { gate: 'compliance', passed: false, reason: 'Action name required for audit trail', latency_ms: Date.now() - start }
+    }
+    if (!ctx.tool || ctx.tool.length < 1) {
+      return { gate: 'compliance', passed: false, reason: 'Tool name required for audit trail', latency_ms: Date.now() - start }
+    }
+    return { gate: 'compliance', passed: true, latency_ms: Date.now() - start }
   }
 }
 

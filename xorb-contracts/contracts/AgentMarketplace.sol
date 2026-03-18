@@ -29,6 +29,7 @@ contract AgentMarketplace is AccessControl, ReentrancyGuard, Pausable {
     bytes32 public constant ARBITER_ROLE = keccak256("ARBITER_ROLE");
 
     IERC20 public immutable paymentToken; // USDC
+    IAgentRegistryMarketplace public agentRegistry;
 
     // --- Types ---
 
@@ -82,6 +83,10 @@ contract AgentMarketplace is AccessControl, ReentrancyGuard, Pausable {
     // Hirer → engagement IDs
     mapping(address => uint256[]) public hirerEngagements;
 
+    // Cancellation tracking
+    mapping(bytes32 => uint256) public agentCancellationCount;
+    event AgentPenalized(bytes32 indexed agentId, uint256 cancellationCount);
+
     // Protocol fee
     uint256 public protocolFeeBps = 250; // 2.5%
     address public treasury;
@@ -97,6 +102,7 @@ contract AgentMarketplace is AccessControl, ReentrancyGuard, Pausable {
     event EngagementDisputed(uint256 indexed engagementId, address disputer);
     event DisputeResolved(uint256 indexed engagementId, uint256 refundToHirer, uint256 paidToOwner);
     event EngagementRated(uint256 indexed engagementId, uint8 rating);
+    event TreasuryUpdated(address indexed oldTreasury, address indexed newTreasury);
 
     // --- Constructor ---
 
@@ -190,6 +196,7 @@ contract AgentMarketplace is AccessControl, ReentrancyGuard, Pausable {
         require(l.activeHires < l.maxConcurrent, "Fully booked");
         require(l.owner != msg.sender, "Cannot hire own agent");
         require(units > 0, "Units must be > 0");
+        require(address(agentRegistry) == address(0) || agentRegistry.isActive(l.agentId), "Agent registration expired");
 
         uint256 escrow = l.pricePerUnit * units;
         require(escrow > 0, "Escrow too small");
@@ -309,6 +316,12 @@ contract AgentMarketplace is AccessControl, ReentrancyGuard, Pausable {
         e.completedAt = block.timestamp;
         l.activeHires--;
 
+        // Track cancellations per agent
+        agentCancellationCount[e.agentId]++;
+        if (agentCancellationCount[e.agentId] >= 3) {
+            emit AgentPenalized(e.agentId, agentCancellationCount[e.agentId]);
+        }
+
         // Calculate pro-rata refund
         uint256 elapsed = block.timestamp - e.startedAt;
         uint256 totalDuration = e.maxDuration > 0 ? e.maxDuration : 86400; // default 1 day
@@ -340,7 +353,7 @@ contract AgentMarketplace is AccessControl, ReentrancyGuard, Pausable {
     function rateEngagement(uint256 engagementId, uint8 rating) external {
         Engagement storage e = engagements[engagementId];
         require(msg.sender == e.hirer, "Only hirer");
-        require(e.status == EngagementStatus.Completed, "Not completed");
+        require(e.status == EngagementStatus.Completed || e.status == EngagementStatus.Refunded, "Not completed or resolved");
         require(rating >= 1 && rating <= 5, "Rating 1-5");
         require(e.rating == 0, "Already rated");
 
@@ -391,9 +404,22 @@ contract AgentMarketplace is AccessControl, ReentrancyGuard, Pausable {
 
     function setTreasury(address _treasury) external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(_treasury != address(0), "Invalid treasury");
+        address old = treasury;
         treasury = _treasury;
+        emit TreasuryUpdated(old, _treasury);
+    }
+
+    function setAgentRegistry(address _addr) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(_addr != address(0), "Invalid address");
+        agentRegistry = IAgentRegistryMarketplace(_addr);
     }
 
     function pause() external onlyRole(OPERATOR_ROLE) { _pause(); }
     function unpause() external onlyRole(OPERATOR_ROLE) { _unpause(); }
+}
+
+// --- Interface ---
+
+interface IAgentRegistryMarketplace {
+    function isActive(bytes32 agentId) external view returns (bool);
 }

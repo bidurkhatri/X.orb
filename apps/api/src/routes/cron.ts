@@ -1,7 +1,10 @@
 import { Hono } from 'hono'
 import type { Env } from '../app'
+import { ok, err } from '../lib/response'
 import { getRegistry } from '../services/registry'
 import { getReputationEngine, getEventBus } from '../services/pipeline'
+import { getPaymentService } from '../services/payments'
+import { formatUsdc } from '@xorb/agent-core'
 
 export const cronRouter = new Hono<Env>()
 
@@ -19,8 +22,11 @@ cronRouter.post('/decay', async (c) => {
   const cronSecret = process.env.CRON_SECRET
   const authHeader = c.req.header('authorization')
 
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    return c.json({ error: 'Unauthorized — invalid CRON_SECRET' }, 401)
+  if (!cronSecret) {
+    return err(c, 'cron_secret_missing', 'CRON_SECRET not configured. Cron endpoints are disabled.', 500)
+  }
+  if (authHeader !== `Bearer ${cronSecret}`) {
+    return err(c, 'unauthorized', 'Unauthorized — invalid CRON_SECRET', 401)
   }
 
   const registry = await getRegistry()
@@ -61,7 +67,7 @@ cronRouter.post('/decay', async (c) => {
     }
   }
 
-  return c.json({
+  return ok(c, {
     status: 'ok',
     processed: allAgents.length,
     decayed,
@@ -80,7 +86,7 @@ cronRouter.post('/cleanup', async (c) => {
   const authHeader = c.req.header('authorization')
 
   if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    return c.json({ error: 'Unauthorized' }, 401)
+    return err(c, 'unauthorized', 'Unauthorized', 401)
   }
 
   const registry = await getRegistry()
@@ -102,5 +108,111 @@ cronRouter.post('/cleanup', async (c) => {
     }
   }
 
-  return c.json({ status: 'ok', expired, timestamp: new Date().toISOString() })
+  return ok(c, { status: 'ok', expired, timestamp: new Date().toISOString() })
+})
+
+/**
+ * POST /v1/cron/settle-batch — Settle pending payments (every 5 minutes).
+ */
+cronRouter.post('/settle-batch', async (c) => {
+  const cronSecret = process.env.CRON_SECRET
+  const authHeader = c.req.header('authorization')
+  if (!cronSecret) return err(c, 'cron_secret_missing', 'CRON_SECRET not configured', 500)
+  if (authHeader !== `Bearer ${cronSecret}`) return err(c, 'unauthorized', 'Unauthorized', 401)
+
+  const payments = getPaymentService()
+  if (!payments.isConfigured()) {
+    return ok(c, { status: 'skipped', reason: 'Payment infrastructure not configured' })
+  }
+
+  try {
+    const result = await payments.settleBatch()
+    return ok(c, {
+      status: 'ok',
+      settled: result.count,
+      total_fees_usdc: formatUsdc(result.totalFees),
+      total_net_usdc: formatUsdc(result.totalNet),
+      tx_hash: result.tx,
+      timestamp: new Date().toISOString(),
+    })
+  } catch (e) {
+    console.error('[Cron] settle-batch failed:', e)
+    return err(c, 'settle_failed', e instanceof Error ? e.message : 'Unknown', 500)
+  }
+})
+
+/**
+ * POST /v1/cron/treasury-mature — Move matured fees to available balance (hourly).
+ * Fees are pending for 72 hours after completion. This cron marks them as available.
+ */
+cronRouter.post('/treasury-mature', async (c) => {
+  const cronSecret = process.env.CRON_SECRET
+  const authHeader = c.req.header('authorization')
+  if (!cronSecret) return err(c, 'cron_secret_missing', 'CRON_SECRET not configured', 500)
+  if (authHeader !== `Bearer ${cronSecret}`) return err(c, 'unauthorized', 'Unauthorized', 401)
+
+  const { createClient } = await import('@supabase/supabase-js')
+  const sb = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_KEY!)
+
+  // Count matured vs pending fees
+  const now = new Date().toISOString()
+  const { count: matured } = await sb.from('payments')
+    .select('*', { count: 'exact', head: true })
+    .eq('status', 'completed')
+    .lt('fee_matures_at', now)
+
+  const { count: pending } = await sb.from('payments')
+    .select('*', { count: 'exact', head: true })
+    .eq('status', 'completed')
+    .gte('fee_matures_at', now)
+
+  return ok(c, {
+    status: 'ok',
+    matured_fees: matured || 0,
+    pending_fees: pending || 0,
+    timestamp: now,
+  })
+})
+
+/**
+ * POST /v1/cron/retry-refunds — Retry failed refunds (every 15 minutes).
+ */
+cronRouter.post('/retry-refunds', async (c) => {
+  const cronSecret = process.env.CRON_SECRET
+  const authHeader = c.req.header('authorization')
+  if (!cronSecret) return err(c, 'cron_secret_missing', 'CRON_SECRET not configured', 500)
+  if (authHeader !== `Bearer ${cronSecret}`) return err(c, 'unauthorized', 'Unauthorized', 401)
+
+  const { createClient } = await import('@supabase/supabase-js')
+  const sb = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_KEY!)
+  const payments = getPaymentService()
+
+  const { data: failed } = await sb.from('payments')
+    .select('*')
+    .eq('status', 'failed')
+    .is('refund_tx_hash', null)
+    .limit(10)
+
+  let retried = 0
+  let succeeded = 0
+
+  for (const p of (failed || [])) {
+    retried++
+    try {
+      if (payments.isConfigured()) {
+        const { txHash } = await payments.refund(p.payer_address, BigInt(p.gross_amount))
+        await sb.from('payments').update({
+          status: 'refunded',
+          refund_tx_hash: txHash,
+          refund_reason: 'auto_retry',
+          refunded_at: new Date().toISOString(),
+        }).eq('action_id', p.action_id)
+        succeeded++
+      }
+    } catch (err) {
+      console.error(`[Cron] retry-refund failed for ${p.action_id}:`, err)
+    }
+  }
+
+  return ok(c, { status: 'ok', retried, succeeded, timestamp: new Date().toISOString() })
 })

@@ -1,20 +1,52 @@
-import { useState } from 'react'
-import { Copy, Eye, EyeOff, Key } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Copy, Eye, EyeOff, Key, Bell, Wallet, Shield, Trash2, Download, RefreshCw } from 'lucide-react'
 import { PageHeader } from '../components/layout/PageHeader'
+import { api } from '../lib/api'
 
 export function Settings() {
   const [showKey, setShowKey] = useState(false)
   const [apiKey, setApiKey] = useState(sessionStorage.getItem('xorb_api_key') || '')
+  const [usage, setUsage] = useState<any>(null)
+  const [walletStatus, setWalletStatus] = useState<any>(null)
+  const [notifications, setNotifications] = useState({
+    slashing: true, reputation_warning: true, api_key_expiring: true,
+    payment_receipt: true, free_tier_warning: true,
+  })
+
+  useEffect(() => {
+    loadData()
+  }, [])
+
+  async function loadData() {
+    try {
+      const [u, w] = await Promise.all([
+        fetch(`${api.health ? '' : ''}${sessionStorage.getItem('xorb_api_url') || 'https://api.xorb.xyz'}/v1/billing/usage`, {
+          headers: { 'x-api-key': apiKey },
+        }).then(r => r.json()).catch(() => null),
+        fetch(`${sessionStorage.getItem('xorb_api_url') || 'https://api.xorb.xyz'}/v1/billing/wallet-status`, {
+          headers: { 'x-api-key': apiKey },
+        }).then(r => r.json()).catch(() => null),
+      ])
+      if (u) setUsage(u)
+      if (w) setWalletStatus(w)
+    } catch {}
+  }
 
   const saveKey = () => {
     sessionStorage.setItem('xorb_api_key', apiKey)
   }
 
-  return (
-    <div>
-      <PageHeader title="Settings" description="API configuration and account" />
+  const handleLogout = () => {
+    sessionStorage.removeItem('xorb_api_key')
+    window.location.href = '/login'
+  }
 
-      <div className="glass-card p-5 mb-6">
+  return (
+    <div className="space-y-6">
+      <PageHeader title="Settings" description="Account, API keys, wallet, and notifications" />
+
+      {/* API Key Section */}
+      <div className="glass-card p-5">
         <h3 className="text-sm font-medium mb-4 flex items-center gap-2"><Key size={16} /> API Key</h3>
         <div className="flex gap-3">
           <div className="flex-1 relative">
@@ -38,13 +70,109 @@ export function Settings() {
             Save
           </button>
         </div>
-        <p className="text-xs text-xorb-muted mt-2">Your API key is stored in session storage (cleared when the tab closes) and sent via the x-api-key header on every API request.</p>
+        <p className="text-xs text-xorb-muted mt-2">Your API key is stored in session storage and sent via the x-api-key header.</p>
       </div>
 
+      {/* Billing & Usage */}
+      <div className="glass-card p-5">
+        <h3 className="text-sm font-medium mb-4 flex items-center gap-2"><Shield size={16} /> Billing & Usage</h3>
+        {usage ? (
+          <div className="space-y-3">
+            <div>
+              <div className="flex justify-between text-sm mb-1">
+                <span className="text-xorb-muted">Free Tier Usage</span>
+                <span>{usage.actions_used} / {usage.free_tier_limit}</span>
+              </div>
+              <div className="w-full bg-white/10 rounded-full h-2">
+                <div
+                  className="bg-xorb-blue rounded-full h-2 transition-all"
+                  style={{ width: `${Math.min(100, (usage.actions_used / usage.free_tier_limit) * 100)}%` }}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <span className="text-xorb-muted">Tier:</span>{' '}
+                <span className="font-medium capitalize">{usage.tier}</span>
+              </div>
+              <div>
+                <span className="text-xorb-muted">Fee Rate:</span>{' '}
+                <span className="font-medium">{usage.current_fee_rate_bps} bps</span>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-xorb-muted">Loading usage data...</p>
+        )}
+      </div>
+
+      {/* Wallet Status */}
+      <div className="glass-card p-5">
+        <h3 className="text-sm font-medium mb-4 flex items-center gap-2"><Wallet size={16} /> Wallet</h3>
+        {walletStatus ? (
+          <div className="space-y-2 text-sm">
+            <div className="flex items-center gap-2">
+              <div className={`w-2 h-2 rounded-full ${walletStatus.payment_ready ? 'bg-green-400' : 'bg-yellow-400'}`} />
+              <span>{walletStatus.payment_ready ? 'Payment Ready' : 'Setup Required'}</span>
+            </div>
+            {walletStatus.usdc_balance && (
+              <div><span className="text-xorb-muted">USDC Balance:</span> {walletStatus.usdc_balance}</div>
+            )}
+            {walletStatus.facilitator_allowance && (
+              <div><span className="text-xorb-muted">Allowance:</span> {walletStatus.facilitator_allowance}</div>
+            )}
+            {walletStatus.setup_required?.length > 0 && (
+              <div className="mt-2 p-3 bg-yellow-500/10 rounded-lg text-xs">
+                <p className="font-medium text-yellow-400 mb-1">Setup needed:</p>
+                <ul className="list-disc list-inside text-xorb-muted">
+                  {walletStatus.setup_required.map((s: string) => (
+                    <li key={s}>{s.replace(/_/g, ' ')}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        ) : (
+          <p className="text-sm text-xorb-muted">Loading wallet status...</p>
+        )}
+      </div>
+
+      {/* Notification Preferences */}
+      <div className="glass-card p-5">
+        <h3 className="text-sm font-medium mb-4 flex items-center gap-2"><Bell size={16} /> Notifications</h3>
+        <div className="space-y-3">
+          {Object.entries(notifications).map(([key, enabled]) => (
+            <label key={key} className="flex items-center justify-between">
+              <span className="text-sm capitalize">{key.replace(/_/g, ' ')}</span>
+              <button
+                onClick={() => setNotifications(n => ({ ...n, [key]: !n[key as keyof typeof n] }))}
+                className={`w-10 h-5 rounded-full transition-colors ${enabled ? 'bg-xorb-blue' : 'bg-white/20'}`}
+              >
+                <div className={`w-4 h-4 rounded-full bg-white transition-transform ${enabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
+              </button>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      {/* API Base URL */}
       <div className="glass-card p-5">
         <h3 className="text-sm font-medium mb-4">API Base URL</h3>
         <div className="text-sm font-mono text-xorb-muted bg-white/5 rounded-lg px-3 py-2">
           {import.meta.env.VITE_API_URL || 'https://api.xorb.xyz'}
+        </div>
+      </div>
+
+      {/* Danger Zone */}
+      <div className="glass-card p-5 border border-red-500/20">
+        <h3 className="text-sm font-medium mb-4 text-red-400 flex items-center gap-2"><Trash2 size={16} /> Danger Zone</h3>
+        <div className="flex gap-3">
+          <button
+            onClick={handleLogout}
+            className="px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg text-sm transition-colors"
+          >
+            Sign Out
+          </button>
         </div>
       </div>
     </div>

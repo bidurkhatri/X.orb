@@ -1,14 +1,17 @@
-name: Xorb Production Deployment
+name: Xorb Production CI/CD
 
 on:
   push:
     branches:
       - main
       - production
+  pull_request:
+    branches:
+      - main
 
 jobs:
-  lint-and-test:
-    name: Lint & Test
+  lint-typecheck-test:
+    name: Lint, Type Check & Test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
@@ -17,7 +20,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 8
+          version: 9
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -28,25 +31,26 @@ jobs:
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Lint Frontend
-        working-directory: ./xorb-blockchain-os
-        run: pnpm run lint
+      - name: TypeScript Type Check (agent-core)
+        working-directory: ./packages/agent-core
+        run: npx tsc --noEmit
 
-      - name: Run Vite Tests
-        working-directory: ./xorb-blockchain-os
+      - name: TypeScript Type Check (API)
+        working-directory: ./apps/api
+        run: npx tsc --noEmit
+
+      - name: Run Unit Tests (agent-core)
+        working-directory: ./packages/agent-core
         run: pnpm run test
 
-      - name: Compile Smart Contracts
-        working-directory: ./smart-contracts
-        run: pnpm exec hardhat compile
+      - name: Run API Tests
+        working-directory: ./apps/api
+        run: pnpm run test
+        env:
+          NODE_ENV: test
 
-      - name: Run Hardhat Tests
-        working-directory: ./smart-contracts
-        run: pnpm exec hardhat test
-
-  contract-deployment:
-    name: Deploy Contracts to Polygon
-    needs: lint-and-test
+  smart-contracts:
+    name: Compile & Test Contracts
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
@@ -55,7 +59,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 8
+          version: 9
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -63,37 +67,58 @@ jobs:
           node-version: '20.x'
           cache: 'pnpm'
 
-      - name: Install Dependencies and Deploy
-        working-directory: ./smart-contracts
-        run: |
-          pnpm install --frozen-lockfile
-          pnpm exec hardhat run scripts/deploy.js --network polygon
-        env:
-          POLYGON_PRIVATE_KEY: ${{ secrets.POLYGON_PRIVATE_KEY }}
-          POLYGON_RPC_URL: ${{ secrets.POLYGON_RPC_URL }}
+      - name: Install Dependencies
+        working-directory: ./xorb-contracts
+        run: pnpm install --frozen-lockfile
 
-  frontend-build-and-push:
-    name: Build & Push Frontend Docker Image
-    needs: lint-and-test
+      - name: Compile Smart Contracts
+        working-directory: ./xorb-contracts
+        run: pnpm exec hardhat compile
+
+      - name: Run Contract Tests
+        working-directory: ./xorb-contracts
+        run: pnpm exec hardhat test
+
+  dashboard-build:
+    name: Build Dashboard
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Login to Container Registry
-        uses: docker/login-action@v3
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          version: 9
 
-      - name: Build and Push Docker Image
-        uses: docker/build-push-action@v5
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          context: ./xorb-blockchain-os
-          push: true
-          tags: ghcr.io/${{ github.repository }}/xorb-web:latest
-          build-args: |
-            NEXT_PUBLIC_SUPABASE_URL=${{ secrets.SUPABASE_URL }}
-            NEXT_PUBLIC_POLYGON_RPC=${{ secrets.POLYGON_RPC_URL }}
+          node-version: '20.x'
+          cache: 'pnpm'
 
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build Dashboard
+        working-directory: ./apps/dashboard
+        run: pnpm run build
+        env:
+          VITE_API_URL: https://api.xorb.xyz
+
+  deploy:
+    name: Deploy to Vercel
+    needs: [lint-typecheck-test, smart-contracts, dashboard-build]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Deploy API to Vercel
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          vercel-args: '--prod'

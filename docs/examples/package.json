@@ -1,0 +1,22 @@
+{
+  "name": "xorb-basic-agent-example",
+  "version": "1.0.0",
+  "description": "Complete working example of an AI agent on the X.orb trust infrastructure platform",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx basic-agent.ts",
+    "build": "tsc",
+    "start:built": "node dist/basic-agent.js"
+  },
+  "dependencies": {
+    "@xorb/sdk": "^1.0.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.7.0",
+    "typescript": "^5.4.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

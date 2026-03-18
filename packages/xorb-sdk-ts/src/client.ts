@@ -15,6 +15,9 @@ export class XorbClient {
   public webhooks: WebhooksAPI
   public audit: AuditAPI
   public marketplace: MarketplaceAPI
+  public compliance: ComplianceAPI
+  public events: EventsAPI
+  public payments: PaymentsAPI
 
   constructor(config: XorbConfig) {
     this.baseUrl = config.apiUrl.replace(/\/$/, '')
@@ -27,30 +30,57 @@ export class XorbClient {
     this.webhooks = new WebhooksAPI(this)
     this.audit = new AuditAPI(this)
     this.marketplace = new MarketplaceAPI(this)
+    this.compliance = new ComplianceAPI(this)
+    this.events = new EventsAPI(this)
+    this.payments = new PaymentsAPI(this)
   }
 
-  async request<T>(method: string, path: string, body?: unknown): Promise<T> {
+  async request<T>(method: string, path: string, body?: unknown, retries = 3): Promise<T> {
     const url = `${this.baseUrl}${path}`
     const headers: Record<string, string> = {
       'x-api-key': this.apiKey,
       'Content-Type': 'application/json',
     }
 
-    const res = await fetch(url, {
-      method,
-      headers,
-      body: body ? JSON.stringify(body) : undefined,
-      signal: AbortSignal.timeout(this.timeout),
-    })
+    let lastError: Error | null = null
+    for (let attempt = 0; attempt < retries; attempt++) {
+      try {
+        const res = await fetch(url, {
+          method,
+          headers,
+          body: body ? JSON.stringify(body) : undefined,
+          signal: AbortSignal.timeout(this.timeout),
+        })
 
-    const data = await res.json()
+        const raw = await res.json()
 
-    if (!res.ok) {
-      const err = data as XorbError
-      throw new XorbAPIError(err.error || 'Request failed', res.status, err.request_id)
+        // Unwrap standard envelope: { success, data, error }
+        const envelope = raw as { success?: boolean; data?: unknown; error?: { code: string; message: string } }
+
+        if (!res.ok) {
+          const message = envelope.error?.message || (raw as XorbError).error || 'Request failed'
+          const apiError = new XorbAPIError(message, res.status, (raw as XorbError).request_id)
+          if (res.status < 500) throw apiError
+          lastError = apiError
+        } else {
+          // Unwrap: if response has { success, data }, return data; otherwise return raw
+          const result = envelope.success !== undefined && envelope.data !== undefined
+            ? envelope.data
+            : raw
+          return result as T
+        }
+      } catch (err) {
+        if (err instanceof XorbAPIError && err.status < 500) throw err
+        lastError = err instanceof Error ? err : new Error(String(err))
+      }
+
+      // Exponential backoff before retry
+      if (attempt < retries - 1) {
+        await new Promise(r => setTimeout(r, Math.pow(2, attempt) * 500))
+      }
     }
 
-    return data as T
+    throw lastError || new Error('Request failed after retries')
   }
 
   async health(): Promise<{ status: string; version: string }> {
@@ -95,21 +125,21 @@ class AgentsAPI {
     return this.client.request('GET', `/v1/agents/${agentId}`)
   }
 
-  async pause(agentId: string, callerAddress: string): Promise<{ agent: Agent }> {
-    return this.client.request('PATCH', `/v1/agents/${agentId}`, {
-      action: 'pause', caller_address: callerAddress,
-    })
+  async pause(agentId: string): Promise<{ agent: Agent }> {
+    return this.client.request('PATCH', `/v1/agents/${agentId}`, { action: 'pause' })
   }
 
-  async resume(agentId: string, callerAddress: string): Promise<{ agent: Agent }> {
-    return this.client.request('PATCH', `/v1/agents/${agentId}`, {
-      action: 'resume', caller_address: callerAddress,
-    })
+  async resume(agentId: string): Promise<{ agent: Agent }> {
+    return this.client.request('PATCH', `/v1/agents/${agentId}`, { action: 'resume' })
   }
 
-  async revoke(agentId: string, callerAddress: string): Promise<{ agent: Agent }> {
-    return this.client.request('DELETE', `/v1/agents/${agentId}`, {
-      caller_address: callerAddress,
+  async revoke(agentId: string): Promise<{ agent: Agent }> {
+    return this.client.request('DELETE', `/v1/agents/${agentId}`)
+  }
+
+  async renew(agentId: string, renewDays?: number): Promise<{ agent: Agent }> {
+    return this.client.request('PATCH', `/v1/agents/${agentId}`, {
+      action: 'renew', renew_days: renewDays || 30,
     })
   }
 }
@@ -168,10 +198,40 @@ class AuditAPI {
   }
 }
 
+class ComplianceAPI {
+  constructor(private client: XorbClient) {}
+
+  async report(agentId: string, format: 'eu-ai-act' | 'nist-ai-rmf' | 'soc2' = 'eu-ai-act'): Promise<unknown> {
+    return this.client.request('GET', `/v1/compliance/${agentId}?format=${format}`)
+  }
+
+  async frameworks(agentId: string): Promise<{ frameworks: Array<{ id: string; name: string; description: string }> }> {
+    return this.client.request('GET', `/v1/compliance/${agentId}/frameworks`)
+  }
+}
+
+class EventsAPI {
+  constructor(private client: XorbClient) {}
+
+  async list(opts?: { agent_id?: string; type?: string; since?: string; limit?: number }): Promise<{ events: unknown[]; count: number }> {
+    const query = new URLSearchParams()
+    if (opts?.agent_id) query.set('agent_id', opts.agent_id)
+    if (opts?.type) query.set('type', opts.type)
+    if (opts?.since) query.set('since', opts.since)
+    if (opts?.limit) query.set('limit', opts.limit.toString())
+    return this.client.request('GET', `/v1/events?${query}`)
+  }
+}
+
 class MarketplaceAPI {
   constructor(private client: XorbClient) {}
 
-  async createListing(params: { agent_id: string; rate_usdc_per_hour?: number; rate_usdc_per_action?: number; description: string }): Promise<unknown> {
+  async createListing(params: {
+    agent_id: string
+    price_per_unit: string  // BigInt as string (USDC, 6 decimals)
+    pricing_model: 'PerHour' | 'PerDay' | 'PerTask'
+    description: string
+  }): Promise<unknown> {
     return this.client.request('POST', '/v1/marketplace/listings', params)
   }
 
@@ -182,6 +242,40 @@ class MarketplaceAPI {
   async hire(listingId: string, escrowAmountUsdc: number): Promise<unknown> {
     return this.client.request('POST', '/v1/marketplace/hire', {
       listing_id: listingId, escrow_amount_usdc: escrowAmountUsdc,
+    })
+  }
+}
+
+class PaymentsAPI {
+  constructor(private client: XorbClient) {}
+
+  /** Get billing usage for the authenticated sponsor */
+  async usage(): Promise<unknown> {
+    return this.client.request('GET', '/v1/billing/usage')
+  }
+
+  /** Get wallet readiness status */
+  async walletStatus(): Promise<unknown> {
+    return this.client.request('GET', '/v1/billing/wallet-status')
+  }
+
+  /** Get payment history */
+  async history(opts?: { limit?: number; cursor?: string }): Promise<unknown> {
+    const query = new URLSearchParams()
+    if (opts?.limit) query.set('limit', opts.limit.toString())
+    if (opts?.cursor) query.set('cursor', opts.cursor)
+    return this.client.request('GET', `/v1/payments?${query}`)
+  }
+
+  /** Get payment receipt */
+  async receipt(actionId: string): Promise<unknown> {
+    return this.client.request('GET', `/v1/payments/${actionId}/receipt`)
+  }
+
+  /** Set spending caps */
+  async setSpendingCaps(daily?: string, monthly?: string): Promise<unknown> {
+    return this.client.request('PUT', '/v1/billing/spending-caps', {
+      daily_spend_cap_usdc: daily, monthly_spend_cap_usdc: monthly,
     })
   }
 }

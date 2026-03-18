@@ -7,5 +7,27 @@
   "rewrites": [
     { "source": "/v1/(.*)", "destination": "/api" },
     { "source": "/(.*)", "destination": "/api" }
+  ],
+  "crons": [
+    {
+      "path": "/v1/cron/settle-batch",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/v1/cron/decay",
+      "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/v1/cron/cleanup",
+      "schedule": "0 */6 * * *"
+    },
+    {
+      "path": "/v1/cron/treasury-mature",
+      "schedule": "0 * * * *"
+    },
+    {
+      "path": "/v1/cron/retry-refunds",
+      "schedule": "*/15 * * * *"
+    }
   ]
 }

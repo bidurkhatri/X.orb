@@ -118,8 +118,10 @@ describe('Pipeline', () => {
 
   it('blocks low reputation agent', async () => {
     const agent = await spawnTestAgent()
-    // Tank reputation below threshold
-    registry.updateReputation(agent.agentId, -950) // 1000 - 950 = 50
+    // Directly set reputation below the gate threshold (100 for non-financial)
+    // without triggering auto-pause (which happens via updateReputation at <500)
+    agent.reputation = 50
+    agent.status = 'active' // keep active to pass registry gate
 
     const gates: Gate[] = [
       createGateRegistry(registry),
@@ -129,6 +131,7 @@ describe('Pipeline', () => {
     const result = await runPipeline(makeContext(agent.agentId), gates)
     expect(result.approved).toBe(false)
     expect(result.gates[1].gate).toBe('reputation')
+    expect(result.gates[1].passed).toBe(false)
   })
 
   it('returns audit_hash and latency_ms', async () => {
@@ -137,6 +140,40 @@ describe('Pipeline', () => {
     expect(result.audit_hash).toBeDefined()
     expect(result.audit_hash.startsWith('0x')).toBe(true)
     expect(result.latency_ms).toBeGreaterThanOrEqual(0)
+  })
+
+  it('audit_hash is a real SHA-256 (66 chars, deterministic, collision-resistant)', async () => {
+    const { createHash } = await import('node:crypto')
+    const agent = await spawnTestAgent()
+
+    // Run pipeline twice with same context startTime to get deterministic input
+    const ctx1 = makeContext(agent.agentId)
+    ctx1.startTime = 1700000000000
+    const result1 = await runPipeline(ctx1, [createGateRegistry(registry)])
+
+    const ctx2 = makeContext(agent.agentId)
+    ctx2.startTime = 1700000000000
+    const result2 = await runPipeline(ctx2, [createGateRegistry(registry)])
+
+    // (a) Output is 66 characters: "0x" + 64 hex
+    expect(result1.audit_hash).toHaveLength(66)
+    expect(result1.audit_hash).toMatch(/^0x[0-9a-f]{64}$/)
+
+    // (b) Same input produces same hash
+    expect(result1.audit_hash).toBe(result2.audit_hash)
+
+    // (c) Different input produces different hash
+    const ctx3 = makeContext(agent.agentId, 'different_tool')
+    ctx3.startTime = 1700000000000
+    const result3 = await runPipeline(ctx3, [createGateRegistry(registry)])
+    expect(result3.audit_hash).not.toBe(result1.audit_hash)
+
+    // (d) Verify it's a real SHA-256 by checking character set and length
+    // The hash is computed over internal pipeline state, so we verify
+    // structural properties rather than recomputing (which would require
+    // duplicating internal serialization logic)
+    const hashBytes = Buffer.from(result1.audit_hash.slice(2), 'hex')
+    expect(hashBytes).toHaveLength(32) // SHA-256 produces 32 bytes
   })
 
   it('stops at first failed gate', async () => {

@@ -1,11 +1,11 @@
 import { AgentRegistryService } from '@xorb/agent-core'
-import type { DataStore, AgentRow, AgentUpsert, ActionInsert } from '@xorb/agent-core'
+import type { DataStore, AgentRow, AgentUpsert, ActionInsert, PaginationOptions, PaginatedResult } from '@xorb/agent-core'
 import { SupabaseDataStore } from '../adapters/supabase-store'
 
 // In-memory DataStore for development
 class InMemoryDataStore implements DataStore {
   private agents = new Map<string, AgentRow>()
-  private actions: ActionInsert[] = []
+  private actions: (ActionInsert & { created_at: string })[] = []
 
   async fetchAgent(id: string): Promise<AgentRow | null> {
     return this.agents.get(id) || null
@@ -33,11 +33,17 @@ class InMemoryDataStore implements DataStore {
   }
 
   async insertAction(action: ActionInsert): Promise<void> {
-    this.actions.push(action)
+    this.actions.push({ ...action, created_at: new Date().toISOString() })
   }
 
-  async fetchAgentActions(agentId: string, limit = 100): Promise<ActionInsert[]> {
-    return this.actions.filter(a => a.agent_id === agentId).slice(-limit)
+  async fetchAgentActions(agentId: string, opts?: PaginationOptions): Promise<PaginatedResult<ActionInsert>> {
+    const limit = opts?.limit || 100
+    let filtered = this.actions.filter(a => a.agent_id === agentId)
+    if (opts?.cursor) {
+      filtered = filtered.filter(a => a.created_at < opts.cursor!)
+    }
+    const pageData = filtered.slice(-limit)
+    return { data: pageData, has_more: false }
   }
 }
 
@@ -48,6 +54,17 @@ function createDataStore(): DataStore {
   if (supabaseUrl && supabaseKey) {
     console.log('[Registry] Using Supabase DataStore')
     return new SupabaseDataStore(supabaseUrl, supabaseKey)
+  }
+
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('FATAL: Supabase configuration missing in production. Set SUPABASE_URL and SUPABASE_SERVICE_KEY.')
+  }
+
+  if (supabaseUrl && !supabaseKey) {
+    console.warn('[Registry] WARNING: SUPABASE_URL set but SUPABASE_SERVICE_KEY missing — falling back to in-memory')
+  }
+  if (!supabaseUrl && supabaseKey) {
+    console.warn('[Registry] WARNING: SUPABASE_SERVICE_KEY set but SUPABASE_URL missing — falling back to in-memory')
   }
 
   console.log('[Registry] Using in-memory DataStore (set SUPABASE_URL + SUPABASE_SERVICE_KEY for persistence)')
