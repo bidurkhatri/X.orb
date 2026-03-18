@@ -439,14 +439,10 @@ async function validateApiKey(key: string | undefined): Promise<{ valid: boolean
   const sb = getSupabase()
   if (!sb) return { valid: key.startsWith('xorb_'), wallet: '0x' + '0'.repeat(40) } // Fallback in dev
   const hash = createHash('sha256').update(key).digest('hex')
-  // Support both old schema (sponsor_wallet, revoked_at) and new schema (owner_address, is_active)
-  const { data } = await sb.from('api_keys').select('sponsor_wallet, owner_address, is_active, revoked_at').eq('key_hash', hash).single()
-  if (data) {
-    // Check if key is active (new schema) or not revoked (old schema)
-    const isActive = data.is_active !== false && !data.revoked_at
-    if (!isActive) return { valid: false }
+  const { data } = await sb.from('api_keys').select('owner_address, is_active').eq('key_hash', hash).single()
+  if (data && data.is_active !== false) {
     await sb.from('api_keys').update({ last_used_at: new Date().toISOString() }).eq('key_hash', hash)
-    return { valid: true, wallet: data.owner_address || data.sponsor_wallet }
+    return { valid: true, wallet: data.owner_address }
   }
   return { valid: false }
 }
