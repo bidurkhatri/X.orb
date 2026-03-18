@@ -44,12 +44,14 @@ However, the production API still runs the old monolithic `api/index.ts` (becaus
 
 - **PASS** — v0.5.1, minimal info, no leaks
 
-### API Integrations (api.xorb.xyz/v1/integrations) — 2 ISSUES
+### API Integrations (api.xorb.xyz/v1/integrations) — 1 ISSUE
 
 - **PASS** — MoltGuard replaces AgentScore, Xorb Escrow replaces PayCrow
-- **PASS** — ActionVerifier shows as deployed (`0x463...057`)
-- **FAIL** — AgentRegistry and SlashingEngine show "not configured" (env vars not set in Vercel)
-- **FAIL** — Leaks `smart_contracts.missing` env var names and RPC URL to public
+- **PASS** — ActionVerifier shows as active (`0x463...057`)
+- **PASS** — AgentRegistry shows as active (`0x2a7...c7`) — env var added
+- **PASS** — SlashingEngine shows as active (`0xA64...625`) — env var added
+- **PASS** — `missing: []` — no more missing env vars
+- **FAIL** — Still leaks `signer: false` and `rpc` URL to public
 
 ### API Pricing (api.xorb.xyz/v1/pricing) — 3 ISSUES
 
@@ -105,8 +107,8 @@ However, the production API still runs the old monolithic `api/index.ts` (becaus
 |---|---------|----------|--------|
 | 3 | **Pricing shows free tier 1000, should be 500** | `api/index.ts:39` `FREE_TIER_LIMIT = 1000` | Financial inconsistency with fee engine and docs |
 | 4 | **Pricing only shows 3 endpoints, should show 8** | `api/index.ts` pricing route | Developers see incomplete pricing |
-| 5 | **2 contract addresses not set in Vercel** | Vercel env vars | `AGENT_REGISTRY_ADDRESS`, `SLASHING_ENGINE_ADDRESS` show "not configured" |
-| 6 | **`/v1/integrations` leaks missing env vars + RPC URL** | `api/index.ts` integrations route | Competitors see infrastructure gaps |
+| 5 | ~~2 contract addresses not set in Vercel~~ | ~~Vercel env vars~~ | **FIXED** — all 3 contracts now show "active" |
+| 6 | **`/v1/integrations` leaks `signer` status + RPC URL** | `api/index.ts` integrations route | Minor info exposure |
 
 ### MEDIUM
 
