@@ -996,16 +996,18 @@ export default async function handler(req: any, res: any) {
   }
 
   // ─── GET /v1/events ───
-  if (req.method === 'GET' && path.match(/\/events\/?$/) && !path.includes('stream')) {
+  if (req.method === 'GET' && path.match(/\/events\/?(\?|$)/) && !path.includes('stream')) {
     const url = new URL(`http://x${req.url}`)
     const since = url.searchParams.get('since')
+    const agentId = url.searchParams.get('agent_id')
     const limit = parseInt(url.searchParams.get('limit') || '100')
     let events = store.events || []
+    if (agentId) events = events.filter((e: any) => e.agentId === agentId)
     if (since) {
       const sinceTime = new Date(since).getTime()
       events = events.filter((e: any) => new Date(e.timestamp).getTime() > sinceTime)
     }
-    return res.json({ events: events.slice(-limit), count: Math.min(events.length, limit) })
+    return res.json({ success: true, data: events.slice(-limit), count: Math.min(events.length, limit) })
   }
 
   // ─── GET /v1/events/stream (long-poll) ───
