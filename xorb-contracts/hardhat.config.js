@@ -35,7 +35,7 @@ module.exports = {
       url: process.env.POLYGON_RPC_URL || "https://polygon-rpc.com",
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
       chainId: 137,
-      gasPrice: 50000000000, // 50 gwei
+      gasPrice: 150000000000, // 150 gwei (Polygon mainnet requires ~120+ gwei)
     },
     // Sepolia testnet — for Ethereum L1 testing
     sepolia: {
@@ -57,10 +57,9 @@ module.exports = {
     },
   },
   etherscan: {
-    apiKey: {
-      polygon: process.env.POLYGONSCAN_API_KEY || "",
-      polygonAmoy: process.env.POLYGONSCAN_API_KEY || "",
-      sepolia: process.env.ETHERSCAN_API_KEY || "",
-    },
+    apiKey: process.env.POLYGONSCAN_API_KEY || "",
+  },
+  sourcify: {
+    enabled: false,
   },
 };
