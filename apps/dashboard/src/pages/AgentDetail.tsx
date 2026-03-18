@@ -1,8 +1,10 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, Pause, Play, XCircle } from 'lucide-react'
+import { toast } from 'sonner'
 import { PageHeader } from '../components/layout/PageHeader'
 import { MetricCard } from '../components/glass/MetricCard'
+import { CardGridSkeleton } from '../components/ui/Skeleton'
 import { api } from '../lib/api'
 
 export function AgentDetail() {
@@ -26,23 +28,40 @@ export function AgentDetail() {
 
   const pauseMutation = useMutation({
     mutationFn: () => api.agents.pause(id!, agentData?.agent?.sponsorAddress || ''),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['agent', id] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['agent', id] })
+      toast.success('Agent paused')
+    },
+    onError: (err: Error) => toast.error(err.message || 'Failed to pause agent'),
   })
 
   const resumeMutation = useMutation({
     mutationFn: () => api.agents.resume(id!, agentData?.agent?.sponsorAddress || ''),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['agent', id] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['agent', id] })
+      toast.success('Agent resumed')
+    },
+    onError: (err: Error) => toast.error(err.message || 'Failed to resume agent'),
   })
 
   const revokeMutation = useMutation({
     mutationFn: () => api.agents.revoke(id!, agentData?.agent?.sponsorAddress || ''),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['agent', id] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['agent', id] })
+      toast.success('Agent revoked')
+    },
+    onError: (err: Error) => toast.error(err.message || 'Failed to revoke agent'),
   })
 
   const agent = agentData?.agent
   const audit = auditData
 
-  if (isLoading) return <div className="text-xorb-muted p-8">Loading agent...</div>
+  if (isLoading) return (
+    <div className="space-y-6">
+      <div className="h-8 w-32 animate-pulse bg-white/10 rounded" />
+      <CardGridSkeleton count={4} />
+    </div>
+  )
   if (!agent) return <div className="text-xorb-muted p-8">Agent not found.</div>
 
   const bondUsdc = (parseInt(agent.stakeBond || '0') / 1_000_000).toFixed(2)

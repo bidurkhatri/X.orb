@@ -21,6 +21,8 @@ import {
   insertPlatformEvent,
   insertReputationRecord,
   insertSlashingRecord,
+  getReputationHistory,
+  getSlashingRecords,
 } from '../adapters/supabase-services'
 import { anchorAuditHashOnChain, slashAgentOnChain } from './contracts'
 import { getPaymentService } from './payments'
@@ -45,6 +47,22 @@ let webhookService: WebhookService | null = null
 export function getReputationEngine(): ReputationEngine {
   if (!reputationEngine) reputationEngine = new ReputationEngine()
   return reputationEngine
+}
+
+/**
+ * Hydrate the in-memory ReputationEngine for a specific agent from Supabase.
+ * Called before pipeline runs to ensure cold-started instances have correct scores.
+ */
+async function hydrateReputationForAgent(agentId: string): Promise<void> {
+  const engine = getReputationEngine()
+  if (engine.getSnapshot(agentId)) return // already loaded
+
+  const registry = await getRegistry()
+  const agent = registry.getAgent(agentId)
+  if (agent) {
+    // Initialize from the registry's persisted reputation score
+    engine.initAgent(agentId, agent.reputation)
+  }
 }
 
 export function getSlashingService(): SlashingService {
@@ -81,6 +99,9 @@ export async function runPipeline(
   const slashing = getSlashingService()
   const events = getEventBus()
 
+  // Hydrate reputation from persisted registry data on cold start
+  await hydrateReputationForAgent(agentId)
+
   const gates = [
     createGateRegistry(registry),
     createGatePermissions(),
@@ -105,10 +126,10 @@ export async function runPipeline(
 
   if (result.approved) {
     // Success path
-    registry.recordAction(agentId)
+    await registry.recordAction(agentId)
     const repEvent = reputation.recordSuccess(agentId, result.action_id)
     result.reputation_delta = repEvent.pointsDelta
-    registry.updateReputation(agentId, repEvent.pointsDelta)
+    await registry.updateReputation(agentId, repEvent.pointsDelta)
 
     // Persist reputation change to Supabase
     const agent = registry.getAgent(agentId)
@@ -143,15 +164,13 @@ export async function runPipeline(
       payload: { action, tool, latency_ms: result.latency_ms, reputation_delta: result.reputation_delta },
     }).catch(e => console.error('[Pipeline] Event persist failed:', e))
 
-    // Optional: Anchor audit hash on-chain (non-blocking)
-    if (process.env.ENABLE_ONCHAIN_ANCHORING === 'true') {
+    // Anchor audit hash on-chain (non-blocking, gracefully skipped if contracts not configured)
+    if (process.env.ENABLE_ONCHAIN_ANCHORING !== 'false') {
       anchorAuditHashOnChain({
         agentId,
         auditHash: result.audit_hash,
         actionId: result.action_id,
-      }).then(txHash => {
-        if (txHash) console.log(`[Pipeline] Audit hash anchored on-chain: ${txHash}`)
-      }).catch(e => console.error('[Pipeline] On-chain anchoring failed:', e))
+      }).catch(e => console.error('[Pipeline] On-chain anchoring failed (non-blocking):', e))
     }
 
     // Post-pipeline payment settlement: split fee to treasury, forward net to recipient
@@ -159,8 +178,11 @@ export async function runPipeline(
       const payments = getPaymentService()
       try {
         if (payments.isConfigured() && !paymentCtx.feeExempt) {
+          // Forward net amount back to the payer (sponsor) after fee deduction.
+          // In marketplace escrow flows, this would be the escrow contract address instead.
+          const recipientAddress = paymentCtx.payerAddress
           const { feeTxHash, forwardTxHash } = await payments.splitAndForward(
-            '', // recipient (sponsor address or escrow — could be configurable)
+            recipientAddress,
             paymentCtx.grossAmount,
             paymentCtx.feeAmount,
           )
@@ -193,7 +215,7 @@ export async function runPipeline(
     const failedGate = result.gates.find(g => !g.passed)
     const repEvent = reputation.recordFailure(agentId, result.action_id)
     result.reputation_delta = repEvent.pointsDelta
-    registry.updateReputation(agentId, repEvent.pointsDelta)
+    await registry.updateReputation(agentId, repEvent.pointsDelta)
 
     // Check if this failure warrants slashing
     const agent = registry.getAgent(agentId)

@@ -1,7 +1,8 @@
+import { useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, Bot, Zap, Store, Shield, Webhook,
-  CreditCard, Settings, Activity, LogOut
+  CreditCard, Settings, Activity, LogOut, Menu, X
 } from 'lucide-react'
 
 const navItems = [
@@ -17,17 +18,18 @@ const navItems = [
 
 export function Sidebar() {
   const navigate = useNavigate()
+  const [mobileOpen, setMobileOpen] = useState(false)
 
   const handleLogout = () => {
     sessionStorage.removeItem('xorb_api_key')
     navigate('/login')
   }
 
-  return (
-    <aside className="glass-sidebar w-[220px] flex flex-col h-screen shrink-0">
+  const sidebarContent = (
+    <>
       <div className="p-5 border-b border-white/10">
         <div className="flex items-center gap-2.5">
-          <img src="/logo.png" alt="X.orb" className="w-8 h-8 object-contain invert" />
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-sm">X</div>
           <span className="font-semibold text-lg tracking-tight">X.orb</span>
         </div>
         <p className="text-[10px] text-xorb-muted mt-1.5 tracking-wide uppercase">Agent Trust Infrastructure</p>
@@ -38,6 +40,7 @@ export function Sidebar() {
           <NavLink
             key={to}
             to={to}
+            onClick={() => setMobileOpen(false)}
             className={({ isActive }) =>
               `flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
                 isActive
@@ -71,6 +74,39 @@ export function Sidebar() {
           Sign Out
         </button>
       </div>
-    </aside>
+    </>
+  )
+
+  return (
+    <>
+      {/* Mobile hamburger button */}
+      <button
+        onClick={() => setMobileOpen(true)}
+        className="md:hidden fixed top-4 left-4 z-50 p-2 bg-white/10 backdrop-blur rounded-lg hover:bg-white/20 transition-colors"
+      >
+        <Menu size={20} />
+      </button>
+
+      {/* Mobile overlay */}
+      {mobileOpen && (
+        <div className="md:hidden fixed inset-0 z-40">
+          <div className="absolute inset-0 bg-black/60" onClick={() => setMobileOpen(false)} />
+          <aside className="glass-sidebar w-[220px] flex flex-col h-screen shrink-0 relative z-50">
+            <button
+              onClick={() => setMobileOpen(false)}
+              className="absolute top-4 right-4 p-1 text-xorb-muted hover:text-white"
+            >
+              <X size={18} />
+            </button>
+            {sidebarContent}
+          </aside>
+        </div>
+      )}
+
+      {/* Desktop sidebar */}
+      <aside className="hidden md:flex glass-sidebar w-[220px] flex-col h-screen shrink-0">
+        {sidebarContent}
+      </aside>
+    </>
   )
 }

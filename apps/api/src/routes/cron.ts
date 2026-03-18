@@ -85,8 +85,11 @@ cronRouter.post('/cleanup', async (c) => {
   const cronSecret = process.env.CRON_SECRET
   const authHeader = c.req.header('authorization')
 
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    return err(c, 'unauthorized', 'Unauthorized', 401)
+  if (!cronSecret) {
+    return err(c, 'cron_secret_missing', 'CRON_SECRET not configured. Cron endpoints are disabled.', 500)
+  }
+  if (authHeader !== `Bearer ${cronSecret}`) {
+    return err(c, 'unauthorized', 'Unauthorized — invalid CRON_SECRET', 401)
   }
 
   const registry = await getRegistry()

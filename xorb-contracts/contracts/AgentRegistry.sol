@@ -62,7 +62,7 @@ contract AgentRegistry is AccessControl, ReentrancyGuard, Pausable {
     address public reputationContract;           // ReputationScore.sol address
     address public slashingContract;             // SlashingEngine.sol address
 
-    uint256 public minStakeBond = 100 * 10**18;  // 100 USDC minimum
+    uint256 public minStakeBond = 100 * 10**6;   // 100 USDC minimum (USDC has 6 decimals)
     uint256 public maxAgentsPerSponsor = 10;
     uint256 public nextAgentNonce;
 

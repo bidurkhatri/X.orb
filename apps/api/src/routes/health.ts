@@ -1,7 +1,14 @@
 import { Hono } from 'hono'
 import { createClient } from '@supabase/supabase-js'
+import { createHash } from 'node:crypto'
 
 export const healthRouter = new Hono()
+
+function getSupabaseConfig() {
+  const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL
+  const key = process.env.SUPABASE_SERVICE_KEY || process.env.VITE_SUPABASE_ANON_KEY
+  return url && key ? { url, key } : null
+}
 
 // GET /v1/health — Public health check.
 // CRITICAL: Do NOT expose auth status, contract config, env vars, or agent counts.
@@ -19,31 +26,39 @@ healthRouter.get('/', (c) => {
 })
 
 // GET /v1/health/deep — Authenticated deep health check.
-// Only returns detailed status to authenticated requests with admin privileges.
-// For unauthenticated requests, returns same as basic health.
+// Requires a valid API key (verified against Supabase). Returns basic health if invalid.
 healthRouter.get('/deep', async (c) => {
   const apiKey = c.req.header('x-api-key')
+  const basicResponse = {
+    status: 'ok',
+    service: 'xorb-api',
+    version: '0.5.0',
+    timestamp: new Date().toISOString(),
+  }
 
-  // If no auth, return basic health only
-  if (!apiKey) {
-    return c.json({
-      status: 'ok',
-      service: 'xorb-api',
-      version: '0.5.0',
-      timestamp: new Date().toISOString(),
-    })
+  // If no auth or invalid format, return basic health only
+  if (!apiKey || !apiKey.startsWith('xorb_')) {
+    return c.json(basicResponse)
+  }
+
+  // Validate the API key against Supabase before returning detailed info
+  const sbConfig = getSupabaseConfig()
+  if (sbConfig) {
+    const sb = createClient(sbConfig.url, sbConfig.key)
+    const keyHash = createHash('sha256').update(apiKey).digest('hex')
+    const { data } = await sb.from('api_keys').select('is_active').eq('key_hash', keyHash).single()
+    if (!data || !data.is_active) {
+      return c.json(basicResponse)
+    }
   }
 
   const checks: Record<string, { status: string; latency_ms?: number }> = {}
 
   // Check Supabase connectivity
   const sbStart = Date.now()
-  const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL
-  const supabaseKey = process.env.SUPABASE_SERVICE_KEY || process.env.VITE_SUPABASE_ANON_KEY
-
-  if (supabaseUrl && supabaseKey) {
+  if (sbConfig) {
     try {
-      const sb = createClient(supabaseUrl, supabaseKey)
+      const sb = createClient(sbConfig.url, sbConfig.key)
       const { error } = await sb.from('agent_registry').select('agent_id', { count: 'exact', head: true })
       checks.persistence = {
         status: error ? 'degraded' : 'ok',

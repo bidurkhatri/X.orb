@@ -5,6 +5,7 @@ import type { Env } from '../app'
 import { getRegistry } from '../services/registry'
 import { authorizeSponsor } from '../middleware/auth'
 import { ok, err } from '../lib/response'
+import { registerAgentOnChain } from '../services/contracts'
 
 const createAgentSchema = z.object({
   name: z.string().min(2).max(64),
@@ -29,6 +30,18 @@ agentsRouter.post('/', zValidator('json', createAgentSchema), async (c) => {
     name: body.name, role: body.role, sponsorAddress: body.sponsor_address,
     stakeBond: body.stake_bond, expiryDays: body.expiry_days, description: body.description,
   })
+
+  // Non-blocking: register agent on-chain if contracts are configured
+  const roleIndex = ['TRADER', 'RESEARCHER', 'MONITOR', 'CODER', 'GOVERNANCE_ASSISTANT', 'FILE_INDEXER', 'RISK_AUDITOR'].indexOf(body.role)
+  registerAgentOnChain({
+    name: agent.name,
+    role: roleIndex >= 0 ? roleIndex : 0,
+    stakeBond: agent.stakeBond,
+    permissionHash: JSON.stringify(agent.permissionScope),
+    expiresAt: agent.expiresAt ? Math.floor(agent.expiresAt / 1000) : 0,
+    sessionWallet: agent.sessionWalletAddress,
+  }).catch(e => console.error('[Agents] On-chain registration failed (non-blocking):', e))
+
   return ok(c, { agent }, 201)
 })
 

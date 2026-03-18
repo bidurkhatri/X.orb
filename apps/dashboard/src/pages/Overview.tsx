@@ -85,9 +85,9 @@ export function Overview() {
           <div className="space-y-3">
             {[
               { name: 'ERC-8004', role: 'Identity', status: 'connected', color: 'text-orange-400' },
-              { name: 'AgentScore', role: 'Trust Scoring', status: 'available', color: 'text-purple-400' },
+              { name: 'DJD Agent Score', role: 'Trust Scoring', status: 'available', color: 'text-purple-400' },
               { name: 'x402', role: 'Payments', status: 'available', color: 'text-blue-400' },
-              { name: 'PayCrow', role: 'Escrow', status: 'available', color: 'text-green-400' },
+              { name: 'Xorb Escrow', role: 'Escrow', status: 'available', color: 'text-green-400' },
             ].map(svc => (
               <div key={svc.name} className="flex items-center justify-between">
                 <div className="flex items-center gap-2">

@@ -172,7 +172,7 @@ export class AgentRegistryService {
     return { allowed: true }
   }
 
-  updateReputation(agentId: string, delta: number): void {
+  async updateReputation(agentId: string, delta: number): Promise<void> {
     const agent = this.agents.get(agentId)
     if (!agent) return
     agent.reputation = Math.max(0, Math.min(10000, agent.reputation + delta))
@@ -181,13 +181,17 @@ export class AgentRegistryService {
       agent.status = 'paused'
     }
     if (delta < 0) agent.slashEvents++
+    // Persist updated agent to DataStore
+    await this.store.upsertAgent(this.toUpsert(agent))
   }
 
-  recordAction(agentId: string): void {
+  async recordAction(agentId: string): Promise<void> {
     const agent = this.agents.get(agentId)
     if (!agent) return
     agent.totalActionsExecuted++
     agent.lastActiveAt = Date.now()
+    // Persist updated agent to DataStore
+    await this.store.upsertAgent(this.toUpsert(agent))
   }
 
   getAgent(agentId: string): RegisteredAgent | undefined {

@@ -4,12 +4,16 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>X.orb — The orchestration layer for AI agent trust</title>
-  <meta name="description" content="One API call. 8 gates. 4 integrations. X.orb orchestrates ERC-8004, AgentScore, x402, and PayCrow into a single security pipeline for AI agents.">
+  <meta name="description" content="One API call. 8 gates. 4 integrations. X.orb orchestrates ERC-8004, DJD Agent Score, x402, and native escrow into a single security pipeline for AI agents.">
   <meta property="og:title" content="X.orb — The orchestration layer for AI agent trust">
   <meta property="og:description" content="One API call. 8 gates. 4 integrations. Identity, permissions, payments, trust scoring, and escrow — orchestrated.">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://xorb.xyz">
   <meta name="twitter:card" content="summary_large_image">
+  <meta property="og:image" content="https://xorb.xyz/og-image.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta name="twitter:image" content="https://xorb.xyz/og-image.png" />
   <meta name="theme-color" content="#0A0A0A">
   <link rel="icon" type="image/png" href="/favicon.png">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -78,22 +82,37 @@
       .hero p { font-size: 16px; }
       .gates { grid-template-columns: 1fr 1fr; }
     }
+
+    @media (max-width: 480px) {
+      .hero h1 { font-size: 24px; }
+      .hero p { font-size: 14px; }
+      .gates { grid-template-columns: 1fr; }
+      .int-grid { grid-template-columns: 1fr; }
+      pre { font-size: 11px; padding: 16px; }
+      .hero-cta { flex-direction: column; align-items: center; }
+      .btn { width: 100%; justify-content: center; }
+    }
   </style>
 </head>
 <body>
   <div class="container">
     <!-- Hero -->
+    <header>
     <section class="hero">
       <div class="live-badge"><div class="live-dot"></div> API Live</div>
       <h1>The orchestration layer<br>for <span>AI agent trust</span></h1>
-      <p>One API call. 8 gates. 4 integrations. X.orb orchestrates ERC-8004, AgentScore, x402, and PayCrow into a single security pipeline.</p>
+      <p>One API call. 8 gates. 4 integrations. X.orb orchestrates ERC-8004, DJD Agent Score, x402, and native escrow into a single security pipeline.</p>
+      <nav>
       <div class="hero-cta">
-        <a href="https://api.xorb.xyz/v1/health" class="btn btn-primary" target="_blank">Try the API</a>
-        <a href="https://dashboard.xorb.xyz" class="btn btn-secondary" target="_blank">Dashboard</a>
-        <a href="https://github.com/bidurkhatri/X.orb" class="btn btn-secondary" target="_blank">GitHub</a>
+        <a href="https://api.xorb.xyz/v1/health" class="btn btn-primary" target="_blank" rel="noopener noreferrer">Try the API</a>
+        <a href="https://dashboard.xorb.xyz" class="btn btn-secondary" target="_blank" rel="noopener noreferrer">Dashboard</a>
+        <a href="https://github.com/bidurkhatri/X.orb" class="btn btn-secondary" target="_blank" rel="noopener noreferrer">GitHub</a>
       </div>
+      </nav>
     </section>
+    </header>
 
+    <main>
     <!-- Pipeline -->
     <section class="pipeline">
       <h2>The 8-Gate Pipeline</h2>
@@ -132,7 +151,7 @@
           <div class="gate-num">Gate 6</div>
           <div class="gate-name">Trust Score</div>
           <div class="gate-desc">Aggregated reputation check</div>
-          <div class="gate-powered">AgentScore</div>
+          <div class="gate-powered">DJD Agent Score</div>
         </div>
         <div class="gate">
           <div class="gate-num">Gate 7</div>
@@ -144,7 +163,7 @@
           <div class="gate-num">Gate 8</div>
           <div class="gate-name">Escrow</div>
           <div class="gate-desc">Payment protection</div>
-          <div class="gate-powered">PayCrow</div>
+          <div class="gate-powered">Xorb Escrow</div>
         </div>
       </div>
     </section>
@@ -155,7 +174,7 @@
       <pre><code><span class="comment">// Execute action through 8-gate pipeline</span>
 <span class="keyword">const</span> result = <span class="keyword">await</span> fetch(<span class="string">'https://api.xorb.xyz/v1/actions/execute'</span>, {
   method: <span class="string">'POST'</span>,
-  headers: { <span class="string">'Content-Type'</span>: <span class="string">'application/json'</span> },
+  headers: { <span class="string">'Content-Type'</span>: <span class="string">'application/json'</span>, <span class="string">'x-api-key'</span>: <span class="string">'xorb_sk_...'</span> },
   body: JSON.stringify({
     agent_id: <span class="string">'agent_alpha'</span>,
     action: <span class="string">'query'</span>,
@@ -173,24 +192,25 @@
       <h2>Orchestrates, doesn't replace</h2>
       <p class="sub">X.orb is the glue between the services that power the agent economy.</p>
       <div class="int-grid">
-        <a href="https://eips.ethereum.org/EIPS/eip-8004" class="int-card" target="_blank">
+        <a href="https://eips.ethereum.org/EIPS/eip-8004" class="int-card" target="_blank" rel="noopener noreferrer">
           <div class="int-name">ERC-8004</div>
           <div class="int-role">On-chain Identity</div>
         </a>
-        <a href="https://agentscore.dev" class="int-card" target="_blank">
-          <div class="int-name">AgentScore</div>
-          <div class="int-role">Trust Scoring</div>
+        <a href="https://www.djdlabs.xyz" class="int-card" target="_blank" rel="noopener noreferrer">
+          <div class="int-name">DJD Agent Score</div>
+          <div class="int-role">Trust Scoring (0-100)</div>
         </a>
-        <a href="https://x402.org" class="int-card" target="_blank">
+        <a href="https://x402.org" class="int-card" target="_blank" rel="noopener noreferrer">
           <div class="int-name">x402</div>
           <div class="int-role">Micropayments</div>
         </a>
-        <a href="https://paycrow.xyz" class="int-card" target="_blank">
-          <div class="int-name">PayCrow</div>
-          <div class="int-role">Escrow</div>
+        <a href="https://polygonscan.com/address/0xEAbf85Bf2AE49aFdA531631E8bba219f6e62bF6c" class="int-card" target="_blank" rel="noopener noreferrer">
+          <div class="int-name">Xorb Escrow</div>
+          <div class="int-role">Native Escrow</div>
         </a>
       </div>
     </section>
+    </main>
 
     <!-- Footer -->
     <footer class="footer">
@@ -199,8 +219,9 @@
         <a href="https://dashboard.xorb.xyz">Dashboard</a>
         <a href="https://github.com/bidurkhatri/X.orb">GitHub</a>
         <a href="https://api.xorb.xyz/v1/integrations">Integrations</a>
+        <a href="https://api.xorb.xyz/v1/pricing">Pricing</a>
       </div>
-      <div class="footer-copy">X.orb — Fintex / Bidur. The orchestration layer for AI agent trust.</div>
+      <div class="footer-copy">X.orb — Fintex Australia Pty Ltd. The orchestration layer for AI agent trust.</div>
     </footer>
   </div>
 </body>

@@ -1,12 +1,26 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Search, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Plus, Search, ChevronLeft, ChevronRight, Download } from 'lucide-react'
 import { useState, useMemo } from 'react'
+import { toast } from 'sonner'
 import { PageHeader } from '../components/layout/PageHeader'
 import { GlassTable } from '../components/glass/GlassTable'
+import { TableSkeleton, ButtonSpinner } from '../components/ui/Skeleton'
 import { api } from '../lib/api'
 
 const PAGE_SIZE = 20
+
+function downloadCSV(data: any[], filename: string) {
+  if (!data.length) return
+  const headers = Object.keys(data[0]).join(',')
+  const rows = data.map(row => Object.values(row).map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))
+  const csv = [headers, ...rows].join('\n')
+  const blob = new Blob([csv], { type: 'text/csv' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url; a.download = filename; a.click()
+  URL.revokeObjectURL(url)
+}
 
 export function Agents() {
   const navigate = useNavigate()
@@ -28,6 +42,10 @@ export function Agents() {
       queryClient.invalidateQueries({ queryKey: ['agents'] })
       setShowCreate(false)
       setForm({ name: '', role: 'RESEARCHER', sponsor_address: '', description: '' })
+      toast.success('Agent registered successfully')
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || 'Failed to register agent')
     },
   })
 
@@ -103,12 +121,21 @@ export function Agents() {
         title="Agents"
         description={`${filteredAgents.length}${searchQuery ? ` of ${agents.length}` : ''} registered`}
         action={
-          <button
-            onClick={() => setShowCreate(!showCreate)}
-            className="flex items-center gap-2 px-4 py-2 bg-xorb-blue hover:bg-xorb-blue-hover rounded-lg text-sm font-medium transition-colors"
-          >
-            <Plus size={16} /> Register Agent
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => downloadCSV(filteredAgents, 'xorb-agents.csv')}
+              disabled={filteredAgents.length === 0}
+              className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+            >
+              <Download size={16} /> Export CSV
+            </button>
+            <button
+              onClick={() => setShowCreate(!showCreate)}
+              className="flex items-center gap-2 px-4 py-2 bg-xorb-blue hover:bg-xorb-blue-hover rounded-lg text-sm font-medium transition-colors"
+            >
+              <Plus size={16} /> Register Agent
+            </button>
+          </div>
         }
       />
 
@@ -142,11 +169,14 @@ export function Agents() {
             </div>
           </div>
           <div className="flex gap-2">
-            <button onClick={() => createMutation.mutate()}
-              disabled={createMutation.isPending || !form.name || !form.sponsor_address}
-              className="px-4 py-2 bg-xorb-blue hover:bg-xorb-blue-hover rounded-lg text-sm font-medium transition-colors disabled:opacity-50">
-              {createMutation.isPending ? 'Creating...' : 'Create Agent'}
-            </button>
+            <ButtonSpinner
+              onClick={() => createMutation.mutate()}
+              loading={createMutation.isPending}
+              disabled={!form.name || !form.sponsor_address}
+              className="px-4 py-2 bg-xorb-blue hover:bg-xorb-blue-hover rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+            >
+              Create Agent
+            </ButtonSpinner>
             <button onClick={() => setShowCreate(false)} className="px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg text-sm transition-colors">
               Cancel
             </button>
@@ -171,12 +201,16 @@ export function Agents() {
         </div>
       </div>
 
-      <GlassTable
-        columns={columns}
-        data={paginatedAgents}
-        onRowClick={(a: any) => navigate(`/agents/${a.agentId}`)}
-        emptyMessage={isLoading ? 'Loading agents...' : searchQuery ? 'No agents match your search.' : "No agents registered yet. Click 'Register Agent' to create your first agent."}
-      />
+      {isLoading ? (
+        <TableSkeleton rows={5} cols={4} />
+      ) : (
+        <GlassTable
+          columns={columns}
+          data={paginatedAgents}
+          onRowClick={(a: any) => navigate(`/agents/${a.agentId}`)}
+          emptyMessage={searchQuery ? 'No agents match your search.' : "No agents registered yet. Click 'Register Agent' to create your first agent."}
+        />
+      )}
 
       {/* Pagination controls */}
       {filteredAgents.length > PAGE_SIZE && (

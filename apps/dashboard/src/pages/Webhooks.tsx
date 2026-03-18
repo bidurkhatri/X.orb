@@ -1,8 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, Trash2 } from 'lucide-react'
 import { useState } from 'react'
+import { toast } from 'sonner'
 import { PageHeader } from '../components/layout/PageHeader'
 import { GlassTable } from '../components/glass/GlassTable'
+import { TableSkeleton, ButtonSpinner } from '../components/ui/Skeleton'
 import { api } from '../lib/api'
 
 export function Webhooks() {
@@ -11,7 +13,7 @@ export function Webhooks() {
   const [url, setUrl] = useState('')
   const [eventTypes, setEventTypes] = useState('action.approved,action.blocked,agent.slashed')
 
-  const { data } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ['webhooks'],
     queryFn: () => api.webhooks.list(),
     retry: false,
@@ -23,12 +25,22 @@ export function Webhooks() {
       queryClient.invalidateQueries({ queryKey: ['webhooks'] })
       setShowCreate(false)
       setUrl('')
+      toast.success('Webhook created successfully')
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || 'Failed to create webhook')
     },
   })
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => api.webhooks.delete(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['webhooks'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['webhooks'] })
+      toast.success('Webhook deleted')
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || 'Failed to delete webhook')
+    },
   })
 
   const webhooks = data?.webhooks || []
@@ -60,35 +72,43 @@ export function Webhooks() {
                 className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm font-mono" />
             </div>
           </div>
-          <button onClick={() => createMutation.mutate()} disabled={!url || createMutation.isPending}
-            className="px-4 py-2 bg-xorb-blue hover:bg-xorb-blue-hover rounded-lg text-sm font-medium transition-colors disabled:opacity-50">
-            {createMutation.isPending ? 'Creating...' : 'Subscribe'}
-          </button>
+          <ButtonSpinner
+            onClick={() => createMutation.mutate()}
+            loading={createMutation.isPending}
+            disabled={!url}
+            className="px-4 py-2 bg-xorb-blue hover:bg-xorb-blue-hover rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+          >
+            Subscribe
+          </ButtonSpinner>
         </div>
       )}
 
-      <GlassTable
-        columns={[
-          { key: 'url', header: 'URL', render: (w: any) => <span className="font-mono text-xs truncate max-w-[300px] block">{w.url}</span> },
-          { key: 'events', header: 'Events', render: (w: any) => <span className="text-xs">{w.event_types?.join(', ')}</span> },
-          {
-            key: 'status', header: 'Status',
-            render: (w: any) => <span className={w.active ? 'badge-active' : 'badge-revoked'}>{w.active ? 'active' : 'disabled'}</span>,
-          },
-          {
-            key: 'actions', header: '',
-            render: (w: any) => (
-              <button onClick={(e) => { e.stopPropagation(); deleteMutation.mutate(w.id) }}
-                className="p-1 hover:bg-xorb-red/20 rounded text-xorb-muted hover:text-xorb-red transition-colors">
-                <Trash2 size={14} />
-              </button>
-            ),
-            className: 'text-right w-12',
-          },
-        ]}
-        data={webhooks}
-        emptyMessage="No webhook subscriptions."
-      />
+      {isLoading ? (
+        <TableSkeleton rows={3} cols={4} />
+      ) : (
+        <GlassTable
+          columns={[
+            { key: 'url', header: 'URL', render: (w: any) => <span className="font-mono text-xs truncate max-w-[300px] block">{w.url}</span> },
+            { key: 'events', header: 'Events', render: (w: any) => <span className="text-xs">{w.event_types?.join(', ')}</span> },
+            {
+              key: 'status', header: 'Status',
+              render: (w: any) => <span className={w.active ? 'badge-active' : 'badge-revoked'}>{w.active ? 'active' : 'disabled'}</span>,
+            },
+            {
+              key: 'actions', header: '',
+              render: (w: any) => (
+                <button onClick={(e) => { e.stopPropagation(); deleteMutation.mutate(w.id) }}
+                  className="p-1 hover:bg-xorb-red/20 rounded text-xorb-muted hover:text-xorb-red transition-colors">
+                  <Trash2 size={14} />
+                </button>
+              ),
+              className: 'text-right w-12',
+            },
+          ]}
+          data={webhooks}
+          emptyMessage="No webhook subscriptions."
+        />
+      )}
     </div>
   )
 }

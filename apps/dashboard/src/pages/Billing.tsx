@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { useMemo } from 'react'
 import { PageHeader } from '../components/layout/PageHeader'
 import { MetricCard } from '../components/glass/MetricCard'
 import { api } from '../lib/api'
@@ -19,7 +20,23 @@ export function Billing() {
   const freeTierLimit = pricing?.free_tier?.limit || 1000
   const freeTierUsed = Math.min(totalActions, freeTierLimit)
   const paidActions = Math.max(0, totalActions - freeTierLimit)
-  const totalSpent = paidActions * 0.005
+
+  // Derive per-action price from pricing endpoints instead of hardcoding
+  const perActionPrice = useMemo(() => {
+    const endpoints = pricing?.endpoints || []
+    const actionEndpoint = endpoints.find((ep: any) =>
+      ep.endpoint?.includes('/actions') || ep.endpoint?.includes('execute')
+    )
+    if (actionEndpoint?.price_usdc) return parseFloat(actionEndpoint.price_usdc)
+    // Fallback: average across all priced endpoints
+    const priced = endpoints.filter((ep: any) => ep.price_usdc && parseFloat(ep.price_usdc) > 0)
+    if (priced.length > 0) {
+      return priced.reduce((sum: number, ep: any) => sum + parseFloat(ep.price_usdc), 0) / priced.length
+    }
+    return 0.005 // last-resort default
+  }, [pricing])
+
+  const totalSpent = paidActions * perActionPrice
 
   return (
     <div>
@@ -55,7 +72,7 @@ export function Billing() {
           </div>
         ) : (
           <div className="text-center py-8 text-xorb-muted text-sm">
-            {paidActions.toLocaleString()} paid actions at $0.005/action = ${totalSpent.toFixed(2)} USDC
+            {paidActions.toLocaleString()} paid actions at ${perActionPrice.toFixed(4)}/action = ${totalSpent.toFixed(2)} USDC
           </div>
         )}
       </div>

@@ -1,7 +1,10 @@
+import { useState } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
+import { Toaster } from 'sonner'
 import { Sidebar } from './components/layout/Sidebar'
 import { AuthGuard } from './components/AuthGuard'
 import { ErrorBoundary } from './components/ErrorBoundary'
+import { OnboardingWizard } from './components/OnboardingWizard'
 import { Login } from './pages/Login'
 import { Overview } from './pages/Overview'
 import { Agents } from './pages/Agents'
@@ -14,12 +17,19 @@ import { Billing } from './pages/Billing'
 import { Settings } from './pages/Settings'
 
 function AuthenticatedLayout() {
+  const [showOnboarding, setShowOnboarding] = useState(
+    !sessionStorage.getItem('xorb_onboarded')
+  )
+
   return (
     <AuthGuard>
       <div className="flex h-screen overflow-hidden">
         <Sidebar />
         <main className="flex-1 overflow-y-auto p-6">
           <ErrorBoundary>
+            {showOnboarding && (
+              <OnboardingWizard onComplete={() => setShowOnboarding(false)} />
+            )}
             <Routes>
               <Route path="/overview" element={<Overview />} />
               <Route path="/agents" element={<Agents />} />
@@ -42,6 +52,7 @@ function AuthenticatedLayout() {
 export function App() {
   return (
     <ErrorBoundary>
+      <Toaster position="top-right" richColors />
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/*" element={<AuthenticatedLayout />} />

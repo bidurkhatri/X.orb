@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react'
-import { Copy, Eye, EyeOff, Key, Bell, Wallet, Shield, Trash2, Download, RefreshCw } from 'lucide-react'
+import { Copy, Eye, EyeOff, Key, Bell, Wallet, Shield, Trash2, Save } from 'lucide-react'
+import { toast } from 'sonner'
 import { PageHeader } from '../components/layout/PageHeader'
 import { api } from '../lib/api'
+
+const API_BASE = () => sessionStorage.getItem('xorb_api_url') || import.meta.env.VITE_API_URL || 'https://api.xorb.xyz'
 
 export function Settings() {
   const [showKey, setShowKey] = useState(false)
@@ -12,6 +15,8 @@ export function Settings() {
     slashing: true, reputation_warning: true, api_key_expiring: true,
     payment_receipt: true, free_tier_warning: true,
   })
+  const [notifDirty, setNotifDirty] = useState(false)
+  const [notifSaving, setNotifSaving] = useState(false)
 
   useEffect(() => {
     loadData()
@@ -19,26 +24,73 @@ export function Settings() {
 
   async function loadData() {
     try {
+      const headers: Record<string, string> = { 'x-api-key': apiKey }
       const [u, w] = await Promise.all([
-        fetch(`${api.health ? '' : ''}${sessionStorage.getItem('xorb_api_url') || 'https://api.xorb.xyz'}/v1/billing/usage`, {
-          headers: { 'x-api-key': apiKey },
-        }).then(r => r.json()).catch(() => null),
-        fetch(`${sessionStorage.getItem('xorb_api_url') || 'https://api.xorb.xyz'}/v1/billing/wallet-status`, {
-          headers: { 'x-api-key': apiKey },
-        }).then(r => r.json()).catch(() => null),
+        fetch(`${API_BASE()}/v1/billing/usage`, { headers }).then(r => r.json()).catch(() => null),
+        fetch(`${API_BASE()}/v1/billing/wallet-status`, { headers }).then(r => r.json()).catch(() => null),
       ])
       if (u) setUsage(u)
       if (w) setWalletStatus(w)
+
+      // Load saved notification preferences from API or localStorage fallback
+      try {
+        const notifResp = await fetch(`${API_BASE()}/v1/settings/notifications`, { headers })
+        if (notifResp.ok) {
+          const saved = await notifResp.json()
+          if (saved?.preferences) setNotifications(saved.preferences)
+        }
+      } catch {
+        // Fallback: load from localStorage
+        const saved = localStorage.getItem('xorb_notification_prefs')
+        if (saved) {
+          try { setNotifications(JSON.parse(saved)) } catch {}
+        }
+      }
     } catch {}
   }
 
   const saveKey = () => {
     sessionStorage.setItem('xorb_api_key', apiKey)
+    toast.success('API key saved')
+  }
+
+  const saveNotifications = async () => {
+    setNotifSaving(true)
+    try {
+      const headers: Record<string, string> = {
+        'x-api-key': apiKey,
+        'Content-Type': 'application/json',
+      }
+      const resp = await fetch(`${API_BASE()}/v1/settings/notifications`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({ preferences: notifications }),
+      })
+      if (resp.ok) {
+        toast.success('Notification preferences saved')
+      } else {
+        // Fallback: save to localStorage
+        localStorage.setItem('xorb_notification_prefs', JSON.stringify(notifications))
+        toast.success('Notification preferences saved locally')
+      }
+      setNotifDirty(false)
+    } catch {
+      localStorage.setItem('xorb_notification_prefs', JSON.stringify(notifications))
+      toast.success('Notification preferences saved locally')
+      setNotifDirty(false)
+    } finally {
+      setNotifSaving(false)
+    }
   }
 
   const handleLogout = () => {
     sessionStorage.removeItem('xorb_api_key')
     window.location.href = '/login'
+  }
+
+  const toggleNotification = (key: string) => {
+    setNotifications(n => ({ ...n, [key]: !n[key as keyof typeof n] }))
+    setNotifDirty(true)
   }
 
   return (
@@ -61,7 +113,7 @@ export function Settings() {
               <button onClick={() => setShowKey(!showKey)} className="p-1 hover:bg-white/10 rounded">
                 {showKey ? <EyeOff size={14} /> : <Eye size={14} />}
               </button>
-              <button onClick={() => navigator.clipboard.writeText(apiKey)} className="p-1 hover:bg-white/10 rounded">
+              <button onClick={() => { navigator.clipboard.writeText(apiKey); toast.success('Copied to clipboard') }} className="p-1 hover:bg-white/10 rounded">
                 <Copy size={14} />
               </button>
             </div>
@@ -139,13 +191,25 @@ export function Settings() {
 
       {/* Notification Preferences */}
       <div className="glass-card p-5">
-        <h3 className="text-sm font-medium mb-4 flex items-center gap-2"><Bell size={16} /> Notifications</h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-medium flex items-center gap-2"><Bell size={16} /> Notifications</h3>
+          {notifDirty && (
+            <button
+              onClick={saveNotifications}
+              disabled={notifSaving}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-xorb-blue hover:bg-xorb-blue-hover rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
+            >
+              <Save size={12} />
+              {notifSaving ? 'Saving...' : 'Save Preferences'}
+            </button>
+          )}
+        </div>
         <div className="space-y-3">
           {Object.entries(notifications).map(([key, enabled]) => (
             <label key={key} className="flex items-center justify-between">
               <span className="text-sm capitalize">{key.replace(/_/g, ' ')}</span>
               <button
-                onClick={() => setNotifications(n => ({ ...n, [key]: !n[key as keyof typeof n] }))}
+                onClick={() => toggleNotification(key)}
                 className={`w-10 h-5 rounded-full transition-colors ${enabled ? 'bg-xorb-blue' : 'bg-white/20'}`}
               >
                 <div className={`w-4 h-4 rounded-full bg-white transition-transform ${enabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
