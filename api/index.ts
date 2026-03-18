@@ -36,7 +36,7 @@ try {
 // ─── x402 Payment Validation ───
 const SUPPORTED_NETWORKS = new Set(['eip155:8453', 'eip155:137', 'solana:mainnet'])
 const MIN_PAYMENT_AMOUNT = 5000 // $0.005 USDC (6 decimals)
-const FREE_TIER_LIMIT = 1000
+const FREE_TIER_LIMIT = 500
 const USDC_CONTRACT_BASE = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913'
 const USDC_CONTRACT_POLYGON = '0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359'
 
@@ -820,12 +820,17 @@ export default async function handler(req: any, res: any) {
     return res.json({
       model: 'x402 per-action micropayments',
       endpoints: [
-        { endpoint: 'POST /v1/agents', price_usdc: 0.10, via: 'x402', auth: 'required' },
-        { endpoint: 'POST /v1/actions/execute', price_usdc: 0.005, via: 'x402', auth: 'required' },
-        { endpoint: 'GET /v1/trust/:id', price_usdc: 0.001, via: 'x402', auth: 'optional' },
+        { endpoint: 'POST /v1/agents', price_usdc: 0.10, description: 'Agent registration' },
+        { endpoint: 'POST /v1/actions/execute', price_usdc: 0.005, description: 'Per-action gate check' },
+        { endpoint: 'POST /v1/actions/batch', price_usdc: 0.003, description: 'Per-action batch gate check' },
+        { endpoint: 'GET /v1/reputation', price_usdc: 0.001, description: 'Reputation lookup' },
+        { endpoint: 'POST /v1/marketplace/hire', price_usdc: 0.05, description: 'Marketplace hire initiation' },
+        { endpoint: 'GET /v1/audit', price_usdc: 0.01, description: 'Audit log access' },
+        { endpoint: 'POST /v1/webhooks', price_usdc: 0.10, description: 'Webhook subscription' },
+        { endpoint: 'GET /v1/compliance', price_usdc: 1.00, description: 'Compliance report generation' },
       ],
-      free_tier: { limit: 1000, period: 'monthly' },
-      free_endpoints: ['GET /v1/health', 'GET /v1/agents', 'GET /v1/pricing', 'GET /v1/docs', 'GET /v1/usage', 'PATCH /v1/agents/:id (pause/resume)', 'DELETE /v1/agents/:id (revoke)'],
+      free_tier: { limit: 500, period: 'monthly' },
+      free_endpoints: ['GET /v1/health', 'GET /v1/pricing', 'GET /v1/docs', 'PATCH /v1/agents/:id (pause/resume)', 'DELETE /v1/agents/:id (revoke)', 'GET /v1/events', 'POST /v1/auth/keys'],
       payment_protocol: 'https://x402.org',
     })
   }
@@ -877,18 +882,74 @@ export default async function handler(req: any, res: any) {
     return res.send(`<!DOCTYPE html><html><head><title>X.orb API Docs</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css"><style>body{margin:0;background:#0A0A0A}.swagger-ui .topbar{display:none}.swagger-ui{max-width:1200px;margin:0 auto}</style></head><body><div id="swagger-ui"></div><script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script><script>SwaggerUIBundle({url:'${specUrl}',dom_id:'#swagger-ui',deepLinking:true,presets:[SwaggerUIBundle.presets.apis],layout:"BaseLayout"})</script></body></html>`)
   }
 
-  // ─── GET /v1/agents (list — public, read-only) ───
-  if (req.method === 'GET' && path.match(/\/agents\/?$/)) {
-    const all = Object.values(store.agents).map(formatAgent)
-    return res.json({ agents: all, count: all.length })
+  // ─── POST /v1/auth/keys (self-service API key creation — public) ───
+  if (req.method === 'POST' && path.includes('/auth/keys') && !path.includes('/rotate')) {
+    try {
+      const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body
+      if (!body?.owner_address || body.owner_address.length < 10) {
+        return res.status(400).json({ success: false, error: { code: 'validation_error', message: 'owner_address is required (min 10 chars)' } })
+      }
+      if (!body?.label || body.label.length < 1) {
+        return res.status(400).json({ success: false, error: { code: 'validation_error', message: 'label is required' } })
+      }
+      const rawKey = `xorb_sk_${require('crypto').randomBytes(24).toString('hex')}`
+      const keyHash = createHash('sha256').update(rawKey).digest('hex')
+      const sb = getSupabase()
+      if (sb) {
+        const { error } = await sb.from('api_keys').insert({
+          key_hash: keyHash,
+          owner_address: body.owner_address,
+          label: body.label,
+          is_active: true,
+          scopes: body.scopes || ['read', 'write'],
+          rate_limit_per_minute: 60,
+        })
+        if (error) return res.status(500).json({ success: false, error: { code: 'key_creation_failed', message: error.message } })
+      }
+      return res.status(201).json({
+        success: true,
+        data: {
+          api_key: rawKey,
+          key_prefix: rawKey.slice(0, 12) + '...',
+          owner_address: body.owner_address,
+          label: body.label,
+          warning: 'Store this key securely. It cannot be retrieved again.',
+        }
+      })
+    } catch (e: any) {
+      return res.status(400).json({ success: false, error: { code: 'invalid_body', message: e.message || 'Invalid request body' } })
+    }
   }
 
-  // ─── GET /v1/agents/:id (public, read-only) ───
-  if (req.method === 'GET' && path.match(/\/agents\/[^/]+\/?$/) && !path.includes('/actions')) {
+  // ─── GET /v1/agents (list — requires auth, filtered by sponsor) ───
+  if (req.method === 'GET' && path.match(/\/agents\/?$/)) {
+    const auth = await requireAuth()
+    if (!auth.valid) return res.status(401).json({ success: false, error: { code: 'missing_api_key', message: 'x-api-key header required' } })
+    const all = Object.values(store.agents)
+      .filter((a: any) => a.sponsorAddress?.toLowerCase() === auth.wallet?.toLowerCase())
+      .map(formatAgent)
+    return res.json({ success: true, data: all, total: all.length })
+  }
+
+  // ─── GET /v1/agents/:id (requires auth + ownership) ───
+  if (req.method === 'GET' && path.match(/\/agents\/[^/]+\/?$/) && !path.includes('/actions') && !path.includes('/public')) {
+    const auth = await requireAuth()
+    if (!auth.valid) return res.status(401).json({ success: false, error: { code: 'missing_api_key', message: 'x-api-key header required' } })
     const id = path.split('/').filter(Boolean).pop()!
     const agent = store.agents[id]
-    if (!agent) return res.status(404).json({ error: 'Agent not found' })
-    return res.json({ agent: formatAgent(agent) })
+    if (!agent) return res.status(404).json({ success: false, error: { code: 'not_found', message: 'Agent not found' } })
+    if (agent.sponsorAddress?.toLowerCase() !== auth.wallet?.toLowerCase()) {
+      return res.status(403).json({ success: false, error: { code: 'forbidden', message: 'You do not own this agent' } })
+    }
+    return res.json({ success: true, data: { agent: formatAgent(agent) } })
+  }
+
+  // ─── GET /v1/agents/:id/public (public, limited info) ───
+  if (req.method === 'GET' && path.match(/\/agents\/[^/]+\/public\/?$/)) {
+    const id = path.split('/').filter(Boolean).slice(-2, -1)[0]
+    const agent = store.agents[id]
+    if (!agent) return res.status(404).json({ success: false, error: { code: 'not_found', message: 'Agent not found' } })
+    return res.json({ success: true, data: { agent_id: agent.agentId, name: agent.name, role: agent.scope || agent.role, reputation: agent.trustScore ?? 50, status: agent.status } })
   }
 
   // ─── Integrations (public) ───
@@ -906,7 +967,6 @@ export default async function handler(req: any, res: any) {
         { name: 'AgentRegistry', role: 'On-chain agent registry + staking', chain: 'base', address: cs.configured['agentRegistry'] || 'not configured', status: cs.configured['agentRegistry'] ? 'active' : 'awaiting deployment' },
         { name: 'SlashingEngine', role: 'On-chain violation reporting + bond slashing', chain: 'base', address: cs.configured['slashingEngine'] || 'not configured', status: cs.configured['slashingEngine'] ? 'active' : 'awaiting deployment' },
       ],
-      smart_contracts: { ...cs, chain: 'base', rpc: BASE_RPC },
       xorb_unique_value: 'The 8-gate pipeline that orchestrates identity, permissions, rate limiting, payment, auditing, trust scoring, execution, and escrow into a single API call.',
     })
   }
@@ -1376,7 +1436,7 @@ export default async function handler(req: any, res: any) {
     return res.json({
       action_id: actionId, agent_id, approved: true, gates,
       timestamp: ts, latency_ms: Date.now() - pipelineStart,
-      integrations_consulted: ['erc8004', 'agentscore', 'x402', 'paycrow', ...(ETH_ADDR_RE.test(CONTRACT_ADDRESSES.actionVerifier) ? ['actionVerifier'] : []), ...(ETH_ADDR_RE.test(CONTRACT_ADDRESSES.agentRegistry) ? ['agentRegistry'] : [])],
+      integrations_consulted: ['erc8004', 'moltguard', 'x402', 'xorb_escrow', ...(ETH_ADDR_RE.test(CONTRACT_ADDRESSES.actionVerifier) ? ['actionVerifier'] : []), ...(ETH_ADDR_RE.test(CONTRACT_ADDRESSES.agentRegistry) ? ['agentRegistry'] : [])],
       audit_hash: auditHash,
       on_chain: onChainResult,
       persistence: store.persistence,
