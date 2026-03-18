@@ -21,7 +21,7 @@ async function xorbRequest(method: string, path: string, body?: unknown) {
 
 const server = new McpServer({
   name: 'xorb',
-  version: '0.1.0',
+  version: '0.4.0',
 })
 
 // Tool: Execute a gated action

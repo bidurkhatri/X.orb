@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { FileText, Download, AlertTriangle, CheckCircle } from 'lucide-react'
 import { PageHeader } from '../components/layout/PageHeader'
-import { api, API_BASE } from '../lib/api'
+import { api } from '../lib/api'
 
 export function Audit() {
   const [framework, setFramework] = useState<string>('eu-ai-act')
@@ -19,8 +19,7 @@ export function Audit() {
     if (!selectedAgent) return
     setLoading(true)
     try {
-      const res = await fetch(`${API_BASE}/v1/compliance/${selectedAgent}?format=${framework}`)
-      const data = await res.json()
+      const data = await api.compliance.report(selectedAgent, framework)
       setReport(data)
     } catch (e: any) {
       setReport({ error: e.message })

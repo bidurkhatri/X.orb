@@ -4,10 +4,10 @@ import { PageHeader } from '../components/layout/PageHeader'
 
 export function Settings() {
   const [showKey, setShowKey] = useState(false)
-  const [apiKey, setApiKey] = useState(localStorage.getItem('xorb_api_key') || '')
+  const [apiKey, setApiKey] = useState(sessionStorage.getItem('xorb_api_key') || '')
 
   const saveKey = () => {
-    localStorage.setItem('xorb_api_key', apiKey)
+    sessionStorage.setItem('xorb_api_key', apiKey)
   }
 
   return (
@@ -38,7 +38,7 @@ export function Settings() {
             Save
           </button>
         </div>
-        <p className="text-xs text-xorb-muted mt-2">Your API key is stored locally and never sent to our servers.</p>
+        <p className="text-xs text-xorb-muted mt-2">Your API key is stored in session storage (cleared when the tab closes) and sent via the x-api-key header on every API request.</p>
       </div>
 
       <div className="glass-card p-5">

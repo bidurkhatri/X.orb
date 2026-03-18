@@ -16,7 +16,7 @@ packages/
   xorb-sdk-ts/   — @xorb/sdk (TypeScript client)
   xorb-sdk-py/   — xorb-sdk (Python client)
   xorb-mcp/      — @xorb/mcp (MCP server, 5 tools)
-xorb-contracts/  — 7 Solidity contracts (Base + Polygon)
+xorb-contracts/  — 7 Solidity contracts (Polygon PoS, Chain ID 137)
 xorb-db/         — Supabase tables + edge functions
 xorb-deploy/     — CI/CD configs
 xorb-docs/       — Documentation
@@ -26,7 +26,7 @@ xorb-docs/       — Documentation
 
 - **Hono** over Express — runs on Vercel Edge, 14KB, middleware maps to 8-gate pipeline
 - **agent-core** has zero browser deps — uses injectable `DataStore` adapter
-- **USDC on Base** — no custom token, x402 payments
+- **USDC on Polygon PoS** — no custom token, x402 payments
 - **Supabase** for persistence, in-memory fallback for dev
 - **Long-polling** instead of SSE — Vercel Serverless doesn't support persistent connections
 
@@ -65,3 +65,15 @@ When deploying, match these exact signatures:
 - `ActionVerifier()` — no args
 - `PaymentStreaming(address _token, address _treasury)`
 - `AgentMarketplace(address _token, address _treasury)`
+
+## Deployed Contracts — Polygon PoS (Chain ID 137)
+
+| Contract | Address |
+|----------|---------|
+| AgentRegistry | `0x2a7457C2f30F9C0Bb47b62ed8554C75d13BF9ec7` |
+| ReputationScore | `0x0350efEcDCFCbcF2Ab3d6421e20Ef867c02D79d8` |
+| SlashingEngine | `0xA64E71Aa00F8f6e8e8acb3a81200dD270FF13625` |
+| PaymentStreaming | `0xb34717670889190B2A92E64B51e0ea696cE88D89` |
+| AgentMarketplace | `0xEAbf85Bf2AE49aFdA531631E8bba219f6e62bF6c` |
+| ActionVerifier | Not yet deployed |
+| XorbEscrow | Not yet deployed |

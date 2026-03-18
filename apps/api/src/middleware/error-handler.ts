@@ -17,7 +17,7 @@ async function reportToSentry(dsn: string, error: Error, extra: Record<string, u
     await fetch(envelopeUrl, {
       method: 'POST',
       body: `${header}\n${itemHeader}\n${payload}`,
-    }).catch(() => {})
+    }).catch((e) => console.error('[Sentry] Report failed:', e.message))
   } catch {
     // Sentry reporting is best-effort
   }

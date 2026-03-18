@@ -45,8 +45,3 @@ actionsRouter.post('/batch', zValidator('json', batchActionSchema), async (c) =>
     results,
   })
 })
-
-// GET /v1/actions/:id — Get action result
-actionsRouter.get('/:id', async (c) => {
-  return c.json({ error: 'Not yet implemented — use audit log' }, 501)
-})

@@ -2,7 +2,7 @@ const API_URL = import.meta.env.VITE_API_URL || 'https://api.xorb.xyz'
 export const API_BASE = API_URL
 
 function getApiKey(): string {
-  return localStorage.getItem('xorb_api_key') || ''
+  return sessionStorage.getItem('xorb_api_key') || ''
 }
 
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
@@ -93,9 +93,5 @@ export const api = {
 
   pricing: () => request<any>('GET', '/v1/pricing'),
 
-  trust: {
-    get: (agentId: string) => request<any>('GET', `/v1/trust/${agentId}`),
-    leaderboard: () => request<any>('GET', '/v1/trust/leaderboard'),
-  },
   integrations: () => request<any>('GET', '/v1/integrations'),
 }

@@ -77,9 +77,18 @@ agentsRouter.patch('/:id', zValidator('json', updateAgentSchema), async (c) => {
     case 'resume':
       agent = await registry.resumeAgent(agentId, caller_address)
       break
-    case 'renew':
-      // TODO: implement renew in registry
-      throw new Error('Renew not yet implemented')
+    case 'renew': {
+      const agentToRenew = registry.getAgent(agentId)
+      if (!agentToRenew) return c.json({ error: 'Agent not found' }, 404)
+      if (agentToRenew.sponsorAddress.toLowerCase() !== caller_address.toLowerCase()) {
+        return c.json({ error: 'Only the sponsor can renew this agent' }, 403)
+      }
+      const thirtyDays = (renew_days || 30) * 24 * 60 * 60 * 1000
+      agentToRenew.expiresAt = (agentToRenew.expiresAt && agentToRenew.expiresAt > Date.now() ? agentToRenew.expiresAt : Date.now()) + thirtyDays
+      if (agentToRenew.status === 'expired') agentToRenew.status = 'active'
+      agent = agentToRenew
+      break
+    }
     default:
       return c.json({ error: 'Invalid action' }, 400)
   }

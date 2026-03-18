@@ -141,13 +141,29 @@ curl -X POST https://api.xorb.xyz/v1/actions/execute \
 | GET | `/v1/health` | API status + integration health | Free |
 | GET | `/v1/integrations` | List orchestrated services | Free |
 | GET | `/v1/pricing` | Endpoint pricing | Free |
+| GET | `/v1/docs` | Interactive API docs (Swagger UI) | Free |
+| GET | `/v1/usage` | Platform usage stats for billing | Free |
 | POST | `/v1/agents` | Register agent (ERC-8004 lookup) | $0.10 |
 | GET | `/v1/agents` | List agents | Free |
 | GET | `/v1/agents/:id` | Agent details | Free |
-| PATCH | `/v1/agents/:id` | Pause/resume | Free |
+| PATCH | `/v1/agents/:id` | Pause/resume/renew | Free |
 | DELETE | `/v1/agents/:id` | Revoke agent | Free |
 | POST | `/v1/actions/execute` | **8-gate pipeline** | $0.005 |
-| GET | `/v1/trust/:id` | Trust score (AgentScore + PayCrow) | $0.001 |
+| POST | `/v1/actions/batch` | Batch execute (up to 100) | $0.005/ea |
+| GET | `/v1/actions/:id` | Get action by ID | Free |
+| GET | `/v1/reputation/:id` | Reputation score (AgentScore + PayCrow) | $0.001 |
+| GET | `/v1/reputation/leaderboard` | Trust leaderboard | Free |
+| GET | `/v1/events` | List events | Free |
+| GET | `/v1/events/stream` | Long-polling event stream | Free |
+| GET | `/v1/audit/:id` | Audit log for agent | Free |
+| GET | `/v1/compliance/:id` | Compliance report (EU AI Act, NIST, SOC2) | Free |
+| GET | `/v1/compliance/:id/frameworks` | List compliance frameworks | Free |
+| GET | `/v1/webhooks` | List webhook subscriptions | Free |
+| POST | `/v1/webhooks` | Subscribe to events | Free |
+| DELETE | `/v1/webhooks/:id` | Remove subscription | Free |
+| GET | `/v1/marketplace/listings` | Browse agents for hire | Free |
+| POST | `/v1/marketplace/listings` | List agent for hire | Free |
+| POST | `/v1/marketplace/hire` | Hire an agent (escrow) | Free |
 
 ## Agent Scopes
 

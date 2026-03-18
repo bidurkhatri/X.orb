@@ -1,5 +1,5 @@
 /**
- * X.orb API v0.4.0 — Orchestration layer for AI agent trust infrastructure.
+ * X.orb API — Orchestration layer for AI agent trust infrastructure.
  *
  * AUDIT FIXES APPLIED:
  *   C1: API key auth on all mutations
@@ -18,6 +18,20 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { createHash } from 'crypto'
+import { readFileSync } from 'fs'
+import { resolve } from 'path'
+
+// ─── Version from package.json ───
+let PKG_VERSION = '0.4.0' // fallback
+try {
+  const pkg = JSON.parse(readFileSync(resolve(__dirname, '..', 'package.json'), 'utf-8'))
+  PKG_VERSION = pkg.version || PKG_VERSION
+} catch {
+  try {
+    const pkg = JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf-8'))
+    PKG_VERSION = pkg.version || PKG_VERSION
+  } catch { /* use fallback */ }
+}
 
 // ─── x402 Payment Validation ───
 const SUPPORTED_NETWORKS = new Set(['eip155:8453', 'eip155:137', 'solana:mainnet'])
@@ -193,13 +207,64 @@ function validateX402Payment(headerValue: string): X402ValidationResult {
   }
 }
 
-/** Track used nonces to prevent replay attacks (in-memory, resets on cold start) */
-const usedNonces = new Set<string>()
+/** Track used nonces to prevent replay attacks.
+ *  Primary: Supabase `payment_nonces` table (survives cold starts).
+ *  Fallback: in-memory Set when Supabase is not configured.
+ */
+const usedNoncesLocal = new Set<string>()
+
+async function ensureNoncesTable(): Promise<void> {
+  const sb = getSupabase()
+  if (!sb) return
+  try {
+    // Attempt to create the table idempotently via raw SQL
+    await sb.rpc('exec_sql', {
+      query: `CREATE TABLE IF NOT EXISTS payment_nonces (
+        nonce TEXT PRIMARY KEY,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS idx_payment_nonces_created ON payment_nonces (created_at);`
+    }).catch(() => {
+      // rpc may not exist — table may already be created via migration
+    })
+  } catch { /* ignore — table likely already exists */ }
+}
+
+async function isNonceUsed(nonce: string): Promise<boolean> {
+  // Check local cache first (fast path)
+  if (usedNoncesLocal.has(nonce)) return true
+  const sb = getSupabase()
+  if (!sb) return false
+  try {
+    const { data } = await sb.from('payment_nonces').select('nonce').eq('nonce', nonce).maybeSingle()
+    if (data) {
+      usedNoncesLocal.add(nonce) // backfill local cache
+      return true
+    }
+  } catch { /* fall through — treat as not used */ }
+  return false
+}
+
+async function saveNonce(nonce: string): Promise<void> {
+  usedNoncesLocal.add(nonce)
+  // Cap local set size to prevent memory leak (keep last 100K)
+  if (usedNoncesLocal.size > 100000) {
+    const iter = usedNoncesLocal.values()
+    for (let i = 0; i < 50000; i++) { usedNoncesLocal.delete(iter.next().value as string) }
+  }
+  const sb = getSupabase()
+  if (!sb) return
+  try {
+    await sb.from('payment_nonces').insert({ nonce }).catch(() => {
+      // duplicate key — already recorded, which is fine
+    })
+  } catch { /* best effort */ }
+}
 
 // ─── Config ───
-const ERC_8004_REGISTRY_BASE = '0x8004A169FB4a3325136EB29fA0ceB6D2e539a432'
-const AGENTSCORE_API = 'https://api.agentscore.dev'
-const PAYCROW_API = 'https://api.paycrow.xyz'
+const ERC_8004_REGISTRY_BASE = process.env.ERC_8004_REGISTRY_BASE || '0x8004A169FB4a3325136EB29fA0ceB6D2e539a432'
+const AGENTSCORE_API = process.env.AGENTSCORE_API || 'https://api.agentscore.dev'
+const PAYCROW_API = process.env.PAYCROW_API || 'https://api.paycrow.xyz'
 const BASE_RPC = process.env.BASE_RPC || 'https://mainnet.base.org'
 const ETH_ADDR_RE = /^0x[a-fA-F0-9]{40}$/
 
@@ -395,6 +460,42 @@ function checkIpRateLimit(ip: string, limit = 200): boolean {
 // ─── AgentScore Cache (5 min TTL) ───
 const scoreCache: Record<string, { score: number; source: string; dimensions?: any; cachedAt: number }> = {}
 const SCORE_CACHE_TTL = 300000 // 5 minutes
+
+// ─── Free Tier Persistence ───
+async function loadFreeTier(): Promise<{ actionsThisMonth: number; monthKey: string; limit: number }> {
+  const currentMonth = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`
+  const defaults = { actionsThisMonth: 0, monthKey: currentMonth, limit: FREE_TIER_LIMIT }
+  const sb = getSupabase()
+  if (!sb) return defaults
+  try {
+    // Ensure table exists
+    await sb.rpc('exec_sql', {
+      query: `CREATE TABLE IF NOT EXISTS free_tier_usage (
+        month_key TEXT PRIMARY KEY,
+        actions_count INTEGER NOT NULL DEFAULT 0,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );`
+    }).catch(() => { /* table may already exist or rpc unavailable */ })
+
+    const { data } = await sb.from('free_tier_usage').select('*').eq('month_key', currentMonth).maybeSingle()
+    if (data) {
+      return { actionsThisMonth: data.actions_count || 0, monthKey: currentMonth, limit: FREE_TIER_LIMIT }
+    }
+  } catch { /* fall through to defaults */ }
+  return defaults
+}
+
+async function saveFreeTier(monthKey: string, actionsCount: number): Promise<void> {
+  const sb = getSupabase()
+  if (!sb) return
+  try {
+    await sb.from('free_tier_usage').upsert({
+      month_key: monthKey,
+      actions_count: actionsCount,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'month_key' })
+  } catch { /* best effort */ }
+}
 
 // ─── Audit Hash (real SHA-256) ───
 function computeAuditHash(actionId: string, agentId: string, tool: string, gates: any[], timestamp: string): string {
@@ -624,7 +725,33 @@ export default async function handler(req: any, res: any) {
   // ─── Store init (Supabase or in-memory) ───
   const g = globalThis as any
   if (!g._xorb) {
+    // ─── Startup validation: log env var status on first invocation ───
+    const envVars = {
+      SUPABASE_URL: !!process.env.SUPABASE_URL,
+      SUPABASE_SERVICE_KEY: !!process.env.SUPABASE_SERVICE_KEY,
+      ACTION_VERIFIER_ADDRESS: !!process.env.ACTION_VERIFIER_ADDRESS,
+      AGENT_REGISTRY_ADDRESS: !!process.env.AGENT_REGISTRY_ADDRESS,
+      SLASHING_ENGINE_ADDRESS: !!process.env.SLASHING_ENGINE_ADDRESS,
+      DEPLOYER_ADDRESS: !!process.env.DEPLOYER_ADDRESS,
+      BASE_RPC: !!process.env.BASE_RPC,
+      ERC_8004_REGISTRY_BASE: !!process.env.ERC_8004_REGISTRY_BASE,
+      AGENTSCORE_API: !!process.env.AGENTSCORE_API,
+      PAYCROW_API: !!process.env.PAYCROW_API,
+    }
+    const configured = Object.entries(envVars).filter(([, v]) => v).map(([k]) => k)
+    const missing = Object.entries(envVars).filter(([, v]) => !v).map(([k]) => k)
+    console.log(JSON.stringify({
+      event: 'xorb_startup',
+      version: PKG_VERSION,
+      timestamp: new Date().toISOString(),
+      env_configured: configured,
+      env_missing: missing,
+      env_summary: `${configured.length}/${Object.keys(envVars).length} configured`,
+    }))
+
     const dbAgents = await loadAgents()
+    const freeTier = await loadFreeTier()
+    await ensureNoncesTable()
     g._xorb = {
       agents: Object.keys(dbAgents).length > 0 ? dbAgents : seedDemoAgents(),
       rateLimits: {}, actions: [] as any[],
@@ -634,12 +761,8 @@ export default async function handler(req: any, res: any) {
       listings: {} as Record<string, any>,
       engagements: {} as Record<string, any>,
       persistence: Object.keys(dbAgents).length > 0 ? 'supabase' : 'in-memory',
-      // Free tier tracking: resets monthly
-      freeTier: {
-        actionsThisMonth: 0,
-        monthKey: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`,
-        limit: FREE_TIER_LIMIT,
-      },
+      // Free tier tracking: persisted to Supabase, loaded on init
+      freeTier,
     }
   }
   const store = g._xorb
@@ -682,7 +805,7 @@ export default async function handler(req: any, res: any) {
   // ─── Health ───
   if (path === '/api' || path === '/api/' || path.includes('/health')) {
     return res.json({
-      status: 'ok', service: 'x.orb', version: '0.4.0',
+      status: 'ok', service: 'x.orb', version: PKG_VERSION,
       description: 'Orchestration layer for AI agent trust infrastructure',
       persistence: store.persistence,
       auth: apiKey ? (await validateApiKey(apiKey)).valid ? 'authenticated' : 'invalid_key' : 'unauthenticated',
@@ -735,7 +858,7 @@ export default async function handler(req: any, res: any) {
     if (req.headers?.['accept']?.includes('application/json') || path.includes('/docs/openapi')) {
       return res.json({
         openapi: '3.1.0',
-        info: { title: 'X.orb API', version: '0.4.0', description: 'Agent Trust Infrastructure API. Every AI agent action — validated, bonded, and auditable.' },
+        info: { title: 'X.orb API', version: PKG_VERSION, description: 'Agent Trust Infrastructure API. Every AI agent action — validated, bonded, and auditable.' },
         servers: [{ url: 'https://api.xorb.xyz/v1', description: 'Production' }, { url: 'http://localhost:3000/v1', description: 'Local development' }],
         paths: {
           '/health': { get: { summary: 'Health check', security: [], responses: { '200': { description: 'API status' } } } },
@@ -1153,7 +1276,8 @@ export default async function handler(req: any, res: any) {
     const currentMonthKey = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`
     if (store.freeTier.monthKey !== currentMonthKey) {
       store.freeTier = { actionsThisMonth: 0, monthKey: currentMonthKey, limit: FREE_TIER_LIMIT }
-      usedNonces.clear() // Clear nonce cache on month rollover
+      usedNoncesLocal.clear() // Clear local nonce cache on month rollover
+      await saveFreeTier(currentMonthKey, 0) // Persist reset
     }
 
     const freeTierRemaining = Math.max(0, store.freeTier.limit - store.freeTier.actionsThisMonth)
@@ -1164,18 +1288,13 @@ export default async function handler(req: any, res: any) {
       const validation = validateX402Payment(paymentHeader as string)
       x402Valid = validation.valid
       if (validation.valid) {
-        // Check nonce hasn't been used (replay protection)
+        // Check nonce hasn't been used (replay protection — persisted to Supabase)
         const nonce = validation.details!.nonce
-        if (usedNonces.has(nonce)) {
+        if (await isNonceUsed(nonce)) {
           x402Valid = false
           x402Details = { error: 'Nonce already used (replay attack detected)', nonce }
         } else {
-          usedNonces.add(nonce)
-          // Cap nonce set size to prevent memory leak (keep last 100K)
-          if (usedNonces.size > 100000) {
-            const iter = usedNonces.values()
-            for (let i = 0; i < 50000; i++) { usedNonces.delete(iter.next().value as string) }
-          }
+          await saveNonce(nonce)
           x402Details = { free_tier: false, paid: true, ...validation.details }
         }
       } else {
@@ -1225,6 +1344,8 @@ export default async function handler(req: any, res: any) {
     // Gate passed — increment free tier counter if using free tier (no payment)
     if (!paymentHeader) {
       store.freeTier.actionsThisMonth++
+      // Persist free tier counter to Supabase (fire-and-forget)
+      saveFreeTier(store.freeTier.monthKey, store.freeTier.actionsThisMonth).catch(() => {})
     }
 
     gates.push({

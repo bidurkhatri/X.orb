@@ -3,8 +3,6 @@ import { PageHeader } from '../components/layout/PageHeader'
 
 const API = import.meta.env.VITE_API_URL || 'https://api.xorb.xyz'
 
-// TODO: Align with canonical XorbEventType from @xorb/types when event payload schema is stabilized.
-// See packages/xorb-types/src/index.ts for XorbEventType and WebhookPayload.
 interface ActionEvent {
   id: string
   type: string
@@ -25,7 +23,7 @@ export function Actions() {
       if (!mounted || !polling) return
       try {
         const res = await fetch(`${API}/v1/events?since=${since}&limit=50`, {
-          headers: { 'x-api-key': localStorage.getItem('xorb_api_key') || '' },
+          headers: { 'x-api-key': sessionStorage.getItem('xorb_api_key') || '' },
         })
         const data = await res.json()
         if (data.events?.length > 0) {
