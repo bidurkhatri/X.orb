@@ -17,7 +17,7 @@
  */
 
 import { createClient } from '@supabase/supabase-js'
-import { createHash } from 'crypto'
+import { createHash, randomBytes } from 'crypto'
 import { readFileSync } from 'fs'
 import { resolve } from 'path'
 
@@ -892,7 +892,7 @@ export default async function handler(req: any, res: any) {
       if (!body?.label || body.label.length < 1) {
         return res.status(400).json({ success: false, error: { code: 'validation_error', message: 'label is required' } })
       }
-      const rawKey = `xorb_sk_${require('crypto').randomBytes(24).toString('hex')}`
+      const rawKey = `xorb_sk_${randomBytes(24).toString('hex')}`
       const keyHash = createHash('sha256').update(rawKey).digest('hex')
       const sb = getSupabase()
       if (sb) {

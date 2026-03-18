@@ -83,9 +83,39 @@ export function Login() {
           </button>
         </form>
 
-        <p className="text-xs text-xorb-muted text-center mt-6">
-          Don't have an API key? Contact your administrator or generate one via the API.
-        </p>
+        <div className="text-center mt-6 space-y-2">
+          <p className="text-xs text-xorb-muted">
+            Don't have an API key?
+          </p>
+          <button
+            type="button"
+            onClick={async () => {
+              const addr = prompt('Enter your wallet address (0x...):')
+              if (!addr || addr.length < 10) return
+              const label = prompt('Give this key a name:') || 'default'
+              try {
+                const res = await fetch(`${API_BASE}/v1/auth/keys`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ owner_address: addr, label }),
+                })
+                const data = await res.json()
+                if (data.success && data.data?.api_key) {
+                  await navigator.clipboard.writeText(data.data.api_key)
+                  alert(`Your API key (copied to clipboard):\n\n${data.data.api_key}\n\nSave this key — it cannot be retrieved again.`)
+                  setApiKey(data.data.api_key)
+                } else {
+                  alert('Failed to create key: ' + (data.error?.message || 'Unknown error'))
+                }
+              } catch {
+                alert('Cannot reach API server.')
+              }
+            }}
+            className="text-xs text-xorb-blue hover:underline cursor-pointer"
+          >
+            Create a new API key
+          </button>
+        </div>
       </div>
     </div>
   )
