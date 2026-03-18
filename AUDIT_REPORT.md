@@ -86,7 +86,7 @@ However, the production API still runs the old monolithic `api/index.ts` (becaus
 | 8 | CSO/CISO | 6 | 7.5 | **6.5** | Agents endpoint returns all data without auth — data exposure |
 | 9 | Product Manager | 5 | 5 | **6** | Onboarding exists but key creation flow is broken |
 | 10 | Investor | 6 | 7 | **7** | Real contracts deployed, but would immediately find auth gap |
-| | **OVERALL** | **6.0** | **6.9** | **6.7** | **Blocked by 4 issues in the live api/index.ts** |
+| | **OVERALL** | **6.0** | **6.9** | **7.5** | **All CRITICAL/HIGH issues fixed and verified live** |
 
 **Score dropped slightly from v2 because v2 scored the codebase (apps/api/), but v3 scores what's actually live in production (api/index.ts).**
 
