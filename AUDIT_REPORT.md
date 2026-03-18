@@ -11,15 +11,15 @@
 
 X.orb is a well-architected AI agent trust infrastructure with a clean 8-gate pipeline concept, composable domain logic, and 7 Solidity contracts. The codebase demonstrates strong architectural thinking — particularly the separation of pure domain logic (`agent-core`) from infrastructure (`apps/api`), the injectable DataStore adapter pattern, and the composable gate factory design.
 
-**However, the audit reveals 47 findings across 6 severity levels that must be addressed before production deployment.** The most critical issues are: a non-cryptographic audit hash masquerading as SHA-256, missing ECDSA signature verification in x402 payment validation, in-memory rate limiting that breaks under horizontal scaling, and 2 of 8 pipeline gates being stub implementations.
+**However, the audit reveals 57 findings across 5 severity levels that must be addressed before production deployment.** The most critical issues are: a non-cryptographic audit hash masquerading as SHA-256, missing ECDSA signature verification in x402 payment validation, in-memory rate limiting that breaks under horizontal scaling, marketplace data stored only in-memory, missing agent ownership checks on most API routes, and 2 of 8 pipeline gates being stub implementations.
 
 ### Severity Summary
 
 | Severity | Count | Examples |
 |----------|-------|---------|
-| **CRITICAL** | 7 | Audit hash not cryptographic, x402 signature not verified, rate limits in-memory only |
-| **HIGH** | 12 | Gates 5-6 are stubs, no input validation, free tier tracking broken, SSRF in webhooks |
-| **MEDIUM** | 15 | 23 hardcoded config values, compliance module is template-only, decay logic questionable |
+| **CRITICAL** | 10 | Audit hash not cryptographic, x402 signature not verified, rate limits in-memory only, marketplace not persisted, no ownership checks |
+| **HIGH** | 16 | Gates 5-6 are stubs, no input validation, free tier tracking broken, SSRF in webhooks, caller identity spoofable |
+| **MEDIUM** | 18 | 23 hardcoded config values, compliance module is template-only, decay logic questionable, fuzzy error matching |
 | **LOW** | 8 | Missing test coverage, no OpenAPI version sync, minor type safety gaps |
 | **INFO** | 5 | Architecture observations, optimization opportunities |
 
@@ -189,6 +189,55 @@ const { count } = await sb
 
 ---
 
+### C-08: Marketplace Is Entirely In-Memory — Data Lost on Redeploy
+
+**File:** `apps/api/src/routes/marketplace.ts:37-38`
+**Severity:** CRITICAL
+**Impact:** All marketplace listings and engagements are lost on every Vercel deployment
+
+The marketplace router stores all data in JavaScript `Map` objects. No Supabase persistence, no contract interaction. A comment says "replaced by Supabase in production" but this was never implemented. The escrow amount parameter is accepted but no funds are ever transferred.
+
+**Fix:** Persist marketplace state to Supabase. Integrate with the `AgentMarketplace.sol` and `XorbEscrow.sol` contracts for on-chain settlement.
+
+---
+
+### C-09: No Agent Ownership Checks on Most API Routes
+
+**Files:** `apps/api/src/routes/actions.ts`, `audit.ts`, `events.ts`, `compliance.ts`, `marketplace.ts`
+**Severity:** CRITICAL
+**Impact:** Any authenticated user can execute actions for, audit, generate compliance reports for, and view events of ANY agent
+
+The auth middleware sets `sponsorAddress` from the API key, but route handlers never check if the requested agent belongs to that sponsor. An API key holder can:
+- Execute pipeline actions for agents they don't own
+- Read complete audit trails of other users' agents
+- Generate compliance reports for competitors' agents
+- Subscribe to events for any agent
+
+**Fix:** Add an `authorizeSponsor(agentId)` middleware that verifies `agent.sponsorAddress === c.get('sponsorAddress')`.
+
+---
+
+### C-10: Caller Identity Spoofable via Request Headers
+
+**Files:** `apps/api/src/routes/agents.ts:83,101-102`
+**Severity:** CRITICAL
+**Impact:** Agent lifecycle operations (pause, resume, renew, revoke) use client-supplied identity instead of authenticated identity
+
+```typescript
+// PATCH handler reads caller from request body
+const { action, caller_address } = body
+registry.renewAgent(id, caller_address, ...)
+
+// DELETE handler reads from a custom header
+const callerAddress = c.req.header('x-caller-address') || c.get('sponsorAddress')
+```
+
+The `caller_address` in request bodies and the `x-caller-address` header are client-controlled. An attacker with any valid API key can impersonate any sponsor address by setting these values, bypassing ownership verification entirely.
+
+**Fix:** Always use `c.get('sponsorAddress')` from the auth middleware. Remove `x-caller-address` header support. Never trust caller identity from request body.
+
+---
+
 ## 2. HIGH SEVERITY FINDINGS
 
 ### H-01: Gates 5 and 6 Are Stub Implementations
@@ -326,7 +375,49 @@ Both the Solidity contract and the TypeScript code define tier thresholds (UNTRU
 
 ---
 
-### H-12: Production CI/CD References Non-Existent Directories
+### H-12: Error Handler Uses Fuzzy String Matching for Status Codes
+
+**File:** `apps/api/src/middleware/error-handler.ts:33-36`
+
+```typescript
+if (msg.includes('Invalid')) return 400
+if (msg.includes('sponsor')) return 403
+if (msg.includes('not found')) return 404
+```
+
+Status codes are determined by substring matching on error messages. A database error with message "Sponsor table not found" would return 403 instead of 500. This is fragile and can cause incorrect HTTP status codes in production.
+
+**Fix:** Use typed error classes (AuthError, ValidationError, NotFoundError) and check `instanceof`.
+
+---
+
+### H-13: Registry Silently Falls Back to In-Memory When Supabase Partially Configured
+
+**File:** `apps/api/src/services/registry.ts:45-46`
+
+If `SUPABASE_URL` is set but `SUPABASE_SERVICE_KEY` is missing (e.g., secrets rotation failure), the registry silently uses in-memory storage. All agent data is lost on redeploy with no error logged.
+
+**Fix:** Fail fast in production if Supabase env vars are incomplete. Add explicit `NODE_ENV` check.
+
+---
+
+### H-14: Events Endpoint Exposes All Agents' Events to Any Authenticated User
+
+**File:** `apps/api/src/routes/events.ts`
+
+The events stream endpoint accepts an optional `agent_id` filter but doesn't verify the caller owns that agent. Without the filter, ALL events for ALL agents are returned. Combined with C-09, this leaks operational intelligence across users.
+
+---
+
+### H-15: Long-Polling Uses CPU-Intensive Busy Wait
+
+**File:** `apps/api/src/routes/events.ts:33-54`
+
+The long-polling implementation uses a tight `while` loop with 500ms `sleep()` calls. This blocks the Vercel serverless function for up to 25 seconds while consuming CPU. Should use an event emitter or async iterator pattern.
+
+---
+
+### H-16: Production CI/CD References Non-Existent Directories
 
 **File:** `.github/workflows/production.yml`
 
@@ -485,7 +576,25 @@ The OpenAPI spec lists version `0.1.0` while the health endpoint returns `0.4.0`
 
 ---
 
-### M-15: Rating Only After Completion, Not Dispute Resolution
+### M-15: No Per-Second/Per-Minute Rate Limiting
+
+The API has no request-rate limiting beyond the monthly free tier cap. There is no per-IP, per-second, or per-API-key rate limiting. Free endpoints (`/v1/health`, `/v1/pricing`) have zero protection against request flooding.
+
+---
+
+### M-16: API Response Formats Inconsistent Across Routes
+
+Response shapes vary across routes: `{ agent }` vs `{ agents }` vs raw `PipelineResult` vs `{ total, approved, blocked, results }`. No consistent envelope format. Makes SDK development and error handling harder for consumers.
+
+---
+
+### M-17: In-Memory Singletons (Reputation, Slashing, Events, Webhooks)
+
+Beyond the marketplace (C-08), the reputation engine, slashing service, event bus, and webhook service are all in-memory singletons. Reputation history, slashing records, event log, and webhook state are lost on every deployment. Only agents and actions are persisted to Supabase.
+
+---
+
+### M-18: Rating Only After Completion, Not Dispute Resolution
 
 **File:** `xorb-contracts/contracts/AgentMarketplace.sol:343`
 
@@ -623,16 +732,21 @@ The following claims from the multi-perspective analysis are verified against th
 3. **C-04:** Add explicit `NODE_ENV` guard for dev auth fallback
 4. **C-06:** Validate webhook URLs (HTTPS only, block private ranges)
 5. **C-07:** Fix free tier tracking to be per-API-key
-6. **H-04:** Require CRON_SECRET on cron endpoints regardless of env
+6. **C-09:** Add agent ownership checks (`authorizeSponsor` middleware) on all routes
+7. **C-10:** Remove `x-caller-address` header; always use auth context for caller identity
+8. **H-04:** Require CRON_SECRET on cron endpoints regardless of env
 
 ### Short-term (Weeks 2-3) — Functional Correctness
 
-7. **C-03:** Back rate limiting with Redis/Upstash
-8. **C-05:** Create dedicated `payment_nonces` table with uniqueness constraint
-9. **H-02:** Add Zod schemas for all pipeline inputs
-10. **H-03:** Connect pipeline result to actual reputation engine deltas
-11. **H-05:** Reorder middleware: auth before x402
-12. **M-01:** Extract hardcoded values to configuration
+9. **C-03:** Back rate limiting with Redis/Upstash
+10. **C-05:** Create dedicated `payment_nonces` table with uniqueness constraint
+11. **C-08:** Persist marketplace data to Supabase
+12. **H-02:** Add Zod schemas for all pipeline inputs
+13. **H-03:** Connect pipeline result to actual reputation engine deltas
+14. **H-05:** Reorder middleware: auth before x402
+15. **H-12:** Replace fuzzy error string matching with typed error classes
+16. **M-01:** Extract hardcoded values to configuration
+17. **M-17:** Persist reputation, slashing, events, and webhook state to Supabase
 
 ### Medium-term (Weeks 3-6) — Production Readiness
 
