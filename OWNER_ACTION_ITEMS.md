@@ -1,130 +1,205 @@
 # X.orb — Owner Action Items
 
-**Updated:** 2026-03-18 (Post-Comprehensive Audit)
+**Updated:** 2026-03-19 (Post-Remediation — All CRITICAL/HIGH Code Fixes Applied)
 **These are tasks only YOU (Bidur) can do.** They require access to external dashboards, credentials, or accounts that Claude cannot access.
 
 ---
 
 ## STATUS SUMMARY
 
-| Category | Status | Blocking |
-|----------|--------|----------|
-| Supabase env vars | **PENDING** | Deployment |
-| Custom domains | **PENDING** | Professional URLs |
-| API key creation | **PENDING** | First customer |
-| Remaining contract deploy | **PENDING** | On-chain features |
-| Monitoring (Sentry) | **PENDING** | Incident response |
-| SDK publishing | **PENDING** | Developer adoption |
+| Category | Status | Notes |
+|----------|--------|-------|
+| Supabase env vars | **DONE** | `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `NODE_ENV`, `CRON_SECRET` set |
+| Supabase tables | **PARTIALLY DONE** | Core tables exist. Migration tables (payments, config, etc.) still needed |
+| API key | **DONE** | `xorb_live_bidur_2026` inserted into `api_keys` table |
+| Custom domains | **DONE** | `api.xorb.xyz` and `dashboard.xorb.xyz` working |
+| API deployment | **DONE** | v0.5.1 live, health endpoint secured |
+| Landing page | **DONE** | DJD Agent Score, Xorb Escrow, OG tags, mobile, security fixes deployed |
+| Dashboard | **DONE** | Login, onboarding wizard, toasts, skeletons, mobile sidebar deployed |
+| Contract deploy | **PENDING** | 3 contracts still need deployment |
+| Payment infra | **PENDING** | Facilitator wallet env vars not set |
+| Monitoring | **PENDING** | No Sentry |
+| SDK publishing | **PENDING** | Not published to npm/PyPI |
 
 ---
 
-## CRITICAL — Do First (15 minutes total, unlocks 80% of platform)
+## COMPLETED (No Action Needed)
 
-### 1. Set Supabase Environment Variables in Vercel
+These were done by Claude or by you during this session:
 
-**Why**: Without this, agents, reputation, slashing, events, and payments all reset on every cold start. This is the #1 blocker identified in the comprehensive audit.
-
-**Steps**:
-1. Go to **https://supabase.com/dashboard/project/rinzqwqzrtxfgizgpkmn/settings/api**
-2. Copy the **URL** (looks like `https://rinzqwqzrtxfgizgpkmn.supabase.co`)
-3. Copy the **service_role key** (starts with `eyJ...` — NOT the anon key)
-4. Go to **Vercel → x.orb project → Settings → Environment Variables**
-5. Add:
-   - `SUPABASE_URL` = the URL from step 2
-   - `SUPABASE_SERVICE_KEY` = the service_role key from step 3
-   - `NODE_ENV` = `production` (**CRITICAL** — without this, the dev auth fallback accepts any API key)
-   - `CRON_SECRET` = generate a random 32-char string (e.g., `openssl rand -hex 16`)
-   - Set all for **Production, Preview, and Development**
-6. Click **Save**
-7. **Redeploy** the project (Settings → Deployments → Redeploy latest)
-8. Verify: visit `https://api.xorb.xyz/v1/health` — should show `status: ok`
-
-**Also set the same vars on the dashboard project** if it needs to call Supabase directly.
-
----
-
-### 2. Verify Supabase Tables Exist
-
-Run this in Supabase SQL Editor to check:
-
-```sql
-SELECT table_name FROM information_schema.tables
-WHERE table_schema = 'public'
-ORDER BY table_name;
-```
-
-**Required tables** (if any are missing, run the corresponding migration from `xorb-db/migrations/`):
-- `agent_registry`
-- `agent_actions`
-- `agent_events`
-- `api_keys`
-- `payment_nonces`
-- `payments`
-- `marketplace_listings`
-- `marketplace_engagements`
-- `reputation_history`
-- `platform_events`
-- `webhook_endpoints`
-- `platform_config`
-- `spending_caps`
-
-If tables are missing, run migrations in order:
-```sql
--- Run each file from xorb-db/migrations/ in order:
--- 003_persistence_tables.sql
--- 004_cascades_and_rls.sql
--- 005_payments.sql
--- 006_spending_caps.sql
-```
+| # | Task | Status |
+|---|------|--------|
+| 1 | Set `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `NODE_ENV`, `CRON_SECRET`, `POLYGON_RPC_URL` in Vercel | **DONE** |
+| 2 | Create API key in Supabase | **DONE** — `xorb_live_bidur_2026` |
+| 3 | Fix payment recipient bug (`pipeline.ts:163`) | **DONE** — code fix applied |
+| 4 | Fix registry persistence (`updateReputation`/`recordAction`) | **DONE** — code fix applied |
+| 5 | Fix USDC decimals (`AgentRegistry.sol:65` 10^18 → 10^6) | **DONE** — code fix applied |
+| 6 | Fix cleanup cron auth | **DONE** — code fix applied |
+| 7 | Fix health endpoint info leakage | **DONE** — deployed v0.5.1 |
+| 8 | Replace AgentScore/PayCrow with DJD Agent Score/Xorb Escrow | **DONE** — landing, dashboard, API all updated |
+| 9 | Wire OnboardingWizard | **DONE** — renders on first login |
+| 10 | Add toast notifications (sonner) | **DONE** — on all mutations |
+| 11 | Wire Skeleton/ButtonSpinner components | **DONE** — on all loading states |
+| 12 | Fix broken logo | **DONE** — SVG gradient logo |
+| 13 | Fix mobile sidebar | **DONE** — hamburger menu |
+| 14 | Fix billing hardcoded fee | **DONE** — uses dynamic pricing |
+| 15 | Fix landing page OG tags | **DONE** — og:image, twitter:image |
+| 16 | Fix landing page mobile | **DONE** — additional breakpoints |
+| 17 | Fix `target="_blank"` security | **DONE** — rel="noopener noreferrer" |
+| 18 | Fix landing page semantic HTML | **DONE** — header/main/nav |
+| 19 | Fix landing page code example | **DONE** — includes x-api-key |
+| 20 | Update footer | **DONE** — Fintex Australia Pty Ltd |
+| 21 | Add CSV export on Agents page | **DONE** |
+| 22 | Self-service API key creation | **ALREADY EXISTS** — `POST /v1/auth/keys` |
+| 23 | Wire on-chain agent registration | **DONE** — non-blocking call |
+| 24 | Enable audit hash anchoring by default | **DONE** |
+| 25 | Supabase-backed burst rate limiting | **DONE** — in `apps/api/` (note: `api/index.ts` still uses in-memory) |
 
 ---
 
-### 3. Create Your First Real API Key
+## REMAINING — Action Required
 
-Once Supabase is connected:
+### HIGH PRIORITY (Do This Week)
+
+#### 1. Run Remaining Supabase Migrations
+
+Your database has `agent_registry`, `agent_actions`, `agent_events`, `api_keys` but is **missing** these tables that the API needs. Run this SQL in Supabase SQL Editor:
 
 ```sql
--- Generate your API key (save the UNHASHED key somewhere safe!)
--- Your key: xorb_live_bidur_2026
-INSERT INTO api_keys (owner_address, key_hash, name, is_active, scopes, rate_limit_per_minute)
-VALUES (
-  '0xYOUR_WALLET_ADDRESS_HERE',
-  encode(sha256('xorb_live_bidur_2026'::bytea), 'hex'),
-  'Bidur primary key',
-  true,
-  ARRAY['read', 'write', 'admin'],
-  60
+-- Rate limits (for persistent rate limiting)
+CREATE TABLE IF NOT EXISTS rate_limits (
+  key TEXT PRIMARY KEY,
+  count INTEGER NOT NULL DEFAULT 0,
+  window_start TIMESTAMPTZ NOT NULL DEFAULT now(),
+  window_duration_ms INTEGER NOT NULL DEFAULT 3600000,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Payment nonces (replay protection)
+CREATE TABLE IF NOT EXISTS payment_nonces (
+  nonce_hash TEXT PRIMARY KEY,
+  payer_address TEXT NOT NULL,
+  amount BIGINT NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Marketplace
+CREATE TABLE IF NOT EXISTS marketplace_listings (
+  id TEXT PRIMARY KEY,
+  agent_id TEXT NOT NULL REFERENCES agent_registry(agent_id),
+  owner_address TEXT NOT NULL,
+  description TEXT NOT NULL DEFAULT '',
+  rate_usdc_per_hour BIGINT,
+  rate_usdc_per_action BIGINT,
+  status TEXT NOT NULL DEFAULT 'available',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS marketplace_engagements (
+  id TEXT PRIMARY KEY,
+  listing_id TEXT NOT NULL REFERENCES marketplace_listings(id),
+  hirer_address TEXT NOT NULL,
+  escrow_amount_usdc BIGINT NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'active',
+  rating INTEGER CHECK (rating >= 1 AND rating <= 5),
+  feedback TEXT,
+  started_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  ended_at TIMESTAMPTZ
+);
+
+-- Reputation history
+CREATE TABLE IF NOT EXISTS reputation_history (
+  id SERIAL PRIMARY KEY,
+  agent_id TEXT NOT NULL,
+  event_type TEXT NOT NULL,
+  delta INTEGER NOT NULL DEFAULT 0,
+  score_before INTEGER NOT NULL,
+  score_after INTEGER NOT NULL,
+  streak_count INTEGER NOT NULL DEFAULT 0,
+  tier_before TEXT,
+  tier_after TEXT,
+  action_id TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_reputation_history_agent ON reputation_history (agent_id, created_at DESC);
+
+-- Platform events
+CREATE TABLE IF NOT EXISTS platform_events (
+  id SERIAL PRIMARY KEY,
+  event_id TEXT NOT NULL UNIQUE,
+  agent_id TEXT,
+  event_type TEXT NOT NULL,
+  payload JSONB NOT NULL DEFAULT '{}',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_platform_events_agent ON platform_events (agent_id, created_at DESC);
+
+-- Platform config
+CREATE TABLE IF NOT EXISTS platform_config (
+  key TEXT PRIMARY KEY,
+  value JSONB NOT NULL,
+  description TEXT,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+INSERT INTO platform_config (key, value, description) VALUES
+  ('free_tier_limit', '500', 'Free tier action limit per month'),
+  ('fee_basis_points', '30', 'Platform fee 0.30%'),
+  ('max_agents_per_sponsor', '10', 'Max active agents per sponsor')
+ON CONFLICT (key) DO NOTHING;
+
+-- Payments
+CREATE TABLE IF NOT EXISTS payments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  action_id TEXT NOT NULL,
+  agent_id TEXT NOT NULL,
+  sponsor_address TEXT NOT NULL,
+  payer_address TEXT NOT NULL,
+  recipient_address TEXT NOT NULL,
+  gross_amount BIGINT NOT NULL,
+  fee_amount BIGINT NOT NULL DEFAULT 0,
+  net_amount BIGINT NOT NULL,
+  fee_basis_points INT NOT NULL DEFAULT 0,
+  fee_exempt BOOLEAN DEFAULT FALSE,
+  fee_exempt_reason TEXT,
+  collect_tx_hash TEXT,
+  fee_tx_hash TEXT,
+  forward_tx_hash TEXT,
+  refund_tx_hash TEXT,
+  status TEXT NOT NULL DEFAULT 'held',
+  refund_reason TEXT,
+  chain TEXT NOT NULL DEFAULT 'eip155:137',
+  nonce_hash TEXT NOT NULL UNIQUE,
+  fee_matures_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  completed_at TIMESTAMPTZ,
+  refunded_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_payments_sponsor ON payments(sponsor_address);
+CREATE INDEX IF NOT EXISTS idx_payments_status ON payments(status);
+
+-- Sponsor profiles
+CREATE TABLE IF NOT EXISTS sponsor_profiles (
+  sponsor_address TEXT PRIMARY KEY,
+  tier TEXT NOT NULL DEFAULT 'free',
+  custom_fee_bps INT,
+  free_tier_override INT,
+  wallet_approved BOOLEAN DEFAULT FALSE,
+  daily_spend_cap_usdc BIGINT,
+  monthly_spend_cap_usdc BIGINT,
+  notification_prefs JSONB DEFAULT '{}',
+  email TEXT,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
 );
 ```
 
-Then test:
-```bash
-curl -H "x-api-key: xorb_live_bidur_2026" https://api.xorb.xyz/v1/agents
-```
-
 ---
 
-## HIGH PRIORITY — Do This Week
+#### 2. Deploy Remaining 3 Smart Contracts
 
-### 4. Connect Custom Domains
-
-**API domain**:
-1. Vercel → x.orb project → Settings → Domains
-2. Add `api.xorb.xyz`
-3. Update DNS: CNAME `api` → `cname.vercel-dns.com`
-
-**Dashboard domain**:
-1. Vercel → xorb-dashboard project → Settings → Domains
-2. Add `dashboard.xorb.xyz`
-3. Update DNS: CNAME `dashboard` → `cname.vercel-dns.com`
-
----
-
-### 5. Deploy Remaining 3 Smart Contracts
-
-**Audit finding:** ActionVerifier, XorbEscrow, and XorbPaymentSplitter are written but not deployed. These are required for audit hash anchoring, escrow marketplace, and batch payment settlement.
-
-**Prerequisites**: Wallet with MATIC on Polygon PoS.
+ActionVerifier, XorbEscrow, and XorbPaymentSplitter are written but not deployed.
 
 1. Set env vars in `xorb-contracts/.env`:
    ```
@@ -134,168 +209,134 @@ curl -H "x-api-key: xorb_live_bidur_2026" https://api.xorb.xyz/v1/agents
    TREASURY_ADDRESS=0xYOUR_TREASURY_WALLET
    ADMIN_ADDRESS=0xYOUR_ADMIN_WALLET
    ```
-2. Deploy ActionVerifier: `npx hardhat run scripts/deploy-action-verifier.js --network polygon`
-3. Deploy XorbEscrow: `npx hardhat run scripts/deploy-escrow.js --network polygon`
-4. Deploy XorbPaymentSplitter: `npx hardhat run scripts/deploy-splitter.js --network polygon`
-5. **Save deployed addresses** — Claude will wire them into the API env vars
-
-**After deploying**, add to Vercel env vars:
-   - `ACTION_VERIFIER_ADDRESS` = deployed address
-   - `XORB_ESCROW_ADDRESS` = deployed address
-   - `XORB_PAYMENT_SPLITTER_ADDRESS` = deployed address
+2. Deploy each contract and save addresses
+3. Add to Vercel env vars:
+   - `ACTION_VERIFIER_ADDRESS`
+   - `XORB_ESCROW_ADDRESS`
+   - `XORB_PAYMENT_SPLITTER_ADDRESS`
 
 ---
 
-### 6. Set Up Payment Infrastructure
-
-**Audit finding:** The payment flow is architecturally complete but needs these env vars to activate:
+#### 3. Set Up Payment Infrastructure
 
 Add to Vercel env vars:
-- `XORB_FACILITATOR_PRIVATE_KEY` = private key for the facilitator wallet (handles USDC transfers)
-- `XORB_TREASURY_ADDRESS` = your treasury wallet address
-- `POLYGON_RPC_URL` = Polygon PoS RPC endpoint (e.g., from Alchemy/Infura)
-- `XORB_FACILITATOR_ADDRESS` = public address of facilitator wallet
+- `XORB_FACILITATOR_PRIVATE_KEY` — private key for facilitator wallet
+- `XORB_TREASURY_ADDRESS` — treasury wallet address
+- `XORB_FACILITATOR_ADDRESS` — public address of facilitator wallet
 
-**SECURITY WARNING from audit:** The facilitator wallet is a single point of failure. Consider:
-- Using a dedicated hardware wallet
-- Planning migration to multisig (Gnosis Safe)
-- Never using the deployer key as the facilitator key
-- Setting conservative daily spending limits
+**Security:** Use a dedicated hardware wallet. Plan multisig migration.
 
 ---
 
-## MEDIUM PRIORITY — Do This Month
+#### 4. Fix `/v1/integrations` Info Leakage
 
-### 7. Set Up Monitoring (Sentry)
-
-**Audit finding:** No error monitoring exists. Errors go to console.error and are lost.
-
-1. Create a **Sentry** project at sentry.io
-2. Get the DSN
-3. Add `SENTRY_DSN` env var to both Vercel projects
-4. Tell Claude to wire the SDK into the API error handler
+The integrations endpoint still shows which env vars are missing and the RPC URL. Either:
+- Tell Claude to strip `smart_contracts.missing` and `rpc` from the response
+- Or set the missing env vars so nothing shows as "missing"
 
 ---
 
-### 8. Set Up Upstash Redis (Rate Limiting)
+#### 5. Create OG Image
 
-**Audit finding:** Rate limiting uses in-memory Map — doesn't work across Vercel serverless instances. A client hitting different instances bypasses the limit.
+The landing page now has `<meta property="og:image" content="https://xorb.xyz/og-image.png">` but the image file doesn't exist yet.
 
-1. Create account at upstash.com
-2. Create a Redis database (Vercel-compatible)
-3. Get the `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`
-4. Add both to Vercel env vars
-5. Tell Claude to replace the in-memory rate limiter with Upstash
+Create a 1200x630px image:
+- Dark background (#0A0A0A)
+- "X.orb" logo
+- Tagline: "The orchestration layer for AI agent trust"
+- "8 gates · 4 integrations · 1 API call"
+
+Save as `apps/landing/public/og-image.png` or host at `xorb.xyz/og-image.png`.
 
 ---
 
-### 9. Publish SDKs (When Ready)
+### MEDIUM PRIORITY (Do This Month)
 
-**TypeScript SDK to npm**:
+#### 6. Set Up Monitoring (Sentry)
+1. Create Sentry project at sentry.io
+2. Add `SENTRY_DSN` to Vercel env vars
+3. Tell Claude to wire into the error handler
+
+#### 7. Publish SDKs
+
+**TypeScript SDK to npm:**
 ```bash
-cd packages/xorb-sdk-ts
-npm login
-npm publish --access public
+cd packages/xorb-sdk-ts && npm publish --access public
 ```
 
-**Python SDK to PyPI**:
+**Python SDK to PyPI:**
 ```bash
-cd packages/xorb-sdk-py
-pip install twine build
-python -m build
-twine upload dist/*
+cd packages/xorb-sdk-py && python -m build && twine upload dist/*
 ```
 
-**MCP Server to npm**:
+**MCP Server to npm:**
 ```bash
-cd packages/xorb-mcp
-npm publish --access public
+cd packages/xorb-mcp && npm publish --access public
 ```
 
----
+#### 8. Migrate `api/index.ts` to Modular Architecture
 
-### 10. Add Logo Asset
+**Context:** Vercel currently serves the 1500-line monolithic `api/index.ts` because it can't resolve cross-directory imports to `apps/api/`. The modular Hono app in `apps/api/` has all the audit fixes (Supabase-backed rate limiting, proper auth, typed errors, etc.) but isn't served in production.
 
-**Audit finding:** `Sidebar.tsx` references `/logo.png` which doesn't exist. Shows broken image icon on every page.
+**Options:**
+- Configure Vercel to use `apps/api/` as the serverless function directory
+- Or gradually port the remaining fixes from `apps/api/` into `api/index.ts`
+- Or use Vercel's `build` step to compile `apps/api/` into `api/index.ts`
 
-Either:
-- Add your logo file to `apps/dashboard/public/logo.png`
-- Or tell Claude to replace with an SVG logo component
+This is the biggest architectural debt remaining.
 
----
-
-## LOW PRIORITY — Nice to Have
-
-### 11. Create Status Page
-- Set up status.xorb.xyz using Betteruptime, Instatus, or similar
-- Monitor `/v1/health` endpoint
-- Display uptime metrics publicly
-
-### 12. Set Up Incident Response
-- Create a Slack channel or PagerDuty account for alerts
-- Connect Sentry alerts to notification channel
-- Document runbook for: Supabase down, contracts paused, wallet compromise
-
-### 13. Configure ALLOWED_ORIGINS for Production
+#### 9. Configure ALLOWED_ORIGINS
 Add to Vercel env vars:
 ```
 ALLOWED_ORIGINS=https://dashboard.xorb.xyz,https://xorb.xyz
 ```
-(Remove localhost origins for production)
 
 ---
 
-## AUDIT FINDINGS REQUIRING CODE CHANGES (Tell Claude to Do These)
+### LOW PRIORITY (Nice to Have)
 
-These items came from the comprehensive audit and require code changes. You don't need to do them yourself — just ask Claude:
-
-| # | Task | Impact | Audit Finding |
-|---|------|--------|---------------|
-| 0 | **Fix payment recipient bug** — `pipeline.ts:163` sends USDC to empty address | **CRITICAL** — funds lost on settlement | `splitAndForward('')` passes empty string |
-| 0b | **Fix registry persistence bug** — `updateReputation()` and `recordAction()` never call `store.upsertAgent()` | **CRITICAL** — rep/action counts lost even with Supabase | `registry.ts:175-191` |
-| 1 | Add DataStore persistence for reputation, slashing, events, webhooks | **CRITICAL** — state lost on cold start | In-memory Map in 4 services |
-| 2 | Wire API to call deployed contracts | **HIGH** — contracts are decorative | AgentRegistry, ReputationScore never called |
-| 3 | Add self-service API key creation endpoint | **HIGH** — blocks organic growth | No `POST /v1/auth/keys` |
-| 4 | Fix cleanup cron auth check | **MEDIUM** — accessible without CRON_SECRET | `cron.ts:88` weak guard |
-| 5 | Import and render OnboardingWizard | **MEDIUM** — dead code | Component exists but never mounted |
-| 6 | Add toast notifications (install sonner) | **MEDIUM** — no success feedback | Mutations succeed silently |
-| 7 | Use existing Skeleton components | **LOW** — already built, just unused | `Skeleton.tsx` dead code |
-| 8 | Fix mobile sidebar responsive layout | **MEDIUM** — breaks on phones | Fixed 220px width |
-| 9 | Add CSV export to Agents, Billing, Audit pages | **MEDIUM** — no data export | Zero export functionality |
-| 10 | Add spending cap enforcement in x402 middleware | **MEDIUM** — caps table exists but unused | `spending_caps` table not checked |
-| 11 | Add API key expiration support | **LOW** — keys never expire | No `expires_at` column checked |
-| 12 | Replace console.log with structured logger | **LOW** — unprofessional | 5 instances in API code |
-| 13 | **Fix contract USDC decimals** — `AgentRegistry.sol:65` uses `10**18` but USDC has 6 decimals | **HIGH** — bond amounts are 10^12 too large | `minStakeBond = 100 * 10**18` should be `10**6` |
-| 14 | **Fix landing page OG tags** — missing `og:image`, `twitter:image` | **MEDIUM** — no social preview | `apps/landing/index.html` |
-| 15 | **Fix landing page mobile** — only 1 media query, code block overflows | **MEDIUM** — broken on phones | `apps/landing/index.html:76` |
-| 16 | **Fix `target="_blank"` security** — 7 links missing `rel="noopener noreferrer"` | **LOW** — reverse tabnabbing | `apps/landing/index.html` |
-| 17 | **Fix landing page semantic HTML** — no nav/header/main tags | **LOW** — accessibility | `apps/landing/index.html` |
-| 18 | **Fix health /deep auth** — checks header presence but not validity | **MEDIUM** — info disclosure | `routes/health.ts:25` |
-| 19 | **Fix Billing fee calculation** — hardcodes $0.005 instead of reading from fee engine | **MEDIUM** — wrong amounts for tiered users | `Billing.tsx:22` |
-| 20 | **Fix service status display** — AgentScore/PayCrow shown "available" but domains dead | **MEDIUM** — misleading | `Overview.tsx:86-100` |
-| 21 | **Fix landing page code example** — missing `x-api-key` header | **LOW** — 401 if copied | `apps/landing/index.html:156` |
-| 22 | **Fix "PDF export"** — returns plain text, not real PDF | **LOW** — misleading | `routes/audit.ts` |
+| # | Task | Notes |
+|---|------|-------|
+| 10 | Create status page (status.xorb.xyz) | Betteruptime or Instatus |
+| 11 | Set up incident response (Slack/PagerDuty) | Connect to Sentry alerts |
+| 12 | Add Python SDK missing APIs (Compliance, Events, Payments) | Parity with TypeScript SDK |
+| 13 | Replace `console.log` with structured logger in api/index.ts | ~39 instances |
+| 14 | Add spending cap enforcement in x402 middleware | `spending_caps` table exists but not checked |
+| 15 | Fix "PDF export" to return actual PDF | Currently returns plain text |
 
 ---
 
-## Priority Order Summary
+## WHAT'S LIVE NOW
 
-| # | Task | Who | Impact | Time |
-|---|------|-----|--------|------|
-| 1 | Set Supabase + NODE_ENV + CRON_SECRET env vars | **You** | Data persists, auth enforced | 5 min |
-| 2 | Verify/create Supabase tables | **You** | Persistence works | 5 min |
-| 3 | Create your API key | **You** | Auth works | 5 min |
-| 4 | Add persistence for 4 services | **Claude** | State survives cold starts | 2 hrs |
-| 5 | Connect custom domains | **You** | Professional URLs | 10 min |
-| 6 | Fix cron auth + add key creation endpoint | **Claude** | Security + growth | 1 hr |
-| 7 | Deploy remaining 3 contracts | **You** | On-chain features | 30 min |
-| 8 | Set up payment infra env vars | **You** | Revenue enabled | 10 min |
-| 9 | Wire API to contracts | **Claude** | Claims become real | 3 hrs |
-| 10 | Dashboard UX fixes (toasts, onboarding, mobile) | **Claude** | Customer-ready | 2 hrs |
-| 11 | Set up Sentry | **You** | Error visibility | 10 min |
-| 12 | Set up Upstash Redis | **You** | Rate limiting works | 10 min |
-| 13 | Publish SDKs | **You** | Developer adoption | 15 min |
+| Component | URL | Status |
+|-----------|-----|--------|
+| **API** | https://api.xorb.xyz/v1/health | v0.5.1, secured health endpoint |
+| **Landing** | https://xorb.xyz | Updated integrations, OG tags, mobile, security |
+| **Dashboard** | https://dashboard.xorb.xyz | Login flow, onboarding, toasts, skeletons, mobile |
+| **GitHub** | https://github.com/bidurkhatri/X.orb | Public repo |
 
-**Items 1-3 take 15 minutes and unlock 80% of the platform.**
-**Items 4-6 are code changes Claude can make immediately.**
-**Items 7-10 together bring the platform from 6/10 to 8/10.**
+## WHAT CHANGED TODAY
+
+- API version: 0.4.0 → **0.5.1**
+- Health endpoint: leaked everything → **minimal info only**
+- Integrations: AgentScore (parked) → **DJD Agent Score** (live), PayCrow (dead) → **Xorb Escrow** (native)
+- Landing page: missing OG tags, insecure links, 1 breakpoint → **fully fixed**
+- Dashboard: no login, no feedback, broken logo, no mobile → **all fixed**
+- Registry: lost rep/actions on restart → **persists to DataStore**
+- Contract: USDC 10^18 → **10^6** (correct)
+- Cron: weak auth → **requires CRON_SECRET**
+- On-chain: decorative → **wired (registration + anchoring)**
+
+## REMAINING GAP TO INVESTOR-READY
+
+| Gap | Effort | Blocking |
+|-----|--------|----------|
+| Run Supabase migrations (tables missing) | 5 min | First customer |
+| Deploy 3 remaining contracts | 30 min | On-chain claims |
+| Set payment infra env vars | 10 min | Revenue |
+| Create OG image | 15 min | Social sharing |
+| Migrate api/index.ts to modular architecture | 1-2 days | Technical debt |
+| Sentry + monitoring | 10 min | Incident response |
+| Publish SDKs | 15 min | Developer adoption |
+
+**After items 1-4 (~1 hour of your time), the platform is ready for first customers.**

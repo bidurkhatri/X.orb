@@ -898,7 +898,7 @@ export default async function handler(req: any, res: any) {
       message: 'X.orb orchestrates these services — it does not replace them.',
       services: [
         { name: 'ERC-8004', role: 'On-chain agent identity', registry: ERC_8004_REGISTRY_BASE, chain: 'base', url: 'https://eips.ethereum.org/EIPS/eip-8004' },
-        { name: 'DJD Agent Score', role: 'Trust scoring (0-100)', url: 'https://www.djdlabs.xyz' },
+        { name: 'MoltGuard', role: 'Trust scoring (0-100)', url: 'https://api.moltrust.ch/guard/' },
         { name: 'x402', role: 'Per-action micropayments', package: '@x402/hono@2.7.0', url: 'https://x402.org' },
         { name: 'Xorb Escrow', role: 'Native escrow', url: 'https://polygonscan.com/address/0xEAbf85Bf2AE49aFdA531631E8bba219f6e62bF6c' },
         { name: 'Supabase', role: 'Persistent storage', status: store.persistence },

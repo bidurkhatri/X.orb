@@ -85,7 +85,7 @@ export function Overview() {
           <div className="space-y-3">
             {[
               { name: 'ERC-8004', role: 'Identity', status: 'connected', color: 'text-orange-400' },
-              { name: 'DJD Agent Score', role: 'Trust Scoring', status: 'available', color: 'text-purple-400' },
+              { name: 'MoltGuard', role: 'Trust Scoring', status: 'available', color: 'text-purple-400' },
               { name: 'x402', role: 'Payments', status: 'available', color: 'text-blue-400' },
               { name: 'Xorb Escrow', role: 'Escrow', status: 'available', color: 'text-green-400' },
             ].map(svc => (
