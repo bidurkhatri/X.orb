@@ -55,3 +55,5 @@ smart-contracts/contracts/error.log
 sylos-mobile-new/
 
 .vercel
+.env*.local
+OWNER_ACTION_ITEMS.md
