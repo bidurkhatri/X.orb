@@ -57,3 +57,12 @@ sylos-mobile-new/
 .vercel
 .env*.local
 OWNER_ACTION_ITEMS.md
+
+# Internal files
+AUDIT_REPORT.md
+OWNER_ACTION_ITEMS.md
+*.analysis.md
+xorb-db/migrations/run_now.sql
+apps/landing/generate-og.html
+xorb-contracts/standalone-deploy.js
+.claude/
