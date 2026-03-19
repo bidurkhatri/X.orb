@@ -714,7 +714,7 @@ function seedDemoAgents(): Record<string, any> {
 
 // ─── Handler ───
 export default async function handler(req: any, res: any) {
-  const path = req.url || '/'
+  const path = (req.url || '/').split('?')[0]
   const clientIp = req.headers?.['x-forwarded-for']?.split(',')[0]?.trim() || 'unknown'
 
   // Attach request ID and security headers to every response
