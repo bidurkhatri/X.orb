@@ -17,7 +17,7 @@ const chains = [polygon] as const
 
 const wagmiConfig = defaultWagmiConfig({
   chains,
-  projectId,
+  projectId: projectId || 'placeholder',
   metadata,
 })
 
@@ -35,11 +35,8 @@ if (projectId) {
 const queryClient = new QueryClient()
 
 export function WalletProvider({ children }: { children: ReactNode }) {
-  if (!projectId) {
-    // No WalletConnect configured — render without wallet support
-    return <>{children}</>
-  }
-
+  // Always render WagmiProvider so hooks work everywhere.
+  // Web3Modal only initializes when projectId is set.
   return (
     <WagmiProvider config={wagmiConfig}>
       <QueryClientProvider client={queryClient}>
