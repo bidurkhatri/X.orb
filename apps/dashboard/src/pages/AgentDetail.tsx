@@ -142,7 +142,7 @@ export function AgentDetail() {
             <div className="text-center py-8 text-xorb-muted text-sm">No events recorded.</div>
           ) : (
             <div className="space-y-2 max-h-[300px] overflow-y-auto">
-              {(audit.recent_events as any[]).slice(0, 20).map((e: any, i: number) => (
+              {(audit.recent_events as Array<Record<string, string>>).slice(0, 20).map((e, i: number) => (
                 <div key={i} className="flex items-center gap-3 text-sm">
                   <div className={`w-2 h-2 rounded-full shrink-0 ${
                     e.type?.includes('approved') ? 'bg-xorb-green' :

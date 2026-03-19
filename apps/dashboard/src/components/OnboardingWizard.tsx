@@ -36,7 +36,7 @@ export function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
         headers: { 'Content-Type': 'application/json', 'x-api-key': sessionStorage.getItem('xorb_api_key') || '' },
         body: JSON.stringify({
           name: agentName.trim(),
-          scope: 'RESEARCHER',
+          scope: 'general',
           sponsor_address: sponsorAddress,
           description: 'Created during onboarding',
         }),

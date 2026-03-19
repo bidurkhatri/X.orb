@@ -384,7 +384,7 @@ async function anchorAuditHashOnChain(agentId: string, auditHash: string): Promi
   const calldata = `${SEL_ANCHOR_ACTION}${toBytes32(agentId).slice(2)}${normalizeBytes32(auditHash).slice(2)}${'0'.repeat(64)}`
   const result = await ethSendTx(addr, calldata)
   if (result.txHash) {
-    console.log(`[Contract] ActionVerifier.anchorAction tx: ${result.txHash}`)
+    console.info(JSON.stringify({ level: 'info', service: 'contracts', event: 'action_anchored', tx: result.txHash }))
     return { on_chain: true, tx_hash: result.txHash }
   }
   console.warn(`[Contract] anchorAction skipped: ${result.error}`)
@@ -396,7 +396,7 @@ async function recordActionOnChain(agentId: string): Promise<void> {
   const addr = CONTRACT_ADDRESSES.agentRegistry
   if (!ETH_ADDR_RE.test(addr)) return
   const result = await ethSendTx(addr, `${SEL_RECORD_ACTION}${toBytes32(agentId).slice(2)}`)
-  if (result.txHash) console.log(`[Contract] AgentRegistry.recordAction tx: ${result.txHash}`)
+  if (result.txHash) console.info(JSON.stringify({ level: 'info', service: 'contracts', event: 'action_recorded', tx: result.txHash }))
   else console.warn(`[Contract] recordAction skipped: ${result.error}`)
 }
 
@@ -739,7 +739,7 @@ export default async function handler(req: any, res: any) {
   }
 
   // ─── Store init (Supabase or in-memory) ───
-  const g = globalThis as any
+  const g = globalThis as typeof globalThis & { _xorb?: Record<string, unknown> }
   if (!g._xorb) {
     // ─── Startup validation: log env var status on first invocation ───
     const envVars = {
@@ -770,10 +770,10 @@ export default async function handler(req: any, res: any) {
     await ensureNoncesTable()
     g._xorb = {
       agents: Object.keys(dbAgents).length > 0 ? dbAgents : (process.env.NODE_ENV === 'production' ? {} : seedDemoAgents()),
-      rateLimits: {}, actions: [] as any[],
-      events: [] as any[],
-      webhooks: [] as any[],
-      deliveries: [] as any[],
+      rateLimits: {}, actions: [] as unknown[],
+      events: [] as unknown[],
+      webhooks: [] as unknown[],
+      deliveries: [] as unknown[],
       listings: {} as Record<string, any>,
       engagements: {} as Record<string, any>,
       persistence: Object.keys(dbAgents).length > 0 ? 'supabase' : 'in-memory',
@@ -1098,7 +1098,7 @@ export default async function handler(req: any, res: any) {
 
   // ─── GET /v1/usage (billing summary) ───
   if (req.method === 'GET' && path.match(/\/usage\/?$/)) {
-    const agents = Object.values(store.agents) as any[]
+    const agents = Object.values(store.agents) as Record<string, unknown>[]
     const totalAgents = agents.length
     const totalActions = agents.reduce((sum: number, a: any) => sum + (a.totalActionsExecuted || 0), 0)
     // Use the real free tier counter from the store

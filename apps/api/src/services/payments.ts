@@ -303,7 +303,8 @@ export class PaymentService {
   async recordPayment(record: PaymentRecord): Promise<void> {
     const sb = getSupabase()
     if (!sb) return
-    const { error } = await sb.from('payments').insert(record as any)
+    // @ts-expect-error — Supabase client not typed for payments schema
+    const { error } = await sb.from('payments').insert(record)
     if (error) console.error('[PaymentService] recordPayment failed:', error.message)
   }
 

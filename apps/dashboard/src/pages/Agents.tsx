@@ -154,13 +154,10 @@ export function Agents() {
                 className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm" placeholder="research-bot" />
             </div>
             <div>
-              <label className="text-xs text-xorb-muted block mb-1">Role</label>
-              <select value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}
-                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm">
-                {['TRADER', 'RESEARCHER', 'MONITOR', 'CODER', 'GOVERNANCE_ASSISTANT', 'FILE_INDEXER', 'RISK_AUDITOR'].map(r => (
-                  <option key={r} value={r}>{r}</option>
-                ))}
-              </select>
+              <label className="text-xs text-xorb-muted block mb-1">Agent Type</label>
+              <input value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}
+                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm"
+                placeholder="e.g. DeFi trading, data analysis, monitoring..." />
             </div>
             <div>
               <label className="text-xs text-xorb-muted block mb-1">Sponsor Address</label>

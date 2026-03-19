@@ -113,9 +113,10 @@ async function checkNonce(nonce: string): Promise<{ valid: boolean; nonceHash: s
   const nonceHash = createHash('sha256').update(nonce).digest('hex')
   const sb = getSupabase()
   if (!sb) return { valid: true, nonceHash }
+  // @ts-expect-error — Supabase client not typed for payment_nonces schema
   const { error } = await sb.from('payment_nonces').insert({
     nonce_hash: nonceHash, payer_address: 'pending', amount: 0,
-  } as any)
+  })
   if (error?.code === '23505') return { valid: false, nonceHash }
   return { valid: true, nonceHash }
 }

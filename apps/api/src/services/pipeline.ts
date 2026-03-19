@@ -139,7 +139,7 @@ export async function runPipeline(
       delta: repEvent.pointsDelta,
       score_before: (agent?.reputation ?? 0) - repEvent.pointsDelta,
       score_after: agent?.reputation ?? 0,
-      streak_count: (repEvent as any).streak ?? 0,
+      streak_count: ('streak' in repEvent ? (repEvent as Record<string, number>).streak : 0) ?? 0,
       tier_after: agent?.reputationTier,
       action_id: result.action_id,
     }).catch(e => console.error(JSON.stringify({ level: 'error', service: 'pipeline', event: 'reputation_persist_failed', error: String(e) })))
@@ -195,7 +195,8 @@ export async function runPipeline(
             completed_at: new Date().toISOString(),
             fee_matures_at: new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString(),
           });
-          (result as any).payment = { status: 'completed', fee_tx: feeTxHash, forward_tx: forwardTxHash }
+          // @ts-expect-error — extending PipelineResult with payment info
+          result.payment = { status: 'completed', fee_tx: feeTxHash, forward_tx: forwardTxHash }
         } else {
           // Dev mode or fee-exempt: just mark completed
           await payments.updatePayment(paymentCtx.paymentId, {
@@ -284,7 +285,8 @@ export async function runPipeline(
             refund_reason: failedGate?.reason || 'Pipeline rejected',
             refunded_at: new Date().toISOString(),
           });
-          (result as any).payment = { status: 'refunded', refund_tx: txHash }
+          // @ts-expect-error — extending PipelineResult with payment info
+          result.payment = { status: 'refunded', refund_tx: txHash }
         } else {
           await payments.updatePayment(paymentCtx.paymentId, {
             action_id: result.action_id,
