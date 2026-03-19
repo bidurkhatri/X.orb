@@ -40,13 +40,13 @@ export function Settings() {
           if (saved?.preferences) setNotifications(saved.preferences)
         }
       } catch {
-        // Fallback: load from localStorage
+        // API unavailable: load from localStorage fallback
         const saved = localStorage.getItem('xorb_notification_prefs')
         if (saved) {
-          try { setNotifications(JSON.parse(saved)) } catch {}
+          try { setNotifications(JSON.parse(saved)) } catch { /* invalid JSON in localStorage, use defaults */ }
         }
       }
-    } catch {}
+    } catch { /* network error on usage/wallet fetch, page still renders with defaults */ }
   }
 
   const saveKey = () => {

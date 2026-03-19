@@ -1,6 +1,7 @@
+import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Pause, Play, XCircle } from 'lucide-react'
+import { ArrowLeft, Pause, Play, XCircle, AlertTriangle } from 'lucide-react'
 import { toast } from 'sonner'
 import { PageHeader } from '../components/layout/PageHeader'
 import { MetricCard } from '../components/glass/MetricCard'
@@ -11,6 +12,7 @@ export function AgentDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const [showRevokeConfirm, setShowRevokeConfirm] = useState(false)
 
   const { data: agentData, isLoading } = useQuery({
     queryKey: ['agent', id],
@@ -89,12 +91,26 @@ export function AgentDetail() {
                 <Play size={14} /> {resumeMutation.isPending ? '...' : 'Resume'}
               </button>
             )}
-            {agent.status !== 'revoked' && (
-              <button onClick={() => { if (confirm('Permanently revoke this agent? Bond will be slashed.')) revokeMutation.mutate() }}
-                disabled={revokeMutation.isPending}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-xorb-red/20 text-xorb-red rounded-lg text-sm hover:bg-xorb-red/30 transition-colors disabled:opacity-50">
-                <XCircle size={14} /> {revokeMutation.isPending ? '...' : 'Revoke'}
+            {agent.status !== 'revoked' && !showRevokeConfirm && (
+              <button onClick={() => setShowRevokeConfirm(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-xorb-red/20 text-xorb-red rounded-lg text-sm hover:bg-xorb-red/30 transition-colors">
+                <XCircle size={14} /> Revoke
               </button>
+            )}
+            {showRevokeConfirm && (
+              <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-1.5">
+                <AlertTriangle size={14} className="text-red-400 shrink-0" />
+                <span className="text-xs text-red-400">Permanently revoke? Bond will be slashed.</span>
+                <button onClick={() => { revokeMutation.mutate(); setShowRevokeConfirm(false) }}
+                  disabled={revokeMutation.isPending}
+                  className="px-2 py-1 bg-red-600 text-white rounded text-xs font-medium hover:bg-red-700 disabled:opacity-50">
+                  {revokeMutation.isPending ? '...' : 'Confirm'}
+                </button>
+                <button onClick={() => setShowRevokeConfirm(false)}
+                  className="px-2 py-1 bg-white/10 rounded text-xs hover:bg-white/20">
+                  Cancel
+                </button>
+              </div>
             )}
           </div>
         }
