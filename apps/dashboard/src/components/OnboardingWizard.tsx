@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Bot, Zap, Shield, ChevronRight, X } from 'lucide-react'
-import { api, API_BASE } from '../lib/api'
+import { Bot, Shield, ChevronRight, X } from 'lucide-react'
+import { API_BASE } from '../lib/api'
+import { useAccount } from 'wagmi'
+import { projectId } from '../lib/wallet'
 
 const STEPS = [
-  { icon: Bot, title: 'Create your first agent', description: 'Register an AI agent with a name, role, and wallet address.' },
-  { icon: Zap, title: 'Run a test action', description: 'Execute an action through the 8-gate security pipeline.' },
-  { icon: Shield, title: 'View your audit log', description: 'See the cryptographic audit trail for your agent.' },
+  { icon: Bot, title: 'Create your first agent', description: 'Register an AI agent with a name and your wallet address.' },
+  { icon: Shield, title: 'You\'re all set', description: 'Your agent is registered. Start executing actions via the API.' },
 ]
 
 export function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
@@ -15,16 +16,21 @@ export function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [agentName, setAgentName] = useState('')
+  const account = useAccount()
+  const walletAddress = projectId ? account.address : undefined
   const [sponsorAddress, setSponsorAddress] = useState('')
   const navigate = useNavigate()
+
+  // Auto-fill from connected wallet
+  const effectiveAddress = walletAddress || sponsorAddress
 
   const handleStep1 = async () => {
     if (!agentName.trim() || agentName.length < 2) {
       setError('Agent name must be at least 2 characters')
       return
     }
-    if (!sponsorAddress.match(/^0x[a-fA-F0-9]{40}$/)) {
-      setError('Enter a valid Ethereum address (0x + 40 hex characters)')
+    if (!effectiveAddress?.match(/^0x[a-fA-F0-9]{40}$/)) {
+      setError('Connect your wallet or enter a valid Ethereum address')
       return
     }
 
@@ -37,7 +43,7 @@ export function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
         body: JSON.stringify({
           name: agentName.trim(),
           scope: 'general',
-          sponsor_address: sponsorAddress,
+          sponsor_address: effectiveAddress,
           description: 'Created during onboarding',
         }),
       })
@@ -56,40 +62,7 @@ export function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
     }
   }
 
-  const handleStep2 = async () => {
-    if (!agentId) return
-    setLoading(true)
-    setError('')
-    try {
-      const res = await fetch(`${API_BASE}/v1/actions/execute`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-api-key': sessionStorage.getItem('xorb_api_key') || '' },
-        body: JSON.stringify({
-          agent_id: agentId,
-          action: 'test_query',
-          tool: 'get_balance',
-          params: { address: sponsorAddress },
-        }),
-      })
-      const data = await res.json()
-      if (data.approved || data.action_id) {
-        setStep(2)
-      } else {
-        // Action may require payment (402) — still show success for onboarding
-        if (data.payment_required) {
-          setStep(2) // Show audit log even if 402 — agent was created
-        } else {
-          setError('Action was blocked by the pipeline. Check your agent status.')
-        }
-      }
-    } catch {
-      setError('Cannot reach API server.')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleStep3 = () => {
+  const handleStep2 = () => {
     sessionStorage.setItem('xorb_onboarded', 'true')
     onComplete()
     navigate(`/agents`)
@@ -137,31 +110,33 @@ export function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
                     className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-xorb-blue/50"
                   />
                 </div>
-                <div>
-                  <label className="block text-xs text-xorb-muted mb-1">Your Wallet Address</label>
-                  <input
-                    type="text"
-                    value={sponsorAddress}
-                    onChange={e => setSponsorAddress(e.target.value)}
-                    placeholder="0x..."
-                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:border-xorb-blue/50"
-                  />
-                </div>
+                {walletAddress ? (
+                  <div className="flex items-center gap-2 bg-green-500/10 border border-green-500/20 rounded-lg px-3 py-2">
+                    <span className="text-xs text-green-400">Wallet connected:</span>
+                    <code className="text-xs text-green-300 font-mono">{walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}</code>
+                  </div>
+                ) : (
+                  <div>
+                    <label className="block text-xs text-xorb-muted mb-1">Your Wallet Address</label>
+                    <input
+                      type="text"
+                      value={sponsorAddress}
+                      onChange={e => setSponsorAddress(e.target.value)}
+                      placeholder="0x..."
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:border-xorb-blue/50"
+                    />
+                  </div>
+                )}
               </div>
             )}
 
-            {/* Step 2: Pipeline info */}
+            {/* Step 2: Success */}
             {step === 1 && (
-              <p className="mt-3 text-xs text-xorb-muted">
-                Agent <code className="text-xorb-blue">{agentId}</code> will run through all 8 gates.
-              </p>
-            )}
-
-            {/* Step 3: Success */}
-            {step === 2 && (
-              <p className="mt-3 text-xs text-green-400">
-                Your agent is registered and ready. View your agents to manage it.
-              </p>
+              <div className="mt-3 space-y-2">
+                <p className="text-xs text-green-400">Your agent is registered and ready.</p>
+                <p className="text-xs text-xorb-muted">Agent ID: <code className="text-xorb-blue">{agentId}</code></p>
+                <p className="text-xs text-xorb-muted">To execute actions, include an x402 payment header with each request. See the <a href="https://api.xorb.xyz/v1/docs" target="_blank" rel="noopener noreferrer" className="text-xorb-blue hover:underline">API docs</a> for details.</p>
+              </div>
             )}
           </div>
         </div>
@@ -175,11 +150,11 @@ export function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
             Skip setup
           </button>
           <button
-            onClick={step === 0 ? handleStep1 : step === 1 ? handleStep2 : handleStep3}
+            onClick={step === 0 ? handleStep1 : handleStep2}
             disabled={loading}
             className="flex items-center gap-2 px-5 py-2.5 bg-xorb-blue hover:bg-xorb-blue-hover disabled:opacity-50 rounded-lg text-sm font-medium transition-colors"
           >
-            {loading ? 'Working...' : step === 2 ? 'View Agents' : 'Continue'}
+            {loading ? 'Working...' : step === 1 ? 'View Agents' : 'Continue'}
             <ChevronRight size={14} />
           </button>
         </div>
