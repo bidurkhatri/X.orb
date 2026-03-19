@@ -80,3 +80,8 @@ xorb-deploy/environments/
 # Legacy/temp files
 xorb-db/tables/agent_audits.sql
 xorb-db/functions/*-temp/
+
+# Legacy project files
+xorb-docs/
+xorb-deploy/deploy-sylos.sh
+xorb-db/tables/civilization_stats.sql

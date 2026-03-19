@@ -1,6 +1,6 @@
 {
   "name": "xorb-sdk",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "TypeScript SDK for X.orb — Agent Trust Infrastructure API",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -13,13 +13,19 @@
     }
   },
   "scripts": {
-    "build": "tsup src/index.ts --format cjs,esm --dts",
+    "build": "tsup src/index.ts --format cjs,esm --external ethers",
     "test": "vitest run",
     "prepublishOnly": "npm run build"
   },
   "repository": { "type": "git", "url": "https://github.com/bidurkhatri/X.orb" },
   "homepage": "https://xorb.xyz",
-  "author": "Fintex",
+  "author": "Bidur Khatri <bidur@fintex.com.au>",
+  "peerDependencies": {
+    "ethers": "^6.0.0"
+  },
+  "peerDependenciesMeta": {
+    "ethers": { "optional": true }
+  },
   "files": ["dist", "README.md", "package.json"],
   "dependencies": {
     "zod": "^3.22.0"

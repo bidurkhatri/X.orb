@@ -15,8 +15,8 @@ packages/
   xorb-types/    — Shared TypeScript types
   xorb-sdk-ts/   — @xorb/sdk (TypeScript client)
   xorb-sdk-py/   — xorb-sdk (Python client)
-  xorb-mcp/      — @xorb/mcp (MCP server, 5 tools)
-xorb-contracts/  — 7 Solidity contracts (Polygon PoS, Chain ID 137)
+  xorb-mcp/      — @xorb/mcp (MCP server, 10 tools)
+xorb-contracts/  — 8 Solidity contracts (Polygon PoS, Chain ID 137)
 xorb-db/         — Supabase tables + edge functions
 xorb-deploy/     — CI/CD configs
 xorb-docs/       — Documentation
@@ -53,7 +53,7 @@ Tests are in `packages/agent-core/src/__tests__/`. Run with `pnpm test`.
 - Pipeline is composable: `runPipeline(context, [gate1, gate2, ...])`
 - Services are singletons via `getRegistry()`, `getReputationEngine()`, etc.
 - Auth validates against Supabase `api_keys` table (SHA-256 hash). Dev fallback accepts any `xorb_*` key.
-- x402 middleware returns HTTP 402 with payment instructions when free tier (1000/month) exhausted.
+- x402 middleware returns HTTP 402 with payment instructions. No free tier — every action requires USDC payment.
 
 ## Smart Contract Constructors
 
@@ -75,5 +75,6 @@ When deploying, match these exact signatures:
 | SlashingEngine | `0xA64E71Aa00F8f6e8e8acb3a81200dD270FF13625` |
 | PaymentStreaming | `0xb34717670889190B2A92E64B51e0ea696cE88D89` |
 | AgentMarketplace | `0xEAbf85Bf2AE49aFdA531631E8bba219f6e62bF6c` |
-| ActionVerifier | Not yet deployed |
-| XorbEscrow | Not yet deployed |
+| ActionVerifier | `0x463856987bD9f3939DD52df52649e9B8Cb07B057` |
+| XorbEscrow | `0x4B8994De0A6f02014E71149507eFF6903367411C` |
+| XorbPaymentSplitter | `0xc038C3116CD4997fF4C8f42b2d97effb023214c9` |

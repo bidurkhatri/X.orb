@@ -48,7 +48,7 @@ export class PaymentSigner {
   private facilitatorAddress: string
   private network: string
   private _wallet: unknown = null
-  private _ethers: typeof import('ethers') | null = null
+  private _ethers: Record<string, unknown> | null = null
 
   constructor(config: PaymentSignerConfig) {
     this.privateKey = config.privateKey.startsWith('0x') ? config.privateKey : `0x${config.privateKey}`
@@ -56,19 +56,19 @@ export class PaymentSigner {
     this.network = config.network || DEFAULT_NETWORK
   }
 
-  private async getEthers() {
+  private async getEthers(): Promise<Record<string, any>> {
     if (!this._ethers) {
       this._ethers = await import('ethers')
     }
     return this._ethers
   }
 
-  private async getWallet() {
+  private async getWallet(): Promise<{ address: string; signMessage: (msg: Uint8Array) => Promise<string> }> {
     if (!this._wallet) {
       const ethers = await this.getEthers()
-      this._wallet = new ethers.Wallet(this.privateKey)
+      this._wallet = new (ethers.Wallet as any)(this.privateKey)
     }
-    return this._wallet as import('ethers').Wallet
+    return this._wallet as { address: string; signMessage: (msg: Uint8Array) => Promise<string> }
   }
 
   /** Returns the sponsor's wallet address */
@@ -92,13 +92,16 @@ export class PaymentSigner {
     const expiry = Math.floor(Date.now() / 1000) + EXPIRY_SECONDS
 
     // Construct message hash matching X.orb's server-side validation
-    const messageHash = ethers.solidityPackedKeccak256(
+    const solidityPackedKeccak256 = ethers.solidityPackedKeccak256 as (types: string[], values: unknown[]) => string
+    const getBytes = ethers.getBytes as (hex: string) => Uint8Array
+
+    const messageHash = solidityPackedKeccak256(
       ['uint256', 'address', 'string', 'uint256'],
       [amount, this.facilitatorAddress, paymentNonce, expiry]
     )
 
     // Sign the hash
-    const signature = await wallet.signMessage(ethers.getBytes(messageHash))
+    const signature = await wallet.signMessage(getBytes(messageHash))
 
     const payload: PaymentHeader = {
       signature,
