@@ -1427,8 +1427,9 @@ console.log(result.approved, result.audit_hash)</code></pre>
       max_violations_fail: 5,       // >5 violations = security fail
     }
     // Load from DB if available
-    if (sb) {
-      const { data: cfg } = await sb.from('platform_config').select('key, value').in('key', ['compliance_non_compliant_rate', 'compliance_warning_rate', 'compliance_max_violations']).catch(() => ({ data: null }))
+    const sbCompliance = getSupabase()
+    if (sbCompliance) {
+      const { data: cfg } = await sbCompliance.from('platform_config').select('key, value').in('key', ['compliance_non_compliant_rate', 'compliance_warning_rate', 'compliance_max_violations']).then(r => r).catch(() => ({ data: null }))
       if (cfg) {
         for (const c of cfg) {
           if (c.key === 'compliance_non_compliant_rate') thresholds.non_compliant_rate = parseFloat(c.value) || 0.05
