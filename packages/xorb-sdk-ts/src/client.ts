@@ -3,11 +3,14 @@ import type {
   PipelineResult, ReputationInfo, WebhookSubscription, AuditLog,
   PricingEndpoint, XorbError,
 } from './types'
+import type { PaymentSigner } from './payment'
 
 export class XorbClient {
   private baseUrl: string
   private apiKey: string
   private timeout: number
+  /** Optional x402 payment signer for automatic payment header generation */
+  public signer?: PaymentSigner
 
   public agents: AgentsAPI
   public actions: ActionsAPI
@@ -19,10 +22,11 @@ export class XorbClient {
   public events: EventsAPI
   public payments: PaymentsAPI
 
-  constructor(config: XorbConfig) {
+  constructor(config: XorbConfig & { signer?: PaymentSigner }) {
     this.baseUrl = config.apiUrl.replace(/\/$/, '')
     this.apiKey = config.apiKey
     this.timeout = config.timeout || 30000
+    this.signer = config.signer
 
     this.agents = new AgentsAPI(this)
     this.actions = new ActionsAPI(this)
@@ -35,11 +39,14 @@ export class XorbClient {
     this.payments = new PaymentsAPI(this)
   }
 
-  async request<T>(method: string, path: string, body?: unknown, retries = 3): Promise<T> {
+  async request<T>(method: string, path: string, body?: unknown, retries = 3, paymentHeader?: string): Promise<T> {
     const url = `${this.baseUrl}${path}`
     const headers: Record<string, string> = {
       'x-api-key': this.apiKey,
       'Content-Type': 'application/json',
+    }
+    if (paymentHeader) {
+      headers['x-payment'] = paymentHeader
     }
 
     let lastError: Error | null = null
@@ -110,7 +117,10 @@ class AgentsAPI {
   constructor(private client: XorbClient) {}
 
   async register(params: CreateAgentParams): Promise<{ agent: Agent }> {
-    return this.client.request('POST', '/v1/agents', params)
+    const header = this.client.signer
+      ? await this.client.signer.signPaymentHeader('100000') // $0.10 registration fee
+      : undefined
+    return this.client.request('POST', '/v1/agents', params, 3, header)
   }
 
   async list(opts?: { sponsor?: string; status?: string }): Promise<{ agents: Agent[]; count: number }> {
@@ -147,8 +157,11 @@ class AgentsAPI {
 class ActionsAPI {
   constructor(private client: XorbClient) {}
 
-  async execute(params: ExecuteActionParams): Promise<PipelineResult> {
-    return this.client.request('POST', '/v1/actions/execute', params)
+  async execute(params: ExecuteActionParams, amountUsdc?: string): Promise<PipelineResult> {
+    const header = this.client.signer
+      ? await this.client.signer.signPaymentHeader(amountUsdc || '5000') // $0.005 default
+      : undefined
+    return this.client.request('POST', '/v1/actions/execute', params, 3, header)
   }
 
   async batch(actions: ExecuteActionParams[]): Promise<{

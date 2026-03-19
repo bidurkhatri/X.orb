@@ -1,71 +1,56 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Bot, Shield, ChevronRight, X } from 'lucide-react'
-import { API_BASE } from '../lib/api'
-import { useAccount } from 'wagmi'
+import { Key, Wallet, Code, ChevronRight, X, Check, ExternalLink } from 'lucide-react'
+import { useAccount, useWriteContract, useReadContract } from 'wagmi'
+import { parseAbi } from 'viem'
 import { projectId } from '../lib/wallet'
 
 const STEPS = [
-  { icon: Bot, title: 'Create your first agent', description: 'Register an AI agent with a name and your wallet address.' },
-  { icon: Shield, title: 'You\'re all set', description: 'Your agent is registered. Start executing actions via the API.' },
+  { icon: Key, title: 'API Key Ready', description: 'Your API key is active and authenticated.' },
+  { icon: Wallet, title: 'Approve USDC', description: 'Allow X.orb to charge your wallet for agent actions.' },
+  { icon: Code, title: 'Install SDK', description: 'Register agents and execute actions via code.' },
 ]
 
 export function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
   const [step, setStep] = useState(0)
-  const [agentId, setAgentId] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [agentName, setAgentName] = useState('')
-  const account = useAccount()
-  const walletAddress = projectId ? account.address : undefined
-  const [sponsorAddress, setSponsorAddress] = useState('')
   const navigate = useNavigate()
+  const { address } = useAccount()
 
-  // Auto-fill from connected wallet
-  const effectiveAddress = walletAddress || sponsorAddress
+  const apiKey = sessionStorage.getItem('xorb_api_key') || ''
+  const maskedKey = apiKey ? apiKey.slice(0, 8) + '••••••••' + apiKey.slice(-4) : ''
 
-  const handleStep1 = async () => {
-    if (!agentName.trim() || agentName.length < 2) {
-      setError('Agent name must be at least 2 characters')
-      return
-    }
-    if (!effectiveAddress?.match(/^0x[a-fA-F0-9]{40}$/)) {
-      setError('Connect your wallet or enter a valid Ethereum address')
-      return
-    }
+  const { writeContract, isPending: isApproving } = useWriteContract()
 
-    setLoading(true)
-    setError('')
-    try {
-      const res = await fetch(`${API_BASE}/v1/agents`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-api-key': sessionStorage.getItem('xorb_api_key') || '' },
-        body: JSON.stringify({
-          name: agentName.trim(),
-          scope: 'general',
-          sponsor_address: effectiveAddress,
-          description: 'Created during onboarding',
-        }),
-      })
-      const data = await res.json()
-      const agent = data.data?.agent || data.agent || data.data || data
-      if (agent?.agentId) {
-        setAgentId(agent.agentId)
-        setStep(1)
-      } else {
-        setError(data.error?.message || data.error || 'Failed to create agent. Check your inputs.')
-      }
-    } catch {
-      setError('Cannot reach API server.')
-    } finally {
-      setLoading(false)
-    }
+  const { data: allowance } = useReadContract({
+    address: '0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359',
+    abi: parseAbi(['function allowance(address owner, address spender) view returns (uint256)']),
+    functionName: 'allowance',
+    args: [address!, '0xF41faE67716670edBFf581aEe37014307dF71A9B'],
+    query: { enabled: !!address },
+  })
+
+  const hasAllowance = allowance !== undefined && allowance > BigInt(0)
+
+  const handleApprove = () => {
+    writeContract({
+      address: '0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359', // USDC on Polygon
+      abi: parseAbi(['function approve(address spender, uint256 amount) returns (bool)']),
+      functionName: 'approve',
+      args: [
+        '0xF41faE67716670edBFf581aEe37014307dF71A9B', // facilitator
+        BigInt('115792089237316195423570985008687907853269984665640564039457584007913129639935'), // maxUint256
+      ],
+    })
   }
 
-  const handleStep2 = () => {
-    sessionStorage.setItem('xorb_onboarded', 'true')
-    onComplete()
-    navigate(`/agents`)
+  const handleNext = () => {
+    if (step < STEPS.length - 1) {
+      setStep(step + 1)
+    } else {
+      sessionStorage.setItem('xorb_onboarded', 'true')
+      onComplete()
+      navigate('/agents')
+    }
   }
 
   const handleSkip = () => {
@@ -97,64 +82,91 @@ export function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
             <h3 className="font-medium">{STEPS[step].title}</h3>
             <p className="text-sm text-xorb-muted mt-1">{STEPS[step].description}</p>
 
-            {/* Step 1: Agent creation form */}
+            {/* Step 1: API Key confirmation */}
             {step === 0 && (
               <div className="mt-4 space-y-3">
-                <div>
-                  <label className="block text-xs text-xorb-muted mb-1">Agent Name</label>
-                  <input
-                    type="text"
-                    value={agentName}
-                    onChange={e => setAgentName(e.target.value)}
-                    placeholder="my-research-bot"
-                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-xorb-blue/50"
-                  />
+                <div className="flex items-center gap-2 bg-green-500/10 border border-green-500/20 rounded-lg px-3 py-2">
+                  <Check size={16} className="text-green-400 shrink-0" />
+                  <span className="text-xs text-green-400">API key active</span>
                 </div>
-                {walletAddress ? (
-                  <div className="flex items-center gap-2 bg-green-500/10 border border-green-500/20 rounded-lg px-3 py-2">
-                    <span className="text-xs text-green-400">Wallet connected:</span>
-                    <code className="text-xs text-green-300 font-mono">{walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}</code>
-                  </div>
-                ) : (
-                  <div>
-                    <label className="block text-xs text-xorb-muted mb-1">Your Wallet Address</label>
-                    <input
-                      type="text"
-                      value={sponsorAddress}
-                      onChange={e => setSponsorAddress(e.target.value)}
-                      placeholder="0x..."
-                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:border-xorb-blue/50"
-                    />
+                {maskedKey && (
+                  <div className="bg-white/5 border border-white/10 rounded-lg px-3 py-2">
+                    <code className="text-xs text-xorb-muted font-mono">{maskedKey}</code>
                   </div>
                 )}
               </div>
             )}
 
-            {/* Step 2: Success */}
+            {/* Step 2: USDC Approval */}
             {step === 1 && (
-              <div className="mt-3 space-y-2">
-                <p className="text-xs text-green-400">Your agent is registered and ready.</p>
-                <p className="text-xs text-xorb-muted">Agent ID: <code className="text-xorb-blue">{agentId}</code></p>
-                <p className="text-xs text-xorb-muted">To execute actions, include an x402 payment header with each request. See the <a href="https://api.xorb.xyz/v1/docs" target="_blank" rel="noopener noreferrer" className="text-xorb-blue hover:underline">API docs</a> for details.</p>
+              <div className="mt-4 space-y-3">
+                {address ? (
+                  <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-lg px-3 py-2">
+                    <Wallet size={14} className="text-xorb-muted shrink-0" />
+                    <code className="text-xs text-xorb-muted font-mono">{address.slice(0, 6)}...{address.slice(-4)}</code>
+                  </div>
+                ) : (
+                  <p className="text-xs text-yellow-400">Connect your wallet to approve USDC spending.</p>
+                )}
+
+                {hasAllowance ? (
+                  <div className="flex items-center gap-2 bg-green-500/10 border border-green-500/20 rounded-lg px-3 py-2">
+                    <Check size={16} className="text-green-400 shrink-0" />
+                    <span className="text-xs text-green-400">USDC spending approved</span>
+                  </div>
+                ) : (
+                  <button
+                    onClick={handleApprove}
+                    disabled={!address || isApproving}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-xorb-blue hover:bg-xorb-blue-hover disabled:opacity-50 rounded-lg text-sm font-medium transition-colors"
+                  >
+                    {isApproving ? 'Approving...' : 'Approve USDC'}
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Step 3: Install SDK */}
+            {step === 2 && (
+              <div className="mt-4 space-y-3">
+                <div className="bg-white/5 border border-white/10 rounded-lg px-3 py-2">
+                  <code className="text-xs font-mono text-green-400">npm install @xorb/sdk</code>
+                </div>
+                <div className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 overflow-x-auto">
+                  <pre className="text-xs font-mono text-xorb-muted leading-relaxed">{`import { XorbClient, PaymentSigner } from '@xorb/sdk'
+
+const signer = new PaymentSigner({
+  privateKey: process.env.SPONSOR_KEY,
+})
+
+const xorb = new XorbClient({
+  apiUrl: 'https://api.xorb.xyz',
+  apiKey: 'xorb_sk_...',
+  signer,
+})`}</pre>
+                </div>
+                <a
+                  href="https://api.xorb.xyz/v1/docs"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-xs text-xorb-blue hover:underline"
+                >
+                  Full SDK documentation <ExternalLink size={12} />
+                </a>
               </div>
             )}
           </div>
         </div>
-
-        {error && (
-          <p className="text-sm text-red-400 bg-red-500/10 rounded-lg px-3 py-2 mb-4">{error}</p>
-        )}
 
         <div className="flex justify-between items-center">
           <button onClick={handleSkip} className="text-sm text-xorb-muted hover:text-white">
             Skip setup
           </button>
           <button
-            onClick={step === 0 ? handleStep1 : handleStep2}
-            disabled={loading}
-            className="flex items-center gap-2 px-5 py-2.5 bg-xorb-blue hover:bg-xorb-blue-hover disabled:opacity-50 rounded-lg text-sm font-medium transition-colors"
+            onClick={handleNext}
+            className="flex items-center gap-2 px-5 py-2.5 bg-xorb-blue hover:bg-xorb-blue-hover rounded-lg text-sm font-medium transition-colors"
           >
-            {loading ? 'Working...' : step === 1 ? 'View Agents' : 'Continue'}
+            {step === 2 ? 'Done' : 'Continue'}
             <ChevronRight size={14} />
           </button>
         </div>

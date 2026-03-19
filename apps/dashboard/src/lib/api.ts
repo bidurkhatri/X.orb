@@ -37,8 +37,6 @@ export const api = {
       return request<{ agents: any[]; count: number }>('GET', `/v1/agents${qs ? '?' + qs : ''}`)
     },
     get: (id: string) => request<{ agent: any }>('GET', `/v1/agents/${id}`),
-    register: (body: { name: string; role: string; sponsor_address: string; description?: string }) =>
-      request<{ agent: any }>('POST', '/v1/agents', body),
     pause: (id: string) =>
       request<{ agent: any }>('PATCH', `/v1/agents/${id}`, { action: 'pause' }),
     resume: (id: string) =>

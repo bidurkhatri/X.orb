@@ -1,4 +1,6 @@
 export { XorbClient, XorbAPIError, WalletHelpers } from './client'
+export { PaymentSigner } from './payment'
+export type { PaymentSignerConfig, PaymentHeader } from './payment'
 export type {
   XorbConfig,
   Agent,

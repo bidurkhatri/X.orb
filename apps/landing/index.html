@@ -127,7 +127,7 @@
       <p>One API call. 8 gates. 4 integrations. X.orb orchestrates ERC-8004, MoltGuard, x402, and native escrow into a single security pipeline.</p>
       <nav>
       <div class="hero-cta">
-        <a href="https://api.xorb.xyz/v1/health" class="btn btn-primary" target="_blank" rel="noopener noreferrer">Try the API</a>
+        <a href="https://dashboard.xorb.xyz" class="btn btn-primary" target="_blank" rel="noopener noreferrer">Get Started</a>
         <a href="https://dashboard.xorb.xyz" class="btn btn-secondary" target="_blank" rel="noopener noreferrer">Dashboard</a>
         <a href="https://github.com/bidurkhatri/X.orb" class="btn btn-secondary" target="_blank" rel="noopener noreferrer">GitHub</a>
       </div>
@@ -191,23 +191,59 @@
       </div>
     </section>
 
+    <!-- How It Works -->
+    <section class="how-it-works" style="padding: 60px 0; max-width: 900px; margin: 0 auto;">
+      <h2 style="text-align: center; font-size: 28px; margin-bottom: 40px; color: #E5E5E5;">How It Works</h2>
+      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px;">
+        <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 24px; text-align: center;">
+          <div style="width: 40px; height: 40px; border-radius: 50%; background: rgba(0,102,255,0.15); color: #0066FF; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; font-weight: bold;">1</div>
+          <h3 style="font-size: 16px; margin-bottom: 8px; color: #E5E5E5;">Sponsor Setup</h3>
+          <p style="font-size: 13px; color: #999;">Connect wallet, create API key, approve USDC spending on the dashboard.</p>
+        </div>
+        <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 24px; text-align: center;">
+          <div style="width: 40px; height: 40px; border-radius: 50%; background: rgba(0,102,255,0.15); color: #0066FF; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; font-weight: bold;">2</div>
+          <h3 style="font-size: 16px; margin-bottom: 8px; color: #E5E5E5;">Integrate SDK</h3>
+          <p style="font-size: 13px; color: #999;">Install @xorb/sdk, configure PaymentSigner, register agents programmatically.</p>
+        </div>
+        <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 24px; text-align: center;">
+          <div style="width: 40px; height: 40px; border-radius: 50%; background: rgba(0,102,255,0.15); color: #0066FF; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; font-weight: bold;">3</div>
+          <h3 style="font-size: 16px; margin-bottom: 8px; color: #E5E5E5;">Agents Operate</h3>
+          <p style="font-size: 13px; color: #999;">Every action passes 8 gates, pays via x402, earns reputation, builds trust.</p>
+        </div>
+      </div>
+    </section>
+
     <!-- Code -->
     <section class="code-section">
       <h2>One API Call</h2>
-      <pre><code><span class="comment">// Execute action through 8-gate pipeline</span>
-<span class="keyword">const</span> result = <span class="keyword">await</span> fetch(<span class="string">'https://api.xorb.xyz/v1/actions/execute'</span>, {
-  method: <span class="string">'POST'</span>,
-  headers: { <span class="string">'Content-Type'</span>: <span class="string">'application/json'</span>, <span class="string">'x-api-key'</span>: <span class="string">'xorb_sk_...'</span> },
-  body: JSON.stringify({
-    agent_id: <span class="string">'agent_alpha'</span>,
-    action: <span class="string">'query'</span>,
-    tool: <span class="string">'get_balance'</span>,
-    params: { address: <span class="string">'0x...'</span> }
-  })
+      <pre><code><span class="keyword">import</span> { XorbClient, PaymentSigner } <span class="keyword">from</span> <span class="string">'@xorb/sdk'</span>
+
+<span class="keyword">const</span> signer = <span class="keyword">new</span> PaymentSigner({
+  privateKey: process.env.SPONSOR_KEY,
 })
 
-<span class="comment">// Response: 8 gates checked, 4 integrations consulted</span>
-<span class="comment">// { approved: true, gates: [...], integrations_consulted: [...] }</span></code></pre>
+<span class="keyword">const</span> xorb = <span class="keyword">new</span> XorbClient({
+  apiUrl: <span class="string">'https://api.xorb.xyz'</span>,
+  apiKey: <span class="string">'xorb_sk_...'</span>,
+  signer,
+})
+
+<span class="comment">// Register agent — $0.10 USDC via x402</span>
+<span class="keyword">const</span> { agent } = <span class="keyword">await</span> xorb.agents.register({
+  name: <span class="string">'research-bot'</span>,
+  role: <span class="string">'RESEARCHER'</span>,
+  sponsor_address: <span class="string">'0x...'</span>,
+})
+
+<span class="comment">// Execute action — $0.005 USDC via x402</span>
+<span class="keyword">const</span> result = <span class="keyword">await</span> xorb.actions.execute({
+  agent_id: agent.agentId,
+  action: <span class="string">'query'</span>,
+  tool: <span class="string">'web_search'</span>,
+  params: { q: <span class="string">'AI safety'</span> },
+})
+
+console.log(result.approved, result.audit_hash)</code></pre>
     </section>
 
     <!-- Integrations -->
@@ -232,6 +268,30 @@
           <div class="int-role">Native Escrow</div>
         </a>
       </div>
+    </section>
+    <!-- Pricing -->
+    <section style="padding: 60px 20px; max-width: 700px; margin: 0 auto; text-align: center;">
+      <h2 style="font-size: 28px; margin-bottom: 8px; color: #E5E5E5;">Pay Per Action</h2>
+      <p style="font-size: 14px; color: #999; margin-bottom: 32px;">No subscriptions. USDC micropayments on Polygon via x402.</p>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; text-align: left;">
+        <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 12px 16px; display: flex; justify-content: space-between;">
+          <span style="color: #999; font-size: 13px;">Register Agent</span>
+          <span style="color: #0066FF; font-family: 'JetBrains Mono', monospace; font-size: 13px;">$0.10</span>
+        </div>
+        <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 12px 16px; display: flex; justify-content: space-between;">
+          <span style="color: #999; font-size: 13px;">Execute Action</span>
+          <span style="color: #0066FF; font-family: 'JetBrains Mono', monospace; font-size: 13px;">$0.005</span>
+        </div>
+        <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 12px 16px; display: flex; justify-content: space-between;">
+          <span style="color: #999; font-size: 13px;">Compliance Report</span>
+          <span style="color: #0066FF; font-family: 'JetBrains Mono', monospace; font-size: 13px;">$1.00</span>
+        </div>
+        <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 12px 16px; display: flex; justify-content: space-between;">
+          <span style="color: #999; font-size: 13px;">Marketplace Hire</span>
+          <span style="color: #0066FF; font-family: 'JetBrains Mono', monospace; font-size: 13px;">$0.05</span>
+        </div>
+      </div>
+      <p style="font-size: 12px; color: #666; margin-top: 16px;">Free: health, pricing, agent list, pause/resume, events, key creation</p>
     </section>
     </main>
 

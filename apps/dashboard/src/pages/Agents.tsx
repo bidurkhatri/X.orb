@@ -1,11 +1,10 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Search, ChevronLeft, ChevronRight, Download } from 'lucide-react'
+import { Bot, Search, ChevronLeft, ChevronRight, Download } from 'lucide-react'
 import { useState, useMemo } from 'react'
-import { toast } from 'sonner'
 import { PageHeader } from '../components/layout/PageHeader'
 import { GlassTable } from '../components/glass/GlassTable'
-import { TableSkeleton, ButtonSpinner } from '../components/ui/Skeleton'
+import { TableSkeleton } from '../components/ui/Skeleton'
 import { api } from '../lib/api'
 
 const PAGE_SIZE = 20
@@ -24,9 +23,6 @@ function downloadCSV(data: Record<string, unknown>[], filename: string) {
 
 export function Agents() {
   const navigate = useNavigate()
-  const queryClient = useQueryClient()
-  const [showCreate, setShowCreate] = useState(false)
-  const [form, setForm] = useState({ name: '', role: 'RESEARCHER', sponsor_address: '', description: '' })
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [page, setPage] = useState(1)
@@ -35,19 +31,6 @@ export function Agents() {
     queryKey: ['agents'],
     queryFn: () => api.agents.list(),
     retry: false,
-  })
-
-  const createMutation = useMutation({
-    mutationFn: () => api.agents.register(form),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['agents'] })
-      setShowCreate(false)
-      setForm({ name: '', role: 'RESEARCHER', sponsor_address: '', description: '' })
-      toast.success('Agent registered successfully')
-    },
-    onError: (err: Error) => {
-      toast.error('Failed to register agent. Check your inputs and try again.')
-    },
   })
 
   const agents = Array.isArray(data) ? data : (data?.agents || data?.data || [])
@@ -126,68 +109,15 @@ export function Agents() {
         title="Agents"
         description={`${filteredAgents.length}${searchQuery ? ` of ${agents.length}` : ''} registered`}
         action={
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => downloadCSV(filteredAgents, 'xorb-agents.csv')}
-              disabled={filteredAgents.length === 0}
-              className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
-            >
-              <Download size={16} /> Export CSV
-            </button>
-            <button
-              onClick={() => setShowCreate(!showCreate)}
-              className="flex items-center gap-2 px-4 py-2 bg-xorb-blue hover:bg-xorb-blue-hover rounded-lg text-sm font-medium transition-colors"
-            >
-              <Plus size={16} /> Register Agent
-            </button>
-          </div>
+          <button
+            onClick={() => downloadCSV(filteredAgents, 'xorb-agents.csv')}
+            disabled={filteredAgents.length === 0}
+            className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+          >
+            <Download size={16} /> Export CSV
+          </button>
         }
       />
-
-      {showCreate && (
-        <div className="glass-card p-5 mb-6">
-          <h3 className="text-sm font-medium mb-4">Register New Agent</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-            <div>
-              <label className="text-xs text-xorb-muted block mb-1">Name</label>
-              <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })}
-                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm" placeholder="research-bot" />
-            </div>
-            <div>
-              <label className="text-xs text-xorb-muted block mb-1">Agent Type</label>
-              <input value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}
-                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm"
-                placeholder="e.g. DeFi trading, data analysis, monitoring..." />
-            </div>
-            <div>
-              <label className="text-xs text-xorb-muted block mb-1">Sponsor Address</label>
-              <input value={form.sponsor_address} onChange={e => setForm({ ...form, sponsor_address: e.target.value })}
-                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm font-mono" placeholder="0x..." />
-            </div>
-            <div>
-              <label className="text-xs text-xorb-muted block mb-1">Description</label>
-              <input value={form.description} onChange={e => setForm({ ...form, description: e.target.value })}
-                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm" placeholder="What does this agent do?" />
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <ButtonSpinner
-              onClick={() => createMutation.mutate()}
-              loading={createMutation.isPending}
-              disabled={!form.name || !form.sponsor_address}
-              className="px-4 py-2 bg-xorb-blue hover:bg-xorb-blue-hover rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
-            >
-              Create Agent
-            </ButtonSpinner>
-            <button onClick={() => setShowCreate(false)} className="px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg text-sm transition-colors">
-              Cancel
-            </button>
-          </div>
-          {createMutation.error && (
-            <p className="text-xs text-xorb-red mt-2">{(createMutation.error as Error).message}</p>
-          )}
-        </div>
-      )}
 
       {/* Search / filter bar — only show when agents exist */}
       {agents.length > 0 && (
@@ -222,19 +152,19 @@ export function Agents() {
       ) : agents.length === 0 ? (
         <div className="glass-card p-12 text-center">
           <div className="w-16 h-16 rounded-2xl bg-xorb-blue/10 flex items-center justify-center mx-auto mb-4">
-            <Plus size={28} className="text-xorb-blue" />
+            <Bot size={28} className="text-xorb-blue" />
           </div>
-          <h3 className="text-lg font-medium mb-2">No agents registered yet</h3>
-          <p className="text-sm text-xorb-muted mb-6 max-w-md mx-auto">
-            Register your first AI agent to start using the 8-gate trust pipeline.
-            Each agent gets its own identity, reputation score, and audit trail.
+          <h3 className="text-lg font-medium mb-2">No agents yet</h3>
+          <p className="text-sm text-xorb-muted mb-4 max-w-md mx-auto">
+            Agents are registered programmatically via the X.orb SDK.
           </p>
-          <button
-            onClick={() => setShowCreate(true)}
-            className="px-6 py-2.5 bg-xorb-blue hover:bg-xorb-blue-hover rounded-lg text-sm font-medium transition-colors"
-          >
-            <Plus size={16} className="inline mr-2" />Register Your First Agent
-          </button>
+          <code className="block text-xs text-xorb-blue bg-white/5 rounded-lg px-4 py-2 mb-4 font-mono">
+            npm install @xorb/sdk
+          </code>
+          <a href="https://api.xorb.xyz/v1/docs" target="_blank" rel="noopener noreferrer"
+            className="text-sm text-xorb-blue hover:underline">
+            View SDK Documentation →
+          </a>
         </div>
       ) : (
         <GlassTable

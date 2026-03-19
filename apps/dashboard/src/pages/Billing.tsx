@@ -18,9 +18,7 @@ export function Billing() {
   const agents = Array.isArray(agentsData) ? agentsData : (agentsData?.agents || [])
   const totalActions = agents.reduce((sum: number, a: Record<string, number>) => sum + (a.totalActionsExecuted || 0), 0)
   const pricingData = pricing?.pricing || pricing
-  const freeTierLimit = pricingData?.free_tier?.limit || 1000
-  const freeTierUsed = Math.min(totalActions, freeTierLimit)
-  const paidActions = Math.max(0, totalActions - freeTierLimit)
+  const paidActions = totalActions
 
   // Derive per-action price from pricing endpoints instead of hardcoding
   const perActionPrice = useMemo(() => {
@@ -44,9 +42,15 @@ export function Billing() {
       <PageHeader title="Billing" description="x402 payment history and usage" />
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <MetricCard label="Free Tier Used" value={`${freeTierUsed.toLocaleString()} / ${freeTierLimit.toLocaleString()}`} />
+        <MetricCard label="Total Actions" value={totalActions.toLocaleString()} />
         <MetricCard label="Total Spent (USDC)" value={`$${totalSpent.toFixed(2)}`} />
-        <MetricCard label="Paid Actions" value={paidActions.toLocaleString()} />
+        <MetricCard label="Per-Action Price" value={`$${perActionPrice.toFixed(4)}`} />
+      </div>
+
+      <div className="glass-card p-4 mb-6">
+        <p className="text-sm text-xorb-muted">
+          All actions are paid via x402 USDC micropayments on Polygon.
+        </p>
       </div>
 
       <div className="glass-card p-5 mb-6">
@@ -69,7 +73,7 @@ export function Billing() {
         <h3 className="text-sm font-medium text-xorb-muted mb-4">Payment History</h3>
         {totalSpent === 0 ? (
           <div className="text-center py-8 text-xorb-muted text-sm">
-            No payments yet. First {freeTierLimit.toLocaleString()} actions per month are free via x402.
+            No payments recorded yet. Actions are billed per-request via x402 USDC micropayments.
           </div>
         ) : (
           <div className="text-center py-8 text-xorb-muted text-sm">

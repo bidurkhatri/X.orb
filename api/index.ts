@@ -1479,6 +1479,26 @@ console.log(result.approved, result.audit_hash)</code></pre>
     const auth = await requireAuth()
     if (!auth.valid) return res.status(401).json({ error: 'API key required. Set x-api-key header.' })
 
+    // x402 payment required for agent registration ($0.10)
+    const paymentHeader = req.headers?.['x-payment']
+    if (!paymentHeader) {
+      return res.status(402).json({
+        success: false,
+        error: {
+          code: 'payment_required',
+          message: 'Agent registration requires x402 payment ($0.10 USDC)',
+        },
+        payment_instructions: {
+          amount: '100000',
+          currency: 'USDC',
+          network: 'eip155:137',
+          facilitator: '0xF41faE67716670edBFf581aEe37014307dF71A9B',
+          header: 'x-payment',
+          protocol: 'https://x402.org',
+        },
+      })
+    }
+
     const { name, scope, role, sponsor_address, description } = req.body || {}
     if (!name || !sponsor_address) return res.status(400).json({ error: 'name and sponsor_address required' })
     if (!ETH_ADDR_RE.test(sponsor_address)) return res.status(400).json({ error: 'Invalid sponsor_address. Must be 0x-prefixed 40-char hex (Ethereum address).' })
