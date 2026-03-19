@@ -21,7 +21,7 @@ export function Audit() {
     try {
       const data = await api.compliance.report(selectedAgent, framework)
       setReport(data)
-    } catch (e: any) {
+    } catch (e: unknown) {
       setReport({ error: e.message })
     } finally {
       setLoading(false)
@@ -46,7 +46,7 @@ export function Audit() {
               className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm min-w-[200px]"
             >
               <option value="">Select agent...</option>
-              {(agentsData?.agents || []).map((a: any) => (
+              {(agentsData?.agents || []).map((a: Record<string, string>) => (
                 <option key={a.agentId} value={a.agentId}>{a.name} ({a.agentId})</option>
               ))}
             </select>
@@ -118,7 +118,7 @@ export function Audit() {
           </div>
 
           <div className="space-y-3">
-            {(report.sections || []).map((s: any) => (
+            {(report.sections || []).map((s: Record<string, string | string[]>) => (
               <div key={s.id} className="bg-white/5 rounded-lg p-3">
                 <div className="flex items-center gap-2 mb-1">
                   {s.status === 'pass' ? <CheckCircle size={14} className="text-green-400" /> :

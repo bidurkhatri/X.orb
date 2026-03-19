@@ -10,7 +10,7 @@ import { api } from '../lib/api'
 
 const PAGE_SIZE = 20
 
-function downloadCSV(data: any[], filename: string) {
+function downloadCSV(data: Record<string, unknown>[], filename: string) {
   if (!data.length) return
   const headers = Object.keys(data[0]).join(',')
   const rows = data.map(row => Object.values(row).map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))
@@ -56,11 +56,11 @@ export function Agents() {
   const filteredAgents = useMemo(() => {
     let result = agents
     if (statusFilter) {
-      result = result.filter((a: any) => a.status === statusFilter)
+      result = result.filter((a: Record<string, string>) => a.status === statusFilter)
     }
     if (!searchQuery.trim()) return result
     const q = searchQuery.toLowerCase()
-    return result.filter((a: any) =>
+    return result.filter((a: Record<string, string>) =>
       (a.name || '').toLowerCase().includes(q) ||
       (a.scope || a.permissionScope || a.role || '').toLowerCase().includes(q) ||
       (a.agentId || '').toLowerCase().includes(q)

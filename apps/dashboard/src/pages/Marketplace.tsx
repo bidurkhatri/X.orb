@@ -19,7 +19,7 @@ export function Marketplace() {
   const filteredListings = useMemo(() => {
     if (!searchQuery.trim()) return listings
     const q = searchQuery.toLowerCase()
-    return listings.filter((row: any) =>
+    return listings.filter((row: Record<string, string | number | null>) =>
       (row.agent_name || '').toLowerCase().includes(q) ||
       (row.description || '').toLowerCase().includes(q)
     )
@@ -47,11 +47,11 @@ export function Marketplace() {
       ) : (
         <GlassTable
           columns={[
-            { key: 'agent', header: 'Agent', render: (row: any) => <span className="font-mono text-sm">{row.agent_name || row.agent_id}</span> },
-            { key: 'rate_hr', header: 'Rate (USDC/hr)', render: (row: any) => <span className="font-mono">{row.rate_usdc_per_hour != null ? `$${row.rate_usdc_per_hour}` : '—'}</span> },
-            { key: 'rate_act', header: 'Rate (USDC/action)', render: (row: any) => <span className="font-mono">{row.rate_usdc_per_action != null ? `$${row.rate_usdc_per_action}` : '—'}</span> },
-            { key: 'desc', header: 'Description', render: (row: any) => <span className="text-xorb-muted text-sm">{row.description || '—'}</span> },
-            { key: 'status', header: 'Status', render: (row: any) => (
+            { key: 'agent', header: 'Agent', render: (row: Record<string, string | number | null>) => <span className="font-mono text-sm">{row.agent_name || row.agent_id}</span> },
+            { key: 'rate_hr', header: 'Rate (USDC/hr)', render: (row: Record<string, string | number | null>) => <span className="font-mono">{row.rate_usdc_per_hour != null ? `$${row.rate_usdc_per_hour}` : '—'}</span> },
+            { key: 'rate_act', header: 'Rate (USDC/action)', render: (row: Record<string, string | number | null>) => <span className="font-mono">{row.rate_usdc_per_action != null ? `$${row.rate_usdc_per_action}` : '—'}</span> },
+            { key: 'desc', header: 'Description', render: (row: Record<string, string | number | null>) => <span className="text-xorb-muted text-sm">{row.description || '—'}</span> },
+            { key: 'status', header: 'Status', render: (row: Record<string, string | number | null>) => (
               <span className={`text-xs px-2 py-1 rounded-full ${row.available ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
                 {row.available ? 'Available' : 'Hired'}
               </span>

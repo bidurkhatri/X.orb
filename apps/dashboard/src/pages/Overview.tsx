@@ -1,3 +1,4 @@
+import type { Agent, XorbEvent } from '../lib/types'
 import { useQuery } from '@tanstack/react-query'
 import { useState, useMemo } from 'react'
 import { Bot, Zap, Shield, TrendingUp } from 'lucide-react'
@@ -33,21 +34,21 @@ export function Overview() {
 
   const agents = agentsData?.agents || []
   const events = eventsData?.events || []
-  const activeCount = agents.filter((a: any) => a.status === 'active').length
-  const actionsToday = events.filter((e: any) => e.type === 'action.approved' || e.type === 'action.blocked').length
-  const blockedToday = events.filter((e: any) => e.type === 'action.blocked').length
-  const violations = events.filter((e: any) => e.type === 'agent.slashed').length
+  const activeCount = agents.filter((a: Agent) => a.status === 'active').length
+  const actionsToday = events.filter((e: XorbEvent) => e.type === 'action.approved' || e.type === 'action.blocked').length
+  const blockedToday = events.filter((e: XorbEvent) => e.type === 'action.blocked').length
+  const violations = events.filter((e: XorbEvent) => e.type === 'agent.slashed').length
 
   // Sort agents for the leaderboard
   const sortedAgents = useMemo(() => {
     const sorted = [...agents]
     switch (leaderboardSort) {
       case 'score':
-        return sorted.sort((a: any, b: any) => (b.trustScore ?? b.reputation ?? 0) - (a.trustScore ?? a.reputation ?? 0))
+        return sorted.sort((a: Agent, b: Agent) => (b.trustScore ?? b.reputation ?? 0) - (a.trustScore ?? a.reputation ?? 0))
       case 'actions':
-        return sorted.sort((a: any, b: any) => (b.totalActionsExecuted ?? 0) - (a.totalActionsExecuted ?? 0))
+        return sorted.sort((a: Agent, b: Agent) => (b.totalActionsExecuted ?? 0) - (a.totalActionsExecuted ?? 0))
       case 'name':
-        return sorted.sort((a: any, b: any) => (a.name || '').localeCompare(b.name || ''))
+        return sorted.sort((a: Agent, b: Agent) => (a.name || '').localeCompare(b.name || ''))
     }
   }, [agents, leaderboardSort])
 

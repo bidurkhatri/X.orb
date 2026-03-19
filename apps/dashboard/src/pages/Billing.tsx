@@ -16,7 +16,7 @@ export function Billing() {
   })
 
   const agents = agentsData?.agents || []
-  const totalActions = agents.reduce((sum: number, a: any) => sum + (a.totalActionsExecuted || 0), 0)
+  const totalActions = agents.reduce((sum: number, a: Record<string, number>) => sum + (a.totalActionsExecuted || 0), 0)
   const freeTierLimit = pricing?.free_tier?.limit || 1000
   const freeTierUsed = Math.min(totalActions, freeTierLimit)
   const paidActions = Math.max(0, totalActions - freeTierLimit)
@@ -24,14 +24,14 @@ export function Billing() {
   // Derive per-action price from pricing endpoints instead of hardcoding
   const perActionPrice = useMemo(() => {
     const endpoints = pricing?.endpoints || []
-    const actionEndpoint = endpoints.find((ep: any) =>
+    const actionEndpoint = endpoints.find((ep: Record<string, string>) =>
       ep.endpoint?.includes('/actions') || ep.endpoint?.includes('execute')
     )
     if (actionEndpoint?.price_usdc) return parseFloat(actionEndpoint.price_usdc)
     // Fallback: average across all priced endpoints
-    const priced = endpoints.filter((ep: any) => ep.price_usdc && parseFloat(ep.price_usdc) > 0)
+    const priced = endpoints.filter((ep: Record<string, string>) => ep.price_usdc && parseFloat(ep.price_usdc) > 0)
     if (priced.length > 0) {
-      return priced.reduce((sum: number, ep: any) => sum + parseFloat(ep.price_usdc), 0) / priced.length
+      return priced.reduce((sum: number, ep: Record<string, string>) => sum + parseFloat(ep.price_usdc), 0) / priced.length
     }
     return 0.005 // last-resort default
   }, [pricing])
@@ -51,7 +51,7 @@ export function Billing() {
       <div className="glass-card p-5 mb-6">
         <h3 className="text-sm font-medium text-xorb-muted mb-4">Pricing</h3>
         <div className="space-y-2">
-          {(pricing?.endpoints || []).map((ep: any) => (
+          {(pricing?.endpoints || []).map((ep: Record<string, string>) => (
             <div key={ep.endpoint} className="flex items-center justify-between bg-white/5 rounded-lg px-4 py-2">
               <span className="text-sm font-mono">{ep.endpoint}</span>
               <div className="flex items-center gap-3">
