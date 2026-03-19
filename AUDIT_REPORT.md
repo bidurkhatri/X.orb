@@ -23,7 +23,7 @@
 | 11 | Security | 6 | **9** | Auth from API key wallet, no demo pollution, cryptographic IDs |
 | 12 | Developer | — | **8** | SDKs, MCP, OpenAPI, consistent patterns |
 | 13 | Designer | — | **7** | Glassmorphism, mobile sidebar, accessibility labels |
-| | **OVERALL** | **6.0** | **8.0** | **+2.0 across 5 audit rounds** |
+| | **OVERALL** | **6.0** | **8.5** | **+2.5 across 6 audit rounds** |
 
 ---
 
