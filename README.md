@@ -345,20 +345,20 @@ npx @xorb/mcp
 
 ---
 
-## Deployed Contracts (Polygon PoS, Chain ID 137)
+## Deployed Contracts
 
-All 8 contracts deployed and active:
+All 8 contracts deployed on **both Polygon PoS and Base** — 16 contracts total:
 
-| Contract | Address | Purpose |
-|----------|---------|---------|
-| AgentRegistry | [`0x2a74...ec7`](https://polygonscan.com/address/0x2a7457C2f30F9C0Bb47b62ed8554C75d13BF9ec7) | Agent registration + staking |
-| ReputationScore | [`0x0350...d8`](https://polygonscan.com/address/0x0350efEcDCFCbcF2Ab3d6421e20Ef867c02D79d8) | On-chain trust scores |
-| SlashingEngine | [`0xA64E...25`](https://polygonscan.com/address/0xA64E71Aa00F8f6e8e8acb3a81200dD270FF13625) | Violation reporting + bond slashing |
-| PaymentStreaming | [`0xb347...89`](https://polygonscan.com/address/0xb34717670889190B2A92E64B51e0ea696cE88D89) | Continuous payment streams |
-| AgentMarketplace | [`0xEAbf...c`](https://polygonscan.com/address/0xEAbf85Bf2AE49aFdA531631E8bba219f6e62bF6c) | Agent-for-hire listings |
-| ActionVerifier | [`0x4638...57`](https://polygonscan.com/address/0x463856987bD9f3939DD52df52649e9B8Cb07B057) | SHA-256 audit hash anchoring |
-| XorbEscrow | [`0x4B89...1C`](https://polygonscan.com/address/0x4B8994De0A6f02014E71149507eFF6903367411C) | Marketplace fund custody |
-| XorbPaymentSplitter | [`0xc038...c9`](https://polygonscan.com/address/0xc038C3116CD4997fF4C8f42b2d97effb023214c9) | Batch payment settlement |
+| Contract | Polygon PoS | Base |
+|----------|-------------|------|
+| AgentRegistry | [`0x2a74...ec7`](https://polygonscan.com/address/0x2a7457C2f30F9C0Bb47b62ed8554C75d13BF9ec7) | [`0x5b1C...b07`](https://basescan.org/address/0x5b1C0475ab3D32fB97Fad4630F8aBBb81ea00b07) |
+| ReputationScore | [`0x0350...d8`](https://polygonscan.com/address/0x0350efEcDCFCbcF2Ab3d6421e20Ef867c02D79d8) | [`0x0871...bf6`](https://basescan.org/address/0x0871f9A1Df7618BEfFD8b1789ad128F7d7c70bf6) |
+| SlashingEngine | [`0xA64E...25`](https://polygonscan.com/address/0xA64E71Aa00F8f6e8e8acb3a81200dD270FF13625) | [`0x67eb...510`](https://basescan.org/address/0x67ebac5f352Cda62De2f126d02063002dc8B6510) |
+| ActionVerifier | [`0x4638...57`](https://polygonscan.com/address/0x463856987bD9f3939DD52df52649e9B8Cb07B057) | [`0xF201...DE3`](https://basescan.org/address/0xF20102429bC6AAFd4eBfD74187E01b4125168DE3) |
+| PaymentStreaming | [`0xb347...89`](https://polygonscan.com/address/0xb34717670889190B2A92E64B51e0ea696cE88D89) | [`0xAe14...583`](https://basescan.org/address/0xAe144749668b3778bBAb721558B00C655ACD1583) |
+| AgentMarketplace | [`0xEAbf...c`](https://polygonscan.com/address/0xEAbf85Bf2AE49aFdA531631E8bba219f6e62bF6c) | [`0xcec2...728`](https://basescan.org/address/0xcec20aec201a6e77d5802C9B5dbF1220f3b01728) |
+| XorbEscrow | [`0x4B89...1C`](https://polygonscan.com/address/0x4B8994De0A6f02014E71149507eFF6903367411C) | [`0xcc85...f76`](https://basescan.org/address/0xcc854CFc60a7eEab557CA7CC4906C6B38BafFf76) |
+| XorbPaymentSplitter | [`0xc038...c9`](https://polygonscan.com/address/0xc038C3116CD4997fF4C8f42b2d97effb023214c9) | [`0x1485...c02`](https://basescan.org/address/0x14850A6C4e7026a797d16e3FF9662856252d1c02) |
 
 **Security:** OpenZeppelin (ReentrancyGuard, AccessControl, SafeERC20, Pausable), daily spend limits ($100K), per-tx limits ($10K), 24h treasury timelock, emergency pause on all contracts.
 
