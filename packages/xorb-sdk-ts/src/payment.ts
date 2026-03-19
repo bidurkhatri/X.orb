@@ -1,117 +1,90 @@
-import { randomBytes } from 'crypto'
-
 /**
- * Configuration for x402 payment header signing.
- */
-export interface PaymentSignerConfig {
-  /** Sponsor's private key (hex, with or without 0x prefix) */
-  privateKey: string
-  /** X.orb facilitator address (defaults to production facilitator) */
-  facilitatorAddress?: string
-  /** CAIP-2 network identifier (defaults to Polygon PoS) */
-  network?: 'eip155:137' | 'eip155:8453' | string
-}
-
-/**
- * x402 payment header payload structure.
- */
-export interface PaymentHeader {
-  signature: string
-  amount: string
-  network: string
-  nonce: string
-  expiry: number
-  payer: string
-}
-
-const DEFAULT_FACILITATOR = '0xF41faE67716670edBFf581aEe37014307dF71A9B'
-const DEFAULT_NETWORK = 'eip155:137'
-const EXPIRY_SECONDS = 300 // 5 minutes
-
-/**
- * Signs x402 payment headers for X.orb API requests.
+ * X.orb x402 v2 Payment Integration
+ *
+ * Uses the official @x402/core + @x402/evm packages for EIP-3009
+ * TransferWithAuthorization — no USDC.approve() needed.
  *
  * Usage:
  * ```typescript
  * import { PaymentSigner } from 'xorb-sdk'
+ * import { privateKeyToAccount } from 'viem/accounts'
  *
- * const signer = new PaymentSigner({
- *   privateKey: process.env.SPONSOR_PRIVATE_KEY!,
- * })
- *
- * const header = await signer.signPaymentHeader('5000') // $0.005 USDC
- * // Use as: headers['x-payment'] = header
+ * const signer = PaymentSigner.fromPrivateKey(process.env.SPONSOR_KEY)
+ * // or
+ * const signer = PaymentSigner.fromViemAccount(privateKeyToAccount('0x...'))
  * ```
  */
+
+export interface PaymentSignerConfig {
+  /** Sponsor's private key (hex, with or without 0x prefix) */
+  privateKey: string
+  /** Default network for payments (default: 'eip155:137' for Polygon) */
+  network?: 'eip155:137' | 'eip155:8453' | string
+}
+
+/**
+ * Signs x402 v2 payment headers using EIP-3009 TransferWithAuthorization.
+ *
+ * This replaces the old custom signature scheme. With v2:
+ * - No USDC.approve() step needed
+ * - Each payment is individually authorized for the exact amount
+ * - Compatible with all x402 v2 services in the ecosystem
+ */
 export class PaymentSigner {
-  private privateKey: string
-  private facilitatorAddress: string
-  private network: string
-  private _wallet: unknown = null
-  private _ethers: Record<string, unknown> | null = null
+  private _client: unknown = null
+  private _config: PaymentSignerConfig
 
   constructor(config: PaymentSignerConfig) {
-    this.privateKey = config.privateKey.startsWith('0x') ? config.privateKey : `0x${config.privateKey}`
-    this.facilitatorAddress = config.facilitatorAddress || DEFAULT_FACILITATOR
-    this.network = config.network || DEFAULT_NETWORK
+    this._config = {
+      ...config,
+      privateKey: config.privateKey.startsWith('0x') ? config.privateKey : `0x${config.privateKey}`,
+      network: config.network || 'eip155:137',
+    }
   }
 
-  private async getEthers(): Promise<Record<string, any>> {
-    if (!this._ethers) {
-      this._ethers = await import('ethers')
-    }
-    return this._ethers
+  /**
+   * Create a PaymentSigner from a private key string.
+   */
+  static fromPrivateKey(privateKey: string, network?: string): PaymentSigner {
+    return new PaymentSigner({ privateKey, network })
   }
 
-  private async getWallet(): Promise<{ address: string; signMessage: (msg: Uint8Array) => Promise<string> }> {
-    if (!this._wallet) {
-      const ethers = await this.getEthers()
-      this._wallet = new (ethers.Wallet as any)(this.privateKey)
+  /**
+   * Get the initialized x402 client. Lazy-loaded to avoid import issues.
+   */
+  async getClient(): Promise<unknown> {
+    if (!this._client) {
+      const { x402Client } = await import('@x402/core/client')
+      const { ExactEvmScheme } = await import('@x402/evm/exact/client')
+      const { privateKeyToAccount } = await import('viem/accounts')
+
+      const account = privateKeyToAccount(this._config.privateKey as `0x${string}`)
+      const client = new x402Client()
+      client.register('eip155:*', new ExactEvmScheme(account))
+      this._client = client
     }
-    return this._wallet as { address: string; signMessage: (msg: Uint8Array) => Promise<string> }
+    return this._client
+  }
+
+  /**
+   * Get a fetch function that automatically handles x402 payments.
+   * When a 402 response is received, it signs the payment and retries.
+   */
+  async getPaymentFetch(): Promise<typeof fetch> {
+    const client = await this.getClient()
+    const { wrapFetchWithPayment } = await import('@x402/fetch')
+    return wrapFetchWithPayment(fetch, client as any)
   }
 
   /** Returns the sponsor's wallet address */
   async getAddress(): Promise<string> {
-    const wallet = await this.getWallet()
-    return wallet.address
+    const { privateKeyToAccount } = await import('viem/accounts')
+    const account = privateKeyToAccount(this._config.privateKey as `0x${string}`)
+    return account.address
   }
 
-  /**
-   * Sign an x402 payment header for a given USDC amount.
-   *
-   * @param amount - USDC amount in micro-units (6 decimals). "5000" = $0.005
-   * @param nonce - Optional unique nonce. Auto-generated if not provided.
-   * @returns Base64-encoded x-payment header string
-   */
-  async signPaymentHeader(amount: string, nonce?: string): Promise<string> {
-    const ethers = await this.getEthers()
-    const wallet = await this.getWallet()
-
-    const paymentNonce = nonce || randomBytes(16).toString('hex')
-    const expiry = Math.floor(Date.now() / 1000) + EXPIRY_SECONDS
-
-    // Construct message hash matching X.orb's server-side validation
-    const solidityPackedKeccak256 = ethers.solidityPackedKeccak256 as (types: string[], values: unknown[]) => string
-    const getBytes = ethers.getBytes as (hex: string) => Uint8Array
-
-    const messageHash = solidityPackedKeccak256(
-      ['uint256', 'address', 'string', 'uint256'],
-      [amount, this.facilitatorAddress, paymentNonce, expiry]
-    )
-
-    // Sign the hash
-    const signature = await wallet.signMessage(getBytes(messageHash))
-
-    const payload: PaymentHeader = {
-      signature,
-      amount,
-      network: this.network,
-      nonce: paymentNonce,
-      expiry,
-      payer: wallet.address,
-    }
-
-    return Buffer.from(JSON.stringify(payload)).toString('base64')
+  /** Returns the default network */
+  get network(): string {
+    return this._config.network || 'eip155:137'
   }
 }

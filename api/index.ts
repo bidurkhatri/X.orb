@@ -764,7 +764,7 @@ export default async function handler(req: any, res: any) {
   // for cross-origin access by any agent, SDK, or dashboard client.
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,DELETE,OPTIONS')
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-api-key, x-agent-name, x-payment, Authorization')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-api-key, x-agent-name, x-payment, payment-signature, Authorization')
   if (req.method === 'OPTIONS') return res.status(204).end()
 
   // ─── IP rate limit on all requests ───
@@ -1518,7 +1518,8 @@ console.log(result.approved, result.audit_hash)</code></pre>
     if (!auth.valid) return res.status(401).json({ error: 'API key required. Set x-api-key header.' })
 
     // x402 payment required for agent registration ($0.10)
-    const paymentHeader = req.headers?.['x-payment']
+    // Accept both v1 (x-payment) and v2 (payment-signature) headers
+    const paymentHeader = req.headers?.['payment-signature'] || req.headers?.['x-payment']
     if (!paymentHeader) {
       return res.status(402).json({
         success: false,
@@ -1535,7 +1536,8 @@ console.log(result.approved, result.audit_hash)</code></pre>
             'eip155:137': '0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359',
             'eip155:8453': '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
           },
-          header: 'x-payment',
+          header: 'payment-signature',
+          legacy_header: 'x-payment',
           protocol: 'https://x402.org',
         },
       })
@@ -1656,7 +1658,8 @@ console.log(result.approved, result.audit_hash)</code></pre>
 
     // Gate 4: x402 Payment (C2 — real cryptographic validation + free tier enforcement)
     t = Date.now()
-    const paymentHeader = req.headers?.['x-payment']
+    // Accept both v1 (x-payment) and v2 (payment-signature) headers
+    const paymentHeader = req.headers?.['payment-signature'] || req.headers?.['x-payment']
     let x402Valid = false
     let x402Details: any = {}
 
@@ -1721,7 +1724,8 @@ console.log(result.approved, result.audit_hash)</code></pre>
             { network: 'eip155:137', token: USDC_CONTRACT_POLYGON, symbol: 'USDC', decimals: 6, min_amount: MIN_PAYMENT_AMOUNT, min_usd: '$0.005' },
             { network: 'solana:mainnet', token: 'USDC-SPL', symbol: 'USDC', decimals: 6, min_amount: MIN_PAYMENT_AMOUNT, min_usd: '$0.005' },
           ],
-          header: 'x-payment',
+          header: 'payment-signature',
+          legacy_header: 'x-payment',
           encoding: 'base64(JSON({ signature, amount, network, payer, nonce, expiry }))',
           free_tier: { limit: store.freeTier.limit, used: store.freeTier.actionsThisMonth, remaining: 0, period: 'monthly', resets: `${currentMonthKey}-01T00:00:00Z` },
           docs: 'https://x402.org',

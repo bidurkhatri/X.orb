@@ -39,20 +39,20 @@ export class XorbClient {
     this.payments = new PaymentsAPI(this)
   }
 
-  async request<T>(method: string, path: string, body?: unknown, retries = 3, paymentHeader?: string): Promise<T> {
+  async request<T>(method: string, path: string, body?: unknown, retries = 3, _paymentHeader?: string): Promise<T> {
     const url = `${this.baseUrl}${path}`
     const headers: Record<string, string> = {
       'x-api-key': this.apiKey,
       'Content-Type': 'application/json',
     }
-    if (paymentHeader) {
-      headers['x-payment'] = paymentHeader
-    }
+
+    // Use x402 v2 payment fetch if signer is configured (handles 402 automatically)
+    const fetchFn = this.signer ? await this.signer.getPaymentFetch() : fetch
 
     let lastError: Error | null = null
     for (let attempt = 0; attempt < retries; attempt++) {
       try {
-        const res = await fetch(url, {
+        const res = await fetchFn(url, {
           method,
           headers,
           body: body ? JSON.stringify(body) : undefined,
@@ -117,10 +117,9 @@ class AgentsAPI {
   constructor(private client: XorbClient) {}
 
   async register(params: CreateAgentParams): Promise<{ agent: Agent }> {
-    const header = this.client.signer
-      ? await this.client.signer.signPaymentHeader('100000') // $0.10 registration fee
-      : undefined
-    return this.client.request('POST', '/v1/agents', params, 3, header)
+    // x402 v2: payment is handled automatically by wrapFetchWithPayment
+    // When the server returns 402, the client signs EIP-3009 authorization and retries
+    return this.client.request('POST', '/v1/agents', params)
   }
 
   async list(opts?: { sponsor?: string; status?: string }): Promise<{ agents: Agent[]; count: number }> {
@@ -157,11 +156,9 @@ class AgentsAPI {
 class ActionsAPI {
   constructor(private client: XorbClient) {}
 
-  async execute(params: ExecuteActionParams, amountUsdc?: string): Promise<PipelineResult> {
-    const header = this.client.signer
-      ? await this.client.signer.signPaymentHeader(amountUsdc || '5000') // $0.005 default
-      : undefined
-    return this.client.request('POST', '/v1/actions/execute', params, 3, header)
+  async execute(params: ExecuteActionParams): Promise<PipelineResult> {
+    // x402 v2: payment is handled automatically by wrapFetchWithPayment
+    return this.client.request('POST', '/v1/actions/execute', params)
   }
 
   async batch(actions: ExecuteActionParams[]): Promise<{

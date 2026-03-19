@@ -17,17 +17,29 @@
     "test": "vitest run",
     "prepublishOnly": "npm run build"
   },
-  "repository": { "type": "git", "url": "https://github.com/bidurkhatri/X.orb" },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bidurkhatri/X.orb"
+  },
   "homepage": "https://xorb.xyz",
   "author": "Bidur Khatri <bidur@fintex.com.au>",
   "peerDependencies": {
     "ethers": "^6.0.0"
   },
   "peerDependenciesMeta": {
-    "ethers": { "optional": true }
+    "ethers": {
+      "optional": true
+    }
   },
-  "files": ["dist", "README.md", "package.json"],
+  "files": [
+    "dist",
+    "README.md",
+    "package.json"
+  ],
   "dependencies": {
+    "@x402/core": "^2.7.0",
+    "@x402/evm": "^2.7.0",
+    "@x402/fetch": "^2.7.0",
     "zod": "^3.22.0"
   },
   "devDependencies": {
@@ -35,6 +47,12 @@
     "typescript": "^5.5.0",
     "vitest": "^2.0.0"
   },
-  "keywords": ["xorb", "ai-agents", "trust", "reputation", "x402"],
+  "keywords": [
+    "xorb",
+    "ai-agents",
+    "trust",
+    "reputation",
+    "x402"
+  ],
   "license": "MIT"
 }
