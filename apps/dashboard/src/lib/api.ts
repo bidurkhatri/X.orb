@@ -15,9 +15,13 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     body: body ? JSON.stringify(body) : undefined,
   })
 
-  const data = await res.json()
-  if (!res.ok) throw new Error(data.error || `Request failed: ${res.status}`)
-  return data
+  const json = await res.json()
+  if (!res.ok) {
+    const msg = json.error?.message || json.error || `Request failed: ${res.status}`
+    throw new Error(typeof msg === 'string' ? msg : JSON.stringify(msg))
+  }
+  // Unwrap { success, data } envelope if present
+  return json.data !== undefined ? json.data : json
 }
 
 // Agents

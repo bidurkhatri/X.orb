@@ -50,7 +50,7 @@ export function Agents() {
     },
   })
 
-  const agents = data?.agents || []
+  const agents = Array.isArray(data) ? data : (data?.agents || data?.data || [])
 
   // Filter agents by search query (name or scope/role) and status
   const filteredAgents = useMemo(() => {
