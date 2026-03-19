@@ -194,12 +194,71 @@ Agent sends request ──x-payment──> X.orb API
 x-payment: base64(JSON({
   signature,              // ECDSA over keccak256(amount, facilitator, nonce, expiry)
   amount: "5000",         // $0.005 in micro-USDC (6 decimals)
-  network: "eip155:137",  // Polygon PoS
+  network: "eip155:137",  // Polygon PoS (or "eip155:8453" for Base)
   nonce: "random32hex",   // unique per request
   expiry: 1773910200,     // unix timestamp (5 min window)
   payer: "0xSponsor..."   // wallet address being charged
 }))
 ```
+
+---
+
+## Supported Networks
+
+X.orb is **chain-agnostic** for x402 payments. Sponsors pay on whichever chain they hold USDC — X.orb's facilitator handles settlement on each chain independently.
+
+| Network | Chain ID | USDC Contract | Gas Token | Status |
+|---------|----------|---------------|-----------|--------|
+| **Polygon PoS** | `eip155:137` | `0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359` | MATIC | **Active** — contracts + payments |
+| **Base** | `eip155:8453` | `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913` | ETH | **Active** — payments accepted |
+
+**How multi-chain works:**
+- The x402 payment (fee to X.orb) happens on the sponsor's chosen chain
+- The agent's actual task can happen on ANY chain — X.orb verifies trust, it doesn't execute the task
+- Smart contracts are deployed on Polygon; payments are accepted on Polygon + Base
+- The `x-payment` header's `network` field determines which chain settles the fee
+
+**Example:** An agent can pay X.orb $0.005 on **Base**, get approved through the 8-gate pipeline, then call a DeFi protocol on **Ethereum** — two independent transactions on different chains.
+
+### Gas Economics
+
+X.orb uses the **XorbPaymentSplitter** contract for batch settlement, amortizing gas across multiple payments:
+
+| Chain | Gas per USDC transfer | Viable for $0.005 actions? |
+|-------|----------------------|---------------------------|
+| Solana | ~$0.000005 | Yes — near-zero gas |
+| Base | ~$0.00005 | Yes — L2, minimal gas |
+| Optimism | ~$0.00008 | Yes — L2 |
+| Arbitrum | ~$0.0001 | Yes — L2 |
+| Polygon | ~$0.0008 | Yes — low gas |
+| BNB Chain | ~$0.015 | Only with batch settlement |
+| Avalanche | ~$0.004 | Only with batch settlement |
+| Ethereum | ~$1.50 | Not viable for micropayments |
+
+Batch settlement (50 txs/batch via cron every 5 minutes) makes all L1/L2 chains viable except Ethereum mainnet.
+
+---
+
+## x402 Ecosystem
+
+X.orb is part of the [x402 ecosystem](https://x402.org/ecosystem) — an open payment standard created by **Coinbase** for machine-to-machine USDC payments over HTTP.
+
+**Foundation partners:** Coinbase, Cloudflare, Circle, Stripe, AWS, Visa
+
+**What makes X.orb unique in the ecosystem:**
+- Only x402 service with an **8-gate trust pipeline** (identity + permissions + rate limit + payment + audit + reputation + execute + escrow)
+- Only x402 service with **on-chain reputation scoring** and **slashing** for AI agents
+- Only x402 service with **marketplace escrow** for agent-for-hire engagements
+- Supports both **Polygon and Base** (most x402 services are Base-only)
+- **8 deployed smart contracts** on Polygon PoS for on-chain verification
+
+**Protocol compliance:**
+- HTTP 402 responses with payment instructions ✅
+- ECDSA signature verification (secp256k1) ✅
+- Nonce replay protection (Supabase + in-memory) ✅
+- USDC settlement via `transferFrom` ✅
+- Batch settlement via XorbPaymentSplitter ✅
+- Fee transparency headers on every response ✅
 
 ---
 
