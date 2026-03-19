@@ -1,19 +1,25 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Key, ArrowRight, AlertCircle, Plus, Copy, Check } from 'lucide-react'
+import { Key, ArrowRight, AlertCircle, Plus, Copy, Check, Wallet } from 'lucide-react'
 import { API_BASE } from '../lib/api'
+import { useAccount, useSignMessage, useConnect, useDisconnect } from 'wagmi'
+import { projectId } from '../lib/wallet'
 
 export function Login() {
   const [apiKey, setApiKey] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [showCreateForm, setShowCreateForm] = useState(false)
-  const [walletAddress, setWalletAddress] = useState('')
   const [keyLabel, setKeyLabel] = useState('')
   const [creating, setCreating] = useState(false)
   const [createdKey, setCreatedKey] = useState('')
   const [copied, setCopied] = useState(false)
   const navigate = useNavigate()
+
+  // Wallet state
+  const { address, isConnected } = projectId ? useAccount() : { address: undefined, isConnected: false }
+  const { disconnect } = projectId ? useDisconnect() : { disconnect: () => {} }
+  const { signMessageAsync } = projectId ? useSignMessage() : { signMessageAsync: async () => '' }
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -31,7 +37,6 @@ export function Login() {
       })
 
       if (!res.ok) {
-        const data = await res.json().catch(() => ({ error: 'Invalid API key' }))
         const status = res.status
         setError(status === 401 ? 'Invalid API key. Check your key and try again.' : status === 429 ? 'Too many attempts. Wait a moment and try again.' : 'Authentication failed. Please check your key.')
         return
@@ -50,7 +55,55 @@ export function Login() {
     e.preventDefault()
     setError('')
 
-    if (!walletAddress.match(/^0x[a-fA-F0-9]{40}$/)) {
+    if (!isConnected || !address) {
+      setError('Connect your wallet first')
+      return
+    }
+    if (!keyLabel.trim()) {
+      setError('Enter a name for this key')
+      return
+    }
+
+    setCreating(true)
+    try {
+      // Sign a challenge message to prove wallet ownership
+      const challenge = `X.orb API Key Creation\nAddress: ${address}\nLabel: ${keyLabel.trim()}\nTimestamp: ${Date.now()}`
+      const signature = await signMessageAsync({ message: challenge })
+
+      const res = await fetch(`${API_BASE}/v1/auth/keys`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          owner_address: address,
+          label: keyLabel.trim(),
+          signature,
+          challenge,
+        }),
+      })
+      const data = await res.json()
+      if (data.success && data.data?.api_key) {
+        setCreatedKey(data.data.api_key)
+        setApiKey(data.data.api_key)
+      } else {
+        setError('Failed to create API key. Please try again.')
+      }
+    } catch (err) {
+      if (err instanceof Error && err.message.includes('rejected')) {
+        setError('Signature rejected. You must sign to verify wallet ownership.')
+      } else {
+        setError('Failed to create key. Check your wallet connection.')
+      }
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  // Fallback for when WalletConnect is not configured
+  const handleCreateKeyManual = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+    const manualAddress = (document.getElementById('manual-wallet') as HTMLInputElement)?.value
+    if (!manualAddress?.match(/^0x[a-fA-F0-9]{40}$/)) {
       setError('Enter a valid Ethereum address (0x + 40 hex characters)')
       return
     }
@@ -64,17 +117,17 @@ export function Login() {
       const res = await fetch(`${API_BASE}/v1/auth/keys`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ owner_address: walletAddress, label: keyLabel.trim() }),
+        body: JSON.stringify({ owner_address: manualAddress, label: keyLabel.trim() }),
       })
       const data = await res.json()
       if (data.success && data.data?.api_key) {
         setCreatedKey(data.data.api_key)
         setApiKey(data.data.api_key)
       } else {
-        setError('Failed to create API key. Check your wallet address and try again.')
+        setError('Failed to create API key. Please try again.')
       }
     } catch {
-      setError('Cannot reach API server. Check your connection.')
+      setError('Cannot reach API server.')
     } finally {
       setCreating(false)
     }
@@ -102,12 +155,7 @@ export function Login() {
               <code className="flex-1 text-xs font-mono bg-black/30 rounded px-2 py-1.5 break-all text-green-300">
                 {createdKey}
               </code>
-              <button
-                onClick={copyKey}
-                className="shrink-0 p-1.5 rounded hover:bg-white/10 transition-colors"
-                title="Copy to clipboard"
-                aria-label="Copy API key to clipboard"
-              >
+              <button onClick={copyKey} className="shrink-0 p-1.5 rounded hover:bg-white/10 transition-colors" aria-label="Copy API key to clipboard">
                 {copied ? <Check size={14} className="text-green-400" /> : <Copy size={14} className="text-xorb-muted" />}
               </button>
             </div>
@@ -166,21 +214,74 @@ export function Login() {
             <Plus size={14} />
             Create a new API key
           </button>
-        ) : (
+        ) : projectId ? (
+          /* WalletConnect flow */
           <form onSubmit={handleCreateKey} className="space-y-3">
+            {!isConnected ? (
+              <div className="text-center space-y-3">
+                <p className="text-xs text-xorb-muted">Connect your wallet to verify ownership and create an API key.</p>
+                <w3m-button />
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center gap-2 bg-green-500/10 border border-green-500/20 rounded-lg px-3 py-2">
+                  <Wallet size={14} className="text-green-400" />
+                  <span className="text-xs text-green-400 font-mono">{address?.slice(0, 6)}...{address?.slice(-4)}</span>
+                  <button type="button" onClick={() => disconnect()} className="ml-auto text-xs text-xorb-muted hover:text-white">Disconnect</button>
+                </div>
+                <div>
+                  <label className="block text-xs text-xorb-muted mb-1">Key Name</label>
+                  <input
+                    type="text"
+                    value={keyLabel}
+                    onChange={e => setKeyLabel(e.target.value)}
+                    placeholder="my-project"
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-xorb-blue/50"
+                  />
+                </div>
+
+                {error && showCreateForm && (
+                  <div className="flex items-center gap-2 text-red-400 text-sm bg-red-500/10 rounded-lg px-3 py-2">
+                    <AlertCircle size={14} />
+                    {error}
+                  </div>
+                )}
+
+                <div className="flex gap-2">
+                  <button
+                    type="submit"
+                    disabled={creating}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-xorb-blue hover:bg-xorb-blue-hover disabled:opacity-50 rounded-lg text-sm font-medium transition-colors"
+                  >
+                    <Wallet size={14} />
+                    {creating ? 'Signing...' : 'Sign & Generate Key'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setShowCreateForm(false); setError(''); disconnect() }}
+                    className="px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg text-sm transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </>
+            )}
+          </form>
+        ) : (
+          /* Manual fallback when WalletConnect not configured */
+          <form onSubmit={handleCreateKeyManual} className="space-y-3">
             <div>
-              <label className="block text-xs font-medium text-xorb-muted mb-1">Wallet Address</label>
+              <label className="block text-xs text-xorb-muted mb-1">Wallet Address</label>
               <input
+                id="manual-wallet"
                 type="text"
-                value={walletAddress}
-                onChange={e => setWalletAddress(e.target.value)}
                 placeholder="0x..."
                 className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:border-xorb-blue/50"
                 autoFocus
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-xorb-muted mb-1">Key Name</label>
+              <label className="block text-xs text-xorb-muted mb-1">Key Name</label>
               <input
                 type="text"
                 value={keyLabel}

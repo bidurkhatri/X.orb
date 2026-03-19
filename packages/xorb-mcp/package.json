@@ -1,5 +1,5 @@
 {
-  "name": "@xorb/mcp",
+  "name": "xorb-mcp",
   "version": "0.1.0",
   "description": "MCP server for X.orb — Security gating for MCP-connected AI agents",
   "main": "./src/index.ts",
