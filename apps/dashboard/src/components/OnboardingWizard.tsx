@@ -130,10 +130,10 @@ export function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
             {step === 2 && (
               <div className="mt-4 space-y-3">
                 <div className="bg-white/5 border border-white/10 rounded-lg px-3 py-2">
-                  <code className="text-xs font-mono text-green-400">npm install @xorb/sdk</code>
+                  <code className="text-xs font-mono text-green-400">npm install xorb-sdk</code>
                 </div>
                 <div className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 overflow-x-auto">
-                  <pre className="text-xs font-mono text-xorb-muted leading-relaxed">{`import { XorbClient, PaymentSigner } from '@xorb/sdk'
+                  <pre className="text-xs font-mono text-xorb-muted leading-relaxed">{`import { XorbClient, PaymentSigner } from 'xorb-sdk'
 
 const signer = new PaymentSigner({
   privateKey: process.env.SPONSOR_KEY,

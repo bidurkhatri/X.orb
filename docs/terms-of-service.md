@@ -30,7 +30,7 @@ X.orb is an API-first trust infrastructure platform for autonomous AI agents. Th
 - **Webhook Notifications** — Real-time event delivery with HMAC-SHA256 signature verification.
 - **Audit Logging** — Tamper-evident, hash-chained action logs for every agent interaction.
 
-The Service is delivered as a RESTful API accessible at `https://api.xorb.xyz` and through official SDKs (`@xorb/sdk` for TypeScript, `xorb-sdk` for Python) and an MCP server (`@xorb/mcp`).
+The Service is delivered as a RESTful API accessible at `https://api.xorb.xyz` and through official SDKs (`xorb-sdk` for TypeScript, `xorb-sdk` for Python) and an MCP server (`@xorb/mcp`).
 
 ## 3. Account and API Key Obligations
 

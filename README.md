@@ -40,7 +40,7 @@ X.orb extends the [x402 payment protocol](https://x402.org) (by Coinbase) with a
                              │                                              │
   ┌──────────┐   HTTP/x402   │  ┌──────────┐  ┌────────────┐  ┌─────────┐  │
   │ AI Agent │─────────────>│  │ 1.Identity│─>│2.Permissions│─>│3.Rate   │  │
-  │(@xorb/sdk│              │  │ (ERC-8004)│  │  (Scopes)  │  │  Limit  │  │
+  │(xorb-sdk│              │  │ (ERC-8004)│  │  (Scopes)  │  │  Limit  │  │
   └──────────┘               │  └──────────┘  └────────────┘  └────┬────┘  │
                              │                                      │       │
   ┌──────────┐               │  ┌──────────┐  ┌────────────┐  ┌────v────┐  │
@@ -87,11 +87,11 @@ Every AI agent action passes through 8 sequential gates. If any gate fails, the 
 ### Phase 2: Developer Integration (~30 min)
 
 ```bash
-npm install @xorb/sdk
+npm install xorb-sdk
 ```
 
 ```typescript
-import { XorbClient, PaymentSigner } from '@xorb/sdk'
+import { XorbClient, PaymentSigner } from 'xorb-sdk'
 
 // PaymentSigner signs x402 payment headers with sponsor's key
 const signer = new PaymentSigner({
@@ -229,11 +229,11 @@ All action endpoints require x402 USDC payment. No subscriptions. No free tier.
 ### TypeScript
 
 ```bash
-npm install @xorb/sdk
+npm install xorb-sdk
 ```
 
 ```typescript
-import { XorbClient, PaymentSigner } from '@xorb/sdk'
+import { XorbClient, PaymentSigner } from 'xorb-sdk'
 
 const signer = new PaymentSigner({
   privateKey: process.env.SPONSOR_PRIVATE_KEY,
@@ -350,7 +350,7 @@ x.orb/
 ├── packages/
 │   ├── agent-core/           — Domain logic (8-gate pipeline, fee engine)
 │   ├── xorb-types/           — Shared TypeScript types
-│   ├── xorb-sdk-ts/          — @xorb/sdk (TypeScript client + PaymentSigner)
+│   ├── xorb-sdk-ts/          — xorb-sdk (TypeScript client + PaymentSigner)
 │   ├── xorb-sdk-py/          — xorb-sdk (Python client)
 │   └── xorb-mcp/             — @xorb/mcp (MCP server, 10 tools)
 ├── xorb-contracts/           — 8 Solidity contracts (Polygon PoS)

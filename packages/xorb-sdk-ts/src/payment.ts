@@ -33,7 +33,7 @@ const EXPIRY_SECONDS = 300 // 5 minutes
  *
  * Usage:
  * ```typescript
- * import { PaymentSigner } from '@xorb/sdk'
+ * import { PaymentSigner } from 'xorb-sdk'
  *
  * const signer = new PaymentSigner({
  *   privateKey: process.env.SPONSOR_PRIVATE_KEY!,

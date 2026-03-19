@@ -54,7 +54,7 @@ SPONSOR (Human)
 AI AGENT (Software)
   The autonomous program executing tasks.
   - Runs OpenClaw, AutoGPT, CrewAI, or custom code
-  - Uses @xorb/sdk to communicate with X.orb
+  - Uses xorb-sdk to communicate with X.orb
   - Signs x402 payment headers with sponsor's key
   - Earns reputation through successful actions
 
@@ -160,7 +160,7 @@ for each action your agent executes.
 ### Step 2.1: Install the SDK
 
 ```bash
-npm install @xorb/sdk
+npm install xorb-sdk
 # or
 pip install xorb-sdk
 ```
@@ -169,7 +169,7 @@ pip install xorb-sdk
 
 ```typescript
 // openclaw-config.ts
-import { XorbClient } from '@xorb/sdk'
+import { XorbClient } from 'xorb-sdk'
 import { ethers } from 'ethers'
 
 // The sponsor's wallet signs x402 payment headers
@@ -697,7 +697,7 @@ graph TB
     end
 
     subgraph "AI AGENT (OpenClaw)"
-        AC[Agent Code<br/>OpenClaw + @xorb/sdk]
+        AC[Agent Code<br/>OpenClaw + xorb-sdk]
         PH[Payment Header<br/>ECDSA-signed x402]
     end
 

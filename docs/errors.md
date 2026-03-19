@@ -305,7 +305,7 @@ The service is temporarily unavailable, usually due to maintenance or a configur
 The TypeScript SDK throws `XorbAPIError` for all non-2xx responses:
 
 ```typescript
-import { XorbClient, XorbAPIError } from '@xorb/sdk'
+import { XorbClient, XorbAPIError } from 'xorb-sdk'
 
 const client = new XorbClient({
   apiUrl: 'https://api.xorb.xyz',

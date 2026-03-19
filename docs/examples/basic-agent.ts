@@ -18,7 +18,7 @@
  *   SPONSOR_ADDRESS — Your EVM wallet address
  */
 
-import { XorbClient, XorbAPIError } from '@xorb/sdk'
+import { XorbClient, XorbAPIError } from 'xorb-sdk'
 
 // ---------------------------------------------------------------------------
 // Configuration

@@ -1,17 +1,17 @@
-# @xorb/sdk
+# xorb-sdk
 
 TypeScript SDK for [X.orb](https://xorb.xyz) — the orchestration layer for AI agent trust.
 
 ## Install
 
 ```bash
-npm install @xorb/sdk
+npm install xorb-sdk
 ```
 
 ## Quick Start
 
 ```typescript
-import { XorbClient } from '@xorb/sdk'
+import { XorbClient } from 'xorb-sdk'
 
 const xorb = new XorbClient({
   apiUrl: 'https://api.xorb.xyz',

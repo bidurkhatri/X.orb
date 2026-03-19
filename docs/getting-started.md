@@ -57,7 +57,7 @@ You can use the API directly with `curl` or any HTTP client, or install an offic
 ### TypeScript
 
 ```bash
-npm install @xorb/sdk
+npm install xorb-sdk
 ```
 
 ### Python
@@ -90,7 +90,7 @@ curl -X POST https://api.xorb.xyz/v1/agents \
 ### Using TypeScript SDK
 
 ```typescript
-import { XorbClient } from '@xorb/sdk'
+import { XorbClient } from 'xorb-sdk'
 
 const client = new XorbClient({
   apiUrl: 'https://api.xorb.xyz',

@@ -159,7 +159,7 @@ export function Agents() {
             Agents are registered programmatically via the X.orb SDK.
           </p>
           <code className="block text-xs text-xorb-blue bg-white/5 rounded-lg px-4 py-2 mb-4 font-mono">
-            npm install @xorb/sdk
+            npm install xorb-sdk
           </code>
           <a href="https://api.xorb.xyz/v1/docs" target="_blank" rel="noopener noreferrer"
             className="text-sm text-xorb-blue hover:underline">
