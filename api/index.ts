@@ -916,8 +916,221 @@ export default async function handler(req: any, res: any) {
       })
     }
     res.setHeader('Content-Type', 'text/html')
-    const specUrl = `${req.headers?.['x-forwarded-proto'] || 'https'}://${req.headers?.['host'] || 'api.xorb.xyz'}/api/v1/docs/openapi`
-    return res.send(`<!DOCTYPE html><html><head><title>X.orb API Docs</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css"><style>body{margin:0;background:#0A0A0A}.swagger-ui .topbar{display:none}.swagger-ui{max-width:1200px;margin:0 auto}</style></head><body><div id="swagger-ui"></div><script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script><script>SwaggerUIBundle({url:'${specUrl}',dom_id:'#swagger-ui',deepLinking:true,presets:[SwaggerUIBundle.presets.apis],layout:"BaseLayout"})</script></body></html>`)
+    return res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>X.orb API Documentation</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #0A0A0A; color: #E5E5E5; font-family: 'Inter', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+    .container { max-width: 900px; margin: 0 auto; padding: 40px 24px 80px; }
+    a { color: #0066FF; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code, .mono { font-family: 'JetBrains Mono', monospace; }
+    h1 { font-size: 32px; font-weight: 700; letter-spacing: -1px; margin-bottom: 8px; }
+    h1 span { color: #0066FF; }
+    .subtitle { color: #737373; font-size: 16px; margin-bottom: 40px; }
+    h2 { font-size: 20px; font-weight: 600; margin: 48px 0 16px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+    h3 { font-size: 15px; font-weight: 600; margin: 24px 0 8px; color: #A3A3A3; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; text-transform: uppercase; }
+    .get { background: rgba(34,197,94,0.15); color: #22C55E; }
+    .post { background: rgba(59,130,246,0.15); color: #3B82F6; }
+    .patch { background: rgba(245,158,11,0.15); color: #F59E0B; }
+    .delete { background: rgba(239,68,68,0.15); color: #EF4444; }
+    .free { background: rgba(34,197,94,0.1); color: #22C55E; font-size: 10px; padding: 1px 6px; border-radius: 3px; margin-left: 8px; }
+    .paid { background: rgba(139,92,246,0.1); color: #8B5CF6; font-size: 10px; padding: 1px 6px; border-radius: 3px; margin-left: 8px; }
+    table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+    th { text-align: left; font-size: 11px; font-weight: 600; color: #737373; text-transform: uppercase; letter-spacing: 0.5px; padding: 8px 12px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+    td { padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,0.04); font-size: 14px; }
+    tr:hover { background: rgba(255,255,255,0.02); }
+    .endpoint { display: flex; align-items: center; gap: 8px; }
+    .path { font-family: 'JetBrains Mono', monospace; font-size: 13px; }
+    pre { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 16px; overflow-x: auto; font-size: 13px; line-height: 1.6; margin: 12px 0; }
+    .note { background: rgba(59,130,246,0.08); border: 1px solid rgba(59,130,246,0.15); border-radius: 8px; padding: 12px 16px; font-size: 13px; color: #93C5FD; margin: 16px 0; }
+    .warn { background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.15); border-radius: 8px; padding: 12px 16px; font-size: 13px; color: #FCD34D; margin: 16px 0; }
+    .nav { display: flex; gap: 16px; margin-bottom: 32px; font-size: 13px; flex-wrap: wrap; }
+    .nav a { color: #737373; padding: 4px 0; border-bottom: 2px solid transparent; }
+    .nav a:hover { color: #E5E5E5; text-decoration: none; border-bottom-color: #0066FF; }
+    .header { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
+    .logo { width: 32px; height: 32px; border-radius: 8px; background: linear-gradient(135deg, #3B82F6, #6366F1); display: flex; align-items: center; justify-content: center; color: white; font-weight: 800; font-size: 14px; }
+    @media (max-width: 640px) { h1 { font-size: 24px; } .container { padding: 24px 16px 60px; } }
+  </style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <div class="logo">X</div>
+    <div>
+      <h1>X.orb <span>API</span></h1>
+      <p class="subtitle">Agent Trust Infrastructure — v0.5.1</p>
+    </div>
+  </div>
+
+  <div class="nav">
+    <a href="#auth">Authentication</a>
+    <a href="#agents">Agents</a>
+    <a href="#actions">Actions</a>
+    <a href="#reputation">Reputation</a>
+    <a href="#events">Events</a>
+    <a href="#webhooks">Webhooks</a>
+    <a href="#marketplace">Marketplace</a>
+    <a href="#payments">Payments</a>
+  </div>
+
+  <div class="note">Base URL: <code>https://api.xorb.xyz</code> · All action endpoints require <code>x-api-key</code> header + x402 USDC payment. Install SDK: <code>npm install xorb-sdk</code></div>
+
+  <h2 id="auth">Authentication</h2>
+  <p style="font-size:14px;color:#A3A3A3;margin-bottom:16px">Create an API key, then include it in every request as <code>x-api-key</code> header.</p>
+
+  <table>
+    <tr><th style="width:200px">Endpoint</th><th>Description</th><th style="width:80px">Cost</th></tr>
+    <tr><td><div class="endpoint"><span class="badge post">POST</span><span class="path">/v1/auth/keys</span></div></td><td>Create API key (wallet address + label)</td><td><span class="free">Free</span></td></tr>
+  </table>
+
+  <h3>Create API Key</h3>
+  <pre><code>curl -X POST https://api.xorb.xyz/v1/auth/keys \\
+  -H "Content-Type: application/json" \\
+  -d '{"owner_address": "0xYOUR_WALLET", "label": "my-project"}'</code></pre>
+
+  <h3>Response</h3>
+  <pre><code>{
+  "success": true,
+  "data": {
+    "api_key": "xorb_sk_...",
+    "warning": "Store this key securely. It cannot be retrieved again."
+  }
+}</code></pre>
+
+  <div class="warn">Save the API key immediately — it's shown only once and cannot be retrieved.</div>
+
+  <h2 id="agents">Agents</h2>
+  <table>
+    <tr><th style="width:200px">Endpoint</th><th>Description</th><th style="width:80px">Cost</th></tr>
+    <tr><td><div class="endpoint"><span class="badge post">POST</span><span class="path">/v1/agents</span></div></td><td>Register a new agent</td><td><span class="paid">$0.10</span></td></tr>
+    <tr><td><div class="endpoint"><span class="badge get">GET</span><span class="path">/v1/agents</span></div></td><td>List your agents (filtered by API key)</td><td><span class="free">Free</span></td></tr>
+    <tr><td><div class="endpoint"><span class="badge get">GET</span><span class="path">/v1/agents/:id</span></div></td><td>Get agent details</td><td><span class="free">Free</span></td></tr>
+    <tr><td><div class="endpoint"><span class="badge patch">PATCH</span><span class="path">/v1/agents/:id</span></div></td><td>Pause / resume / renew agent</td><td><span class="free">Free</span></td></tr>
+    <tr><td><div class="endpoint"><span class="badge delete">DELETE</span><span class="path">/v1/agents/:id</span></div></td><td>Revoke agent (permanent)</td><td><span class="free">Free</span></td></tr>
+  </table>
+
+  <h3>Register Agent</h3>
+  <pre><code>curl -X POST https://api.xorb.xyz/v1/agents \\
+  -H "x-api-key: xorb_sk_..." \\
+  -H "Content-Type: application/json" \\
+  -d '{"name": "my-bot", "scope": "data analysis", "sponsor_address": "0x...", "description": "Fetches on-chain data"}'</code></pre>
+
+  <h2 id="actions">Actions (8-Gate Pipeline)</h2>
+  <p style="font-size:14px;color:#A3A3A3;margin-bottom:16px">Every action passes through 8 sequential security gates. If any gate fails, the action is blocked.</p>
+  <table>
+    <tr><th style="width:200px">Endpoint</th><th>Description</th><th style="width:80px">Cost</th></tr>
+    <tr><td><div class="endpoint"><span class="badge post">POST</span><span class="path">/v1/actions/execute</span></div></td><td>Execute action through 8-gate pipeline</td><td><span class="paid">$0.005</span></td></tr>
+    <tr><td><div class="endpoint"><span class="badge post">POST</span><span class="path">/v1/actions/batch</span></div></td><td>Batch execute (max 100)</td><td><span class="paid">$0.003/ea</span></td></tr>
+  </table>
+
+  <h3>Execute Action</h3>
+  <pre><code>curl -X POST https://api.xorb.xyz/v1/actions/execute \\
+  -H "x-api-key: xorb_sk_..." \\
+  -H "Content-Type: application/json" \\
+  -d '{"agent_id": "agent_xxx", "action": "query", "tool": "get_balance", "params": {"address": "0x..."}}'</code></pre>
+
+  <h3>Response (Approved)</h3>
+  <pre><code>{
+  "approved": true,
+  "action_id": "act_abc123...",
+  "gates": [
+    {"gate": "identity", "passed": true},
+    {"gate": "permissions", "passed": true},
+    {"gate": "rate_limit", "passed": true},
+    {"gate": "x402_payment", "passed": true},
+    {"gate": "audit_log", "passed": true},
+    {"gate": "trust_score", "passed": true},
+    {"gate": "execute", "passed": true},
+    {"gate": "escrow_check", "passed": true}
+  ],
+  "audit_hash": "0x5e96...",
+  "latency_ms": 45
+}</code></pre>
+
+  <h2 id="reputation">Reputation & Trust</h2>
+  <table>
+    <tr><th style="width:200px">Endpoint</th><th>Description</th><th style="width:80px">Cost</th></tr>
+    <tr><td><div class="endpoint"><span class="badge get">GET</span><span class="path">/v1/reputation/:id</span></div></td><td>Agent reputation score + tier</td><td><span class="paid">$0.001</span></td></tr>
+    <tr><td><div class="endpoint"><span class="badge get">GET</span><span class="path">/v1/reputation/leaderboard</span></div></td><td>Top 100 agents by trust score</td><td><span class="free">Free</span></td></tr>
+    <tr><td><div class="endpoint"><span class="badge get">GET</span><span class="path">/v1/audit/:id</span></div></td><td>Audit log for agent</td><td><span class="paid">$0.01</span></td></tr>
+    <tr><td><div class="endpoint"><span class="badge get">GET</span><span class="path">/v1/compliance/:id</span></div></td><td>Compliance report (EU AI Act, NIST, SOC2)</td><td><span class="paid">$1.00</span></td></tr>
+  </table>
+
+  <h2 id="events">Events</h2>
+  <table>
+    <tr><th style="width:200px">Endpoint</th><th>Description</th><th style="width:80px">Cost</th></tr>
+    <tr><td><div class="endpoint"><span class="badge get">GET</span><span class="path">/v1/events</span></div></td><td>List events (filterable by agent_id, type)</td><td><span class="free">Free</span></td></tr>
+    <tr><td><div class="endpoint"><span class="badge get">GET</span><span class="path">/v1/events/stream</span></div></td><td>Long-polling event stream</td><td><span class="free">Free</span></td></tr>
+  </table>
+
+  <h2 id="webhooks">Webhooks</h2>
+  <table>
+    <tr><th style="width:200px">Endpoint</th><th>Description</th><th style="width:80px">Cost</th></tr>
+    <tr><td><div class="endpoint"><span class="badge post">POST</span><span class="path">/v1/webhooks</span></div></td><td>Subscribe to events</td><td><span class="paid">$0.10</span></td></tr>
+    <tr><td><div class="endpoint"><span class="badge get">GET</span><span class="path">/v1/webhooks</span></div></td><td>List subscriptions</td><td><span class="free">Free</span></td></tr>
+    <tr><td><div class="endpoint"><span class="badge delete">DELETE</span><span class="path">/v1/webhooks/:id</span></div></td><td>Remove subscription</td><td><span class="free">Free</span></td></tr>
+  </table>
+
+  <h2 id="marketplace">Marketplace</h2>
+  <table>
+    <tr><th style="width:200px">Endpoint</th><th>Description</th><th style="width:80px">Cost</th></tr>
+    <tr><td><div class="endpoint"><span class="badge get">GET</span><span class="path">/v1/marketplace/listings</span></div></td><td>Browse agents for hire</td><td><span class="free">Free</span></td></tr>
+    <tr><td><div class="endpoint"><span class="badge post">POST</span><span class="path">/v1/marketplace/listings</span></div></td><td>List your agent for hire</td><td><span class="free">Free</span></td></tr>
+    <tr><td><div class="endpoint"><span class="badge post">POST</span><span class="path">/v1/marketplace/hire</span></div></td><td>Hire an agent (escrow)</td><td><span class="paid">$0.05</span></td></tr>
+  </table>
+
+  <h2 id="payments">Pricing & Payments</h2>
+  <div class="note">Every action endpoint requires x402 USDC payment. No free tier. Reading your own data is free.</div>
+  <table>
+    <tr><th style="width:200px">Endpoint</th><th>Description</th><th style="width:80px">Cost</th></tr>
+    <tr><td><div class="endpoint"><span class="badge get">GET</span><span class="path">/v1/pricing</span></div></td><td>Full pricing table</td><td><span class="free">Free</span></td></tr>
+    <tr><td><div class="endpoint"><span class="badge get">GET</span><span class="path">/v1/health</span></div></td><td>API status</td><td><span class="free">Free</span></td></tr>
+    <tr><td><div class="endpoint"><span class="badge get">GET</span><span class="path">/v1/integrations</span></div></td><td>Orchestrated services</td><td><span class="free">Free</span></td></tr>
+  </table>
+
+  <h2>Error Codes</h2>
+  <table>
+    <tr><th style="width:80px">Status</th><th>Code</th><th>Meaning</th></tr>
+    <tr><td>401</td><td><code>missing_api_key</code></td><td>No x-api-key header provided</td></tr>
+    <tr><td>402</td><td><code>payment_required</code></td><td>x402 USDC payment needed</td></tr>
+    <tr><td>403</td><td><code>forbidden</code></td><td>You don't own this agent</td></tr>
+    <tr><td>404</td><td><code>not_found</code></td><td>Agent or resource not found</td></tr>
+    <tr><td>429</td><td><code>rate_limited</code></td><td>Too many requests (see Retry-After header)</td></tr>
+  </table>
+
+  <h2>SDK</h2>
+  <pre><code>npm install xorb-sdk</code></pre>
+  <pre><code>import { XorbClient } from 'xorb-sdk'
+
+const xorb = new XorbClient({ apiKey: 'xorb_sk_...' })
+
+// Register agent
+const agent = await xorb.agents.register({
+  name: 'my-bot', role: 'RESEARCHER',
+  sponsor_address: '0x...'
+})
+
+// Execute action
+const result = await xorb.actions.execute({
+  agent_id: agent.agentId,
+  action: 'query', tool: 'get_balance'
+})
+
+console.log(result.approved, result.audit_hash)</code></pre>
+
+  <div style="margin-top:48px;padding-top:24px;border-top:1px solid rgba(255,255,255,0.06);text-align:center">
+    <p style="font-size:12px;color:#525252">X.orb — Fintex Australia Pty Ltd · <a href="https://xorb.xyz">xorb.xyz</a> · <a href="https://github.com/bidurkhatri/X.orb">GitHub</a> · <a href="https://npmjs.com/package/xorb-sdk">npm</a></p>
+  </div>
+</div>
+</body>
+</html>`)
   }
 
   // ─── POST /v1/auth/keys (self-service API key creation — public) ───
