@@ -1491,8 +1491,12 @@ console.log(result.approved, result.audit_hash)</code></pre>
         payment_instructions: {
           amount: '100000',
           currency: 'USDC',
-          network: 'eip155:137',
+          accepted_networks: ['eip155:137', 'eip155:8453'],
           facilitator: '0xF41faE67716670edBFf581aEe37014307dF71A9B',
+          usdc_contracts: {
+            'eip155:137': '0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359',
+            'eip155:8453': '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+          },
           header: 'x-payment',
           protocol: 'https://x402.org',
         },
