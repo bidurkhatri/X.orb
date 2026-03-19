@@ -30,15 +30,17 @@ export function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
   })
 
   const hasAllowance = allowance !== undefined && allowance > BigInt(0)
+  const [approvalAmount, setApprovalAmount] = useState('100')
 
   const handleApprove = () => {
+    const usdcAmount = BigInt(Math.round(parseFloat(approvalAmount) * 1_000_000)) // Convert to 6 decimals
     writeContract({
       address: '0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359', // USDC on Polygon
       abi: parseAbi(['function approve(address spender, uint256 amount) returns (bool)']),
       functionName: 'approve',
       args: [
         '0xF41faE67716670edBFf581aEe37014307dF71A9B', // facilitator
-        BigInt('115792089237316195423570985008687907853269984665640564039457584007913129639935'), // maxUint256
+        usdcAmount,
       ],
     })
   }
@@ -112,16 +114,44 @@ export function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
                 {hasAllowance ? (
                   <div className="flex items-center gap-2 bg-green-500/10 border border-green-500/20 rounded-lg px-3 py-2">
                     <Check size={16} className="text-green-400 shrink-0" />
-                    <span className="text-xs text-green-400">USDC spending approved</span>
+                    <span className="text-xs text-green-400">
+                      USDC approved: ${Number(allowance) / 1_000_000 > 1_000_000 ? '∞' : (Number(allowance) / 1_000_000).toFixed(2)}
+                    </span>
                   </div>
                 ) : (
-                  <button
-                    onClick={handleApprove}
-                    disabled={!address || isApproving}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-xorb-blue hover:bg-xorb-blue-hover disabled:opacity-50 rounded-lg text-sm font-medium transition-colors"
-                  >
-                    {isApproving ? 'Approving...' : 'Approve USDC'}
-                  </button>
+                  <div className="space-y-2">
+                    <div>
+                      <label className="block text-xs text-xorb-muted mb-1">Approval limit (USDC)</label>
+                      <div className="flex gap-2">
+                        <input
+                          type="number"
+                          value={approvalAmount}
+                          onChange={e => setApprovalAmount(e.target.value)}
+                          min="1"
+                          step="10"
+                          className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:border-xorb-blue/50"
+                        />
+                        <div className="flex gap-1">
+                          {['10', '100', '1000'].map(v => (
+                            <button key={v} onClick={() => setApprovalAmount(v)} type="button"
+                              className={`px-2 py-1 text-xs rounded ${approvalAmount === v ? 'bg-xorb-blue text-white' : 'bg-white/5 text-xorb-muted hover:bg-white/10'}`}>
+                              ${v}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <p className="text-xs text-xorb-muted mt-1">
+                        At $0.005/action, ${approvalAmount} covers ~{Math.floor(parseFloat(approvalAmount || '0') / 0.005).toLocaleString()} actions
+                      </p>
+                    </div>
+                    <button
+                      onClick={handleApprove}
+                      disabled={!address || isApproving || !approvalAmount || parseFloat(approvalAmount) <= 0}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-xorb-blue hover:bg-xorb-blue-hover disabled:opacity-50 rounded-lg text-sm font-medium transition-colors"
+                    >
+                      {isApproving ? 'Approving...' : `Approve $${approvalAmount} USDC`}
+                    </button>
+                  </div>
                 )}
               </div>
             )}
