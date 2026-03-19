@@ -45,9 +45,10 @@ export function Actions() {
 
         const data = await res.json()
 
-        if (data.events?.length > 0) {
-          setEvents(prev => [...data.events, ...prev].slice(0, 200))
-          sinceRef.current = data.events[0].timestamp
+        const eventList = data.data?.events || data.events || (Array.isArray(data.data) ? data.data : [])
+        if (eventList.length > 0) {
+          setEvents(prev => [...eventList, ...prev].slice(0, 200))
+          sinceRef.current = eventList[0].timestamp
         }
 
         setConnected(true)

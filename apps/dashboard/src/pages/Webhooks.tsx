@@ -44,7 +44,7 @@ export function Webhooks() {
     },
   })
 
-  const webhooks = data?.webhooks || []
+  const webhooks = Array.isArray(data) ? data : (data?.webhooks || [])
   const [searchQuery, setSearchQuery] = useState('')
 
   const filteredWebhooks = useMemo(() => {

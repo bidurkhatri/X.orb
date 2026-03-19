@@ -15,15 +15,16 @@ export function Billing() {
     queryFn: () => api.pricing(),
   })
 
-  const agents = agentsData?.agents || []
+  const agents = Array.isArray(agentsData) ? agentsData : (agentsData?.agents || [])
   const totalActions = agents.reduce((sum: number, a: Record<string, number>) => sum + (a.totalActionsExecuted || 0), 0)
-  const freeTierLimit = pricing?.free_tier?.limit || 1000
+  const pricingData = pricing?.pricing || pricing
+  const freeTierLimit = pricingData?.free_tier?.limit || 1000
   const freeTierUsed = Math.min(totalActions, freeTierLimit)
   const paidActions = Math.max(0, totalActions - freeTierLimit)
 
   // Derive per-action price from pricing endpoints instead of hardcoding
   const perActionPrice = useMemo(() => {
-    const endpoints = pricing?.endpoints || []
+    const endpoints = pricingData?.endpoints || []
     const actionEndpoint = endpoints.find((ep: Record<string, string>) =>
       ep.endpoint?.includes('/actions') || ep.endpoint?.includes('execute')
     )
@@ -34,7 +35,7 @@ export function Billing() {
       return priced.reduce((sum: number, ep: Record<string, string>) => sum + parseFloat(ep.price_usdc), 0) / priced.length
     }
     return 0.005 // last-resort default
-  }, [pricing])
+  }, [pricingData])
 
   const totalSpent = paidActions * perActionPrice
 
@@ -51,7 +52,7 @@ export function Billing() {
       <div className="glass-card p-5 mb-6">
         <h3 className="text-sm font-medium text-xorb-muted mb-4">Pricing</h3>
         <div className="space-y-2">
-          {(pricing?.endpoints || []).map((ep: Record<string, string>) => (
+          {(pricingData?.endpoints || []).map((ep: Record<string, string>) => (
             <div key={ep.endpoint} className="flex items-center justify-between bg-white/5 rounded-lg px-4 py-2">
               <span className="text-sm font-mono">{ep.endpoint}</span>
               <div className="flex items-center gap-3">

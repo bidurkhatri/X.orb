@@ -33,8 +33,8 @@ export function Overview() {
   const navigate = useNavigate()
   const [leaderboardSort, setLeaderboardSort] = useState<SortKey>('score')
 
-  const agents = agentsData?.agents || []
-  const events = eventsData?.events || []
+  const agents = Array.isArray(agentsData) ? agentsData : (agentsData?.agents || [])
+  const events = Array.isArray(eventsData) ? eventsData : (eventsData?.events || [])
   const activeCount = agents.filter((a: Agent) => a.status === 'active').length
   const actionsToday = events.filter((e: XorbEvent) => e.type === 'action.approved' || e.type === 'action.blocked').length
   const blockedToday = events.filter((e: XorbEvent) => e.type === 'action.blocked').length

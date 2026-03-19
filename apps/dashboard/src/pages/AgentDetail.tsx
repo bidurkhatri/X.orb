@@ -29,7 +29,7 @@ export function AgentDetail() {
   })
 
   const pauseMutation = useMutation({
-    mutationFn: () => api.agents.pause(id!, agentData?.agent?.sponsorAddress || ''),
+    mutationFn: () => api.agents.pause(id!, (agentData?.agent || agentData)?.sponsorAddress || ''),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['agent', id] })
       toast.success('Agent paused')
@@ -38,7 +38,7 @@ export function AgentDetail() {
   })
 
   const resumeMutation = useMutation({
-    mutationFn: () => api.agents.resume(id!, agentData?.agent?.sponsorAddress || ''),
+    mutationFn: () => api.agents.resume(id!, (agentData?.agent || agentData)?.sponsorAddress || ''),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['agent', id] })
       toast.success('Agent resumed')
@@ -47,7 +47,7 @@ export function AgentDetail() {
   })
 
   const revokeMutation = useMutation({
-    mutationFn: () => api.agents.revoke(id!, agentData?.agent?.sponsorAddress || ''),
+    mutationFn: () => api.agents.revoke(id!, (agentData?.agent || agentData)?.sponsorAddress || ''),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['agent', id] })
       toast.success('Agent revoked')
@@ -55,7 +55,7 @@ export function AgentDetail() {
     onError: () => toast.error('Failed to revoke agent. Please try again.'),
   })
 
-  const agent = agentData?.agent
+  const agent = agentData?.agent || agentData
   const audit = auditData
 
   if (isLoading) return (

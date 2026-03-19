@@ -16,7 +16,7 @@ export function Marketplace() {
     retry: false,
   })
 
-  const listings = data?.listings || []
+  const listings = Array.isArray(data) ? data : (data?.listings || [])
 
   const filteredListings = useMemo(() => {
     if (!searchQuery.trim()) return listings

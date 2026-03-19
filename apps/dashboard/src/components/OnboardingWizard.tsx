@@ -42,8 +42,9 @@ export function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
         }),
       })
       const data = await res.json()
-      if (data.agent?.agentId) {
-        setAgentId(data.agent.agentId)
+      const agent = data.data?.agent || data.agent || data.data || data
+      if (agent?.agentId) {
+        setAgentId(agent.agentId)
         setStep(1)
       } else {
         setError(data.error?.message || data.error || 'Failed to create agent. Check your inputs.')

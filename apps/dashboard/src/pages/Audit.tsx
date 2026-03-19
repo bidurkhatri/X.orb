@@ -46,7 +46,7 @@ export function Audit() {
               className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm min-w-[200px]"
             >
               <option value="">Select agent...</option>
-              {(agentsData?.agents || []).map((a: Record<string, string>) => (
+              {(Array.isArray(agentsData) ? agentsData : (agentsData?.agents || [])).map((a: Record<string, string>) => (
                 <option key={a.agentId} value={a.agentId}>{a.name} ({a.agentId})</option>
               ))}
             </select>
