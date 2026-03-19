@@ -3,14 +3,16 @@
 All payments are in USDC on-chain. X.orb uses the x402 protocol both to
 orchestrate agent payments AND to collect its own platform fees.
 
-## Architecture
+## Architecture (x402 v2 — EIP-3009)
+
+> **x402 v2** uses EIP-3009 `TransferWithAuthorization` — each payment is individually signed by the sponsor. No blanket `USDC.approve()` is needed.
 
 ```
 SPONSOR WALLET (holds USDC)
   │
-  │ ERC-20 approve(facilitatorAddress, amount)  ← one-time setup
+  │ EIP-3009 TransferWithAuthorization (per-payment signature)  ← no approval needed
   ▼
-XORB FACILITATOR WALLET ←── USDC.transferFrom(payer, facilitator, gross)
+XORB FACILITATOR WALLET ←── USDC.transferWithAuthorization(payer, facilitator, gross, validAfter, validBefore, nonce, sig)
   │
   │ 8-gate pipeline executes
   │
@@ -44,12 +46,12 @@ XORB FACILITATOR WALLET ←── USDC.transferFrom(payer, facilitator, gross)
 POST /v1/actions/execute
 Headers:
   x-api-key: xorb_sk_...
-  x-payment: <base64-encoded payment header>
+  payment-signature: <base64-encoded payment header>
 Body:
   { "agent_id": "agent_...", "action": "transfer", "tool": "send_usdc" }
 ```
 
-The x-payment header contains:
+The payment-signature header contains:
 - `amount`: USDC in 6 decimals (e.g., 1000000 = $1.00)
 - `recipient`: intended recipient address
 - `nonce`: unique string to prevent replay
@@ -62,16 +64,15 @@ The x-payment header contains:
 - Validates API key against Supabase `api_keys` table
 - Sets `sponsorAddress` from authenticated key owner
 
-### 3. x402 Payment Gate (X.orb as Facilitator)
+### 3. x402 v2 Payment Gate (X.orb as Facilitator, EIP-3009)
 1. Verify ECDSA signature — recover signer address
 2. Verify nonce hasn't been replayed (atomic insert into `payment_nonces`)
 3. Verify payment hasn't expired
-4. Check payer's USDC allowance for facilitator >= grossAmount
-5. Check payer's USDC balance >= grossAmount
-6. Calculate X.orb fee: `grossAmount × fee_basis_points / 10000`
-7. Execute `USDC.transferFrom(payer, facilitator, grossAmount)` — ON-CHAIN TX
-8. Record payment in `payments` table (status: `held`)
-9. Attach payment context to pipeline
+4. Check payer's USDC balance >= grossAmount
+5. Calculate X.orb fee: `grossAmount × fee_basis_points / 10000`
+6. Execute `USDC.transferWithAuthorization(payer, facilitator, grossAmount, validAfter, validBefore, nonce, signature)` — ON-CHAIN TX (EIP-3009, no prior approval required)
+7. Record payment in `payments` table (status: `held`)
+8. Attach payment context to pipeline
 
 ### 4. Remaining Gates Execute
 - Registry, Permissions, Rate Limit, Spend Limit, Audit, Compliance, Execute, Reputation
@@ -97,7 +98,7 @@ The x-payment header contains:
 
 1. **Fee split happens AFTER pipeline approval, never before.** This prevents needing to claw back fees on rejected actions.
 
-2. **Payer must approve the facilitator wallet.** First-time setup: `USDC.approve(facilitatorAddress, type(uint256).max)`. This is a one-time on-chain transaction per payer.
+2. **No USDC approval needed.** x402 v2 uses EIP-3009 `TransferWithAuthorization` — each payment is individually signed. There is no blanket `approve()` step, eliminating approval management and reducing attack surface.
 
 3. **Refund window: 72 hours.** Fees are held in treasury but marked as `pending` for 72 hours. Only after maturity can they be withdrawn.
 
@@ -127,9 +128,9 @@ All amounts in USDC. All fees collected on-chain. All transactions verifiable on
 - If all retries fail: mark payment as `held` and alert admin
 - Manual resolution within 24 hours
 
-### Payer has insufficient allowance
-- Return 402 with message: "Insufficient USDC allowance. Call USDC.approve(facilitator, amount) first."
-- Include facilitator address and approval instructions
+### EIP-3009 signature invalid or expired
+- Return 402 with message: "Payment signature invalid or expired. Re-sign with a fresh nonce and expiry."
+- x402 v2 does not require USDC allowance — each payment is individually authorized via EIP-3009.
 
 ### Payer has insufficient balance
 - Return 402 with message: "Insufficient USDC balance."

@@ -33,6 +33,7 @@ x402 is an open payment protocol created by **Coinbase** that brings native paym
 - Uses **USDC** stablecoins (not volatile tokens)
 - Payments are **per-request** (micropayments, not subscriptions)
 - Every payment is **cryptographically signed** (ECDSA) and **verifiable on-chain**
+- **x402 v2** uses **EIP-3009 TransferWithAuthorization** — no USDC `approve()` step needed
 - Designed for **machine-to-machine** transactions — no human approval per action
 - Protocol spec: https://x402.org
 - Reference implementation: github.com/coinbase/x402
@@ -47,8 +48,8 @@ x402 is an open payment protocol created by **Coinbase** that brings native paym
 SPONSOR (Human)
   The person or company funding the AI agent.
   - Owns an Ethereum wallet with USDC
-  - Approves X.orb to spend their USDC
   - Creates an API key via the dashboard
+  - Signs per-action payments via EIP-3009 (no blanket USDC approval needed)
   - Monitors agents via dashboard.xorb.xyz
 
 AI AGENT (Software)
@@ -68,7 +69,7 @@ X.ORB PLATFORM (Infrastructure)
 
 FACILITATOR WALLET (Hot Wallet)
   X.orb's payment intermediary.
-  - Receives USDC from sponsors via transferFrom
+  - Receives USDC from sponsors via EIP-3009 TransferWithAuthorization
   - Holds funds during pipeline execution (~seconds)
   - Splits: fee → treasury, net → recipient/escrow
   - Low balance by design (only in-flight payments)
@@ -103,8 +104,8 @@ SMART CONTRACTS (On-Chain)
 
 **Who:** You (the sponsor/owner of the AI agent)
 **Where:** Browser + MetaMask
-**Duration:** ~10 minutes
-**Cost:** Gas for 1 USDC approval transaction (~$0.01 on Polygon)
+**Duration:** ~5 minutes
+**Cost:** Free (no approval transaction needed — x402 v2 uses EIP-3009 per-payment signatures)
 
 ### Step 1.1: Get USDC on Polygon
 
@@ -127,27 +128,14 @@ You need USDC on Polygon PoS (not Ethereum mainnet).
 7. You receive: xorb_sk_abc123... (shown ONCE, store securely)
 ```
 
-### Step 1.3: Approve USDC Spending
+### Step 1.3: ~~Approve USDC Spending~~ (No Longer Required)
 
-```
-In MetaMask (or via script):
-
-USDC.approve(
-  spender: 0xF41faE67716670edBFf581aEe37014307dF71A9B,  // X.orb facilitator
-  amount: 115792089237316195423570985008687907853269984665640564039457584007913129639935
-  // Recommended: set a specific cap, e.g. 100 USDC (100000000 in 6 decimals)
-)
-
-This is a single on-chain transaction on Polygon.
-Gas cost: ~$0.01
-This allows X.orb's facilitator to call USDC.transferFrom(yourWallet, facilitator, amount)
-for each action your agent executes.
-```
+> **x402 v2 (EIP-3009):** This step has been eliminated. X.orb now uses EIP-3009 `TransferWithAuthorization` for every payment. Each action is individually signed by the sponsor's wallet — there is no blanket `USDC.approve()` needed. This eliminates approval management, reduces attack surface, and means sponsors never grant open-ended spending authority to any contract.
 
 **After this step you have:**
 - API key: `xorb_sk_abc123...`
 - Wallet: `0xYour...` with USDC balance
-- USDC approval: facilitator can charge your wallet
+- Ready to pay per-action via EIP-3009 signatures (no approval transaction needed)
 
 ---
 
@@ -227,7 +215,7 @@ export async function executeWithPayment(
     headers: {
       'Content-Type': 'application/json',
       'x-api-key': process.env.XORB_API_KEY!,
-      'x-payment': paymentHeader,
+      'payment-signature': paymentHeader,
     },
     body: JSON.stringify({ agent_id: agentId, action, tool, params }),
   })
@@ -257,7 +245,7 @@ async function registerAgent() {
     headers: {
       'Content-Type': 'application/json',
       'x-api-key': process.env.XORB_API_KEY!,
-      'x-payment': paymentHeader,
+      'payment-signature': paymentHeader,
     },
     body: JSON.stringify({
       name: 'openclaw-research',
@@ -284,7 +272,7 @@ async function registerAgent() {
 1. x402 gate validates payment header ($0.10 USDC)
 2. ECDSA signature verified → confirms sponsor owns the wallet
 3. Nonce checked for replay → unique, accepted
-4. USDC.transferFrom(sponsor, facilitator, 100000) → $0.10 collected
+4. USDC.transferWithAuthorization(sponsor, facilitator, 100000, sig) → $0.10 collected (EIP-3009)
 5. Agent created in Supabase with unique ID, session wallet, reputation=1000
 6. AgentRegistry.spawnAgent() called on Polygon → on-chain record
 7. Fee split: $0.003 → treasury, $0.097 → facilitator operating costs
@@ -336,7 +324,7 @@ async function researchBitcoinPrice() {
 ```
 REQUEST ARRIVES
   POST /v1/actions/execute
-  Headers: x-api-key: xorb_sk_abc123, x-payment: base64(...)
+  Headers: x-api-key: xorb_sk_abc123, payment-signature: base64(...)
   Body: { agent_id, action, tool, params }
 
 GATE 1: IDENTITY VERIFICATION
@@ -384,8 +372,8 @@ GATE 4: x402 PAYMENT
   │   feeAmount = 5000 * 30 / 10000 = 15 micro-USDC ($0.000015)
   │   But minimum fee = 1000 micro-USDC ($0.001), so feeAmount = 1000
   │   netAmount = 5000 - 1000 = 4000 micro-USDC ($0.004)
-  ├─ COLLECT ON-CHAIN:
-  │   USDC.transferFrom(0xSponsor, 0xFacilitator, 5000)
+  ├─ COLLECT ON-CHAIN (EIP-3009, no approval needed):
+  │   USDC.transferWithAuthorization(0xSponsor, 0xFacilitator, 5000, validAfter, validBefore, nonce, sig)
   │   → Polygon tx hash: 0x7f8e9a...
   │   → $0.005 USDC moves from sponsor's wallet to facilitator
   ├─ Record payment: INSERT INTO payments (status='held', gross=5000, fee=1000)
@@ -509,7 +497,7 @@ const engagement = await fetch('https://api.xorb.xyz/v1/marketplace/hire', {
   headers: {
     'Content-Type': 'application/json',
     'x-api-key': process.env.XORB_API_KEY!,
-    'x-payment': paymentHeader,
+    'payment-signature': paymentHeader,
   },
   body: JSON.stringify({
     listing_id: 'lst_xyz',
@@ -735,9 +723,9 @@ graph TB
         E8[ERC-8004<br/>Identity Registry]
     end
 
-    SW -->|1. Approve USDC| USDC
-    SW -->|2. Create API Key| DB
-    DB -->|3. WalletConnect| SW
+    SW -->|1. Create API Key| DB
+    DB -->|2. WalletConnect| SW
+    Note right of SW: No USDC approval needed (x402 v2 / EIP-3009)
 
     AC -->|4. POST /v1/actions/execute| API
     PH -->|x-payment header| API
@@ -775,9 +763,8 @@ sequenceDiagram
     participant U as USDC Contract (Polygon)
     participant T as Treasury
 
-    Note over S: ONE-TIME SETUP
-    S->>U: approve(facilitator, sponsorChosenAmount)
-    Note over S: Facilitator can now charge sponsor
+    Note over S: ONE-TIME SETUP (create API key only)
+    Note over S: No USDC approval needed (x402 v2 / EIP-3009)
 
     Note over A: EVERY ACTION
     A->>A: Create payment: {amount, nonce, expiry, payer, network}
@@ -793,7 +780,7 @@ sequenceDiagram
     X->>X: Check spending caps
     X->>X: Calculate fee (30 bps, min $0.001)
 
-    X->>U: USDC.transferFrom(sponsor, facilitator, $0.005)
+    X->>U: USDC.transferWithAuthorization(sponsor, facilitator, $0.005, sig)
     U->>F: $0.005 USDC transferred
     Note over F: Funds held during pipeline (~500ms)
 
@@ -883,8 +870,10 @@ sequenceDiagram
 ### Header Format
 
 ```
-x-payment: base64(JSON(PaymentPayload))
+payment-signature: base64(JSON(PaymentPayload))
 ```
+
+> **Legacy:** The `x-payment` header is still accepted for backward compatibility, but `payment-signature` is the primary header for x402 v2.
 
 ### PaymentPayload Schema
 
@@ -990,6 +979,12 @@ assert(parseInt(amount) >= 5000)              // Minimum $0.005
 | Facilitator | `0xF41faE67716670edBFf581aEe37014307dF71A9B` | Hot wallet, holds in-flight payments |
 | Treasury | `0xbA29f888453C5fEe4c114C5eB1ca4E6256261a25` | Revenue accumulator |
 | Deployer | `0xbA29f888453C5fEe4c114C5eB1ca4E6256261a25` | Contract deployment (same as treasury) |
+
+---
+
+## Real Transaction Example
+
+For a complete end-to-end example with real on-chain transactions showing x402 v2 (EIP-3009) in action across both Polygon and Base, see [Integrated Journey — Real Transaction Example](./example-integrated-journey.md).
 
 ---
 

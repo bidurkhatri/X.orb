@@ -2,6 +2,8 @@
 
 Get your first AI agent registered and executing actions through the 8-gate security pipeline in under 15 minutes.
 
+> **x402 v2:** X.orb uses x402 v2 with EIP-3009 TransferWithAuthorization — no USDC pre-approval needed. Each payment is individually signed, so there is no blanket `approve()` step.
+
 ---
 
 ## Prerequisites
@@ -422,7 +424,7 @@ Now that you have a working agent, explore more of the platform:
 | `/v1/health` | GET | Health check | Free |
 | `/v1/pricing` | GET | View pricing | Free |
 
-All paid endpoints include 1,000 free actions per month. After the free tier is exhausted, pay per action with USDC via the x402 protocol.
+All paid endpoints include 1,000 free actions per month. After the free tier is exhausted, pay per action with USDC via the x402 v2 protocol (EIP-3009 — no USDC approval required).
 
 ---
 

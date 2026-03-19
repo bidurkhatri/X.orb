@@ -124,7 +124,7 @@
     <section class="hero">
       <div class="live-badge"><div class="live-dot"></div> API Live</div>
       <h1>The orchestration layer<br>for <span>AI agent trust</span></h1>
-      <p>One API call. 8 gates. 4 integrations. X.orb orchestrates ERC-8004, MoltGuard, x402, and native escrow into a single security pipeline — live on Polygon &amp; Base.</p>
+      <p>One API call. 8 gates. 4 integrations. X.orb orchestrates ERC-8004, MoltGuard, x402 v2 (EIP-3009 — no approval needed), and native escrow into a single security pipeline — live on Polygon &amp; Base.</p>
       <nav>
       <div class="hero-cta">
         <a href="https://dashboard.xorb.xyz" class="btn btn-primary" target="_blank" rel="noopener noreferrer">Get Started</a>
@@ -198,7 +198,7 @@
         <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 24px; text-align: center;">
           <div style="width: 40px; height: 40px; border-radius: 50%; background: rgba(0,102,255,0.15); color: #0066FF; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; font-weight: bold;">1</div>
           <h3 style="font-size: 16px; margin-bottom: 8px; color: #E5E5E5;">Sponsor Setup</h3>
-          <p style="font-size: 13px; color: #999;">Connect wallet, create API key, approve USDC spending on the dashboard.</p>
+          <p style="font-size: 13px; color: #999;">Connect wallet, create API key on the dashboard. No USDC approval needed.</p>
         </div>
         <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 24px; text-align: center;">
           <div style="width: 40px; height: 40px; border-radius: 50%; background: rgba(0,102,255,0.15); color: #0066FF; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; font-weight: bold;">2</div>
@@ -218,9 +218,7 @@
       <h2>One API Call</h2>
       <pre><code><span class="keyword">import</span> { XorbClient, PaymentSigner } <span class="keyword">from</span> <span class="string">'xorb-sdk'</span>
 
-<span class="keyword">const</span> signer = <span class="keyword">new</span> PaymentSigner({
-  privateKey: process.env.SPONSOR_KEY,
-})
+<span class="keyword">const</span> signer = PaymentSigner.fromPrivateKey(process.env.SPONSOR_KEY)
 
 <span class="keyword">const</span> xorb = <span class="keyword">new</span> XorbClient({
   apiUrl: <span class="string">'https://api.xorb.xyz'</span>,
@@ -293,6 +291,7 @@ console.log(result.approved, result.audit_hash)</code></pre>
         </div>
       </div>
       <p style="font-size: 12px; color: #666; margin-top: 16px;">Free: health, pricing, agent list, pause/resume, events, key creation</p>
+      <p style="font-size: 12px; color: #0066FF; margin-top: 8px;">x402 v2 — no USDC approval needed. Each payment is individually signed via EIP-3009.</p>
     </section>
     </main>
 

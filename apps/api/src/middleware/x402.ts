@@ -155,7 +155,8 @@ export function x402Middleware() {
 
     const price = PRICING[pricingKey]
     const sponsorAddress = c.get('sponsorAddress') || ''
-    const paymentHeader = c.req.header('x-payment')
+    // x402 v2: accept both 'payment-signature' (primary, EIP-3009) and 'x-payment' (legacy)
+    const paymentHeader = c.req.header('payment-signature') || c.req.header('x-payment')
     const payments = getPaymentService()
 
     // --- Path A: x402 payment header present ---
@@ -293,9 +294,12 @@ export function x402Middleware() {
           { network: 'eip155:137', asset: 'USDC', amount: expectedAmount.toString() },
           { network: 'eip155:8453', asset: 'USDC', amount: expectedAmount.toString() },
         ],
-        payment_header: 'x-payment',
+        payment_header: 'payment-signature',
+        payment_header_legacy: 'x-payment',
         payment_format: 'base64(JSON({ signature, amount, network, nonce, expiry, payer }))',
+        protocol: 'x402 v2 (EIP-3009 TransferWithAuthorization — no USDC pre-approval needed)',
         docs: 'https://docs.xorb.xyz/payments',
+        example: 'https://docs.xorb.xyz/example-integrated-journey',
       },
     }, 402 as Parameters<typeof c.json>[1])
   })

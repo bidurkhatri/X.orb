@@ -4,13 +4,14 @@
 
 ### The orchestration layer for AI agent trust.
 
-X.orb orchestrates trust infrastructure for autonomous AI agents. One API call runs your agent's action through an 8-gate security pipeline that checks identity (ERC-8004), permissions, rate limits, payments (x402), audit logging, trust scoring (MoltGuard), execution, and escrow (Xorb Escrow).
+X.orb orchestrates trust infrastructure for autonomous AI agents. One API call runs your agent's action through an 8-gate security pipeline that checks identity (ERC-8004), permissions, rate limits, payments (x402 v2 + EIP-3009), audit logging, trust scoring (MoltGuard), execution, and escrow (Xorb Escrow).
 
-Every action costs USDC. Every action is accountable.
+Every action costs USDC. Every action is accountable. No approvals needed.
 
 [![API](https://img.shields.io/badge/API-v0.5.1-22C55E?style=flat-square)](https://api.xorb.xyz/v1/health)
+[![npm](https://img.shields.io/npm/v/xorb-sdk?style=flat-square&color=CB3837&label=npm)](https://npmjs.com/package/xorb-sdk)
 [![Dashboard](https://img.shields.io/badge/Dashboard-LIVE-0066FF?style=flat-square)](https://dashboard.xorb.xyz)
-[![x402](https://img.shields.io/badge/x402-integrated-purple?style=flat-square)](https://x402.org)
+[![x402](https://img.shields.io/badge/x402_v2-EIP--3009-purple?style=flat-square)](https://x402.org)
 [![ERC-8004](https://img.shields.io/badge/ERC--8004-integrated-orange?style=flat-square)](https://eips.ethereum.org/EIPS/eip-8004)
 [![Polygon](https://img.shields.io/badge/Polygon-8%20contracts-7B3FE4?style=flat-square)](https://polygonscan.com)
 
@@ -23,6 +24,8 @@ Every action costs USDC. Every action is accountable.
 ## How It Works
 
 X.orb extends the [x402 payment protocol](https://x402.org) (by Coinbase) with an 8-gate trust pipeline. AI agents pay USDC per-action on Polygon, and every action is identity-verified, permission-checked, rate-limited, audited, and reputation-scored.
+
+No `USDC.approve()` needed — uses [EIP-3009](https://eips.ethereum.org/EIPS/eip-3009) `TransferWithAuthorization` for per-transaction signing.
 
 **Three roles:**
 - **Sponsor** (human) — funds the agent's wallet, creates API key via dashboard, monitors via dashboard
@@ -81,7 +84,7 @@ Every AI agent action passes through 8 sequential gates. If any gate fails, the 
 2. Go to dashboard.xorb.xyz → Connect wallet via WalletConnect
 3. Sign challenge message → proves wallet ownership
 4. Receive API key: xorb_sk_... (shown once, store securely)
-5. Approve USDC spending: USDC.approve(facilitator, yourChosenLimit)
+5. Install SDK — agents handle payments automatically via EIP-3009
 ```
 
 ### Phase 2: Developer Integration (~30 min)
@@ -93,15 +96,13 @@ npm install xorb-sdk
 ```typescript
 import { XorbClient, PaymentSigner } from 'xorb-sdk'
 
-// PaymentSigner signs x402 payment headers with sponsor's key
-const signer = new PaymentSigner({
-  privateKey: process.env.SPONSOR_PRIVATE_KEY,
-})
+// EIP-3009: signs TransferWithAuthorization per-transaction (no USDC.approve needed)
+const signer = PaymentSigner.fromPrivateKey(process.env.SPONSOR_PRIVATE_KEY)
 
 const xorb = new XorbClient({
   apiUrl: 'https://api.xorb.xyz',
   apiKey: process.env.XORB_API_KEY,
-  signer, // auto-signs register ($0.10) and execute ($0.005)
+  signer, // auto-signs register ($0.10) and execute ($0.005) via EIP-3009
 })
 ```
 
@@ -170,34 +171,42 @@ Critical violation → SlashingEngine slashes bond (5%-100%)
 ## x402 Payment Flow
 
 ```
-Sponsor wallet ──USDC.approve──> Facilitator
-                                     │
-Agent sends request ──x-payment──> X.orb API
-                                     │
+Agent sends request ──payment-signature──> X.orb API
+                                              │
                               Parse & verify ECDSA signature
                               Check nonce (replay protection)
                               Check expiry, spending caps
-                              USDC.transferFrom(sponsor → facilitator)
-                                     │
+                              EIP-3009 TransferWithAuthorization
+                                (sponsor → facilitator, per-tx)
+                                              │
                               Run 8-gate pipeline
-                                     │
-                         ┌───────────┴───────────┐
-                     All pass                 Any fail
-                         │                       │
-                    Fee split:              Full refund:
-                    fee → treasury          gross → sponsor
-                    net → sponsor
+                                              │
+                         ┌────────────────────┴────────────────┐
+                     All pass                              Any fail
+                         │                                     │
+                    Fee split:                           No transfer:
+                    fee → treasury                       authorization unused
+                    net → sponsor                        (nothing to refund)
 ```
 
-**x-payment header format:**
+**payment-signature header format (primary):**
 ```
-x-payment: base64(JSON({
-  signature,              // ECDSA over keccak256(amount, facilitator, nonce, expiry)
+payment-signature: base64(JSON({
+  signature,              // EIP-3009 TransferWithAuthorization signature
   amount: "5000",         // $0.005 in micro-USDC (6 decimals)
   network: "eip155:137",  // Polygon PoS (or "eip155:8453" for Base)
-  nonce: "random32hex",   // unique per request
-  expiry: 1773910200,     // unix timestamp (5 min window)
-  payer: "0xSponsor..."   // wallet address being charged
+  nonce: "random32hex",   // unique per request (EIP-3009 nonce)
+  validAfter: 0,          // unix timestamp
+  validBefore: 1773910200,// unix timestamp (5 min window)
+  from: "0xSponsor...",   // wallet address being charged
+  to: "0xFacilitator..."  // X.orb facilitator address
+}))
+```
+
+**x-payment header (legacy, still accepted):**
+```
+x-payment: base64(JSON({
+  signature, amount, network, nonce, expiry, payer
 }))
 ```
 
@@ -205,7 +214,7 @@ x-payment: base64(JSON({
 
 ## Supported Networks
 
-X.orb is **chain-agnostic** for x402 payments. Sponsors pay on whichever chain they hold USDC — X.orb's facilitator handles settlement on each chain independently.
+X.orb is **chain-agnostic** for x402 v2 payments. Sponsors pay on whichever chain they hold USDC — X.orb's facilitator handles settlement on each chain independently. With EIP-3009 `TransferWithAuthorization`, there is no approval step: each payment is signed and authorized per-transaction.
 
 | Network | Chain ID | USDC Contract | Gas Token | Status |
 |---------|----------|---------------|-----------|--------|
@@ -256,7 +265,7 @@ X.orb is part of the [x402 ecosystem](https://x402.org/ecosystem) — an open pa
 - HTTP 402 responses with payment instructions ✅
 - ECDSA signature verification (secp256k1) ✅
 - Nonce replay protection (Supabase + in-memory) ✅
-- USDC settlement via `transferFrom` ✅
+- USDC settlement via EIP-3009 `transferWithAuthorization` ✅
 - Batch settlement via XorbPaymentSplitter ✅
 - Fee transparency headers on every response ✅
 
@@ -294,9 +303,8 @@ npm install xorb-sdk
 ```typescript
 import { XorbClient, PaymentSigner } from 'xorb-sdk'
 
-const signer = new PaymentSigner({
-  privateKey: process.env.SPONSOR_PRIVATE_KEY,
-})
+// EIP-3009: signs TransferWithAuthorization per-transaction (no approve step)
+const signer = PaymentSigner.fromPrivateKey(process.env.SPONSOR_PRIVATE_KEY)
 
 const xorb = new XorbClient({
   apiUrl: 'https://api.xorb.xyz',
@@ -304,12 +312,12 @@ const xorb = new XorbClient({
   signer,
 })
 
-// Register ($0.10) — auto-signed
+// Register ($0.10) — auto-signed via EIP-3009
 const { agent } = await xorb.agents.register({
   name: 'my-bot', role: 'RESEARCHER', sponsor_address: '0x...',
 })
 
-// Execute ($0.005) — auto-signed
+// Execute ($0.005) — auto-signed via EIP-3009
 const result = await xorb.actions.execute({
   agent_id: agent.agentId, action: 'query', tool: 'web_search',
   params: { q: 'AI safety research' },
@@ -342,6 +350,21 @@ npx @xorb/mcp
 ```
 
 10 tools: `gated_tool_call`, `register_agent`, `check_reputation`, `emergency_stop`, `get_audit`, `marketplace_browse`, `marketplace_list`, `compliance_report`, `webhook_subscribe`, + more.
+
+---
+
+## Real Transaction Example
+
+An end-to-end agent journey across two chains, documented in [`docs/example-integrated-journey.md`](docs/example-integrated-journey.md):
+
+| Step | Action | Cost | Chain |
+|------|--------|------|-------|
+| 1 | Agent registered on X.orb | $0.10 USDC | Polygon |
+| 2 | Action verified through 8 gates | $0.005 USDC | Polygon |
+| 3 | External purchase from Robtex | $0.001 USDC | Base (via EIP-3009) |
+| **Total** | | **$0.106 USDC** | **Two chains** |
+
+No approval transactions. Every payment signed per-request via EIP-3009 `TransferWithAuthorization`.
 
 ---
 

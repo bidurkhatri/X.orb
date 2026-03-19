@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>X.orb Integrated Journey — Live Proof</title>
+<meta name="description" content="Real x402 transaction proof: AI agent verified through X.orb's 8-gate pipeline, then purchased IP intelligence from Robtex on Base. $0.106 USDC across two chains.">
+<meta property="og:title" content="X.orb Integrated Journey — Live Proof">
+<meta property="og:description" content="Real x402 transaction: 8-gate pipeline + external purchase. $0.106 USDC across Polygon + Base.">
+<meta property="og:image" content="https://xorb.xyz/og-image.png">
+<meta property="og:type" content="website">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Space+Grotesk:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@300;400;500;600&family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0b0f;
+  --bg-card: #10121a;
+  --bg-card-hover: #161926;
+  --border: #1e2235;
+  --border-glow: #2a3055;
+  --text: #c8cdd8;
+  --text-muted: #6b7394;
+  --text-bright: #e8ecf4;
+  --accent-blue: #4f8cff;
+  --accent-cyan: #22d3ee;
+  --accent-green: #34d399;
+  --accent-purple: #a78bfa;
+  --accent-amber: #fbbf24;
+  --accent-red: #f87171;
+  --accent-pink: #f472b6;
+  --polygon: #8247e5;
+  --base: #0052ff;
+  --gate-pass: #34d399;
+  --font-mono: 'JetBrains Mono', 'IBM Plex Mono', monospace;
+  --font-display: 'Sora', sans-serif;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: var(--bg); color: var(--text); font-family: var(--font-mono); min-height: 100vh; overflow-x: hidden; }
+.grid-bg { position: fixed; inset: 0; background-image: linear-gradient(rgba(79,140,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(79,140,255,0.03) 1px, transparent 1px); background-size: 60px 60px; z-index: 0; animation: gridPulse 8s ease-in-out infinite; }
+@keyframes gridPulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
+.orb { position: fixed; border-radius: 50%; filter: blur(120px); z-index: 0; pointer-events: none; }
+.orb-1 { width: 500px; height: 500px; background: rgba(79,140,255,0.08); top: -100px; left: -100px; animation: float1 20s ease-in-out infinite; }
+.orb-2 { width: 400px; height: 400px; background: rgba(130,71,229,0.06); bottom: -50px; right: -50px; animation: float2 15s ease-in-out infinite; }
+.orb-3 { width: 300px; height: 300px; background: rgba(34,211,238,0.05); top: 50%; left: 50%; animation: float3 18s ease-in-out infinite; }
+@keyframes float1 { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(80px, 60px); } }
+@keyframes float2 { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(-60px, -40px); } }
+@keyframes float3 { 0%, 100% { transform: translate(-50%, -50%); } 50% { transform: translate(-30%, -60%); } }
+.container { position: relative; z-index: 1; max-width: 1100px; margin: 0 auto; padding: 40px 24px 80px; }
+.hero { text-align: center; padding: 60px 0 40px; }
+.hero-badge { display: inline-flex; align-items: center; gap: 8px; background: rgba(79,140,255,0.08); border: 1px solid rgba(79,140,255,0.2); border-radius: 100px; padding: 6px 16px; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--accent-blue); margin-bottom: 24px; animation: fadeIn 0.6s ease; }
+.hero-badge .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent-green); animation: blink 2s ease-in-out infinite; }
+@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+.hero h1 { font-family: var(--font-display); font-size: clamp(32px, 5vw, 56px); font-weight: 700; color: var(--text-bright); line-height: 1.1; margin-bottom: 16px; animation: fadeUp 0.8s ease; }
+.hero h1 span { background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.hero-sub { font-size: 15px; color: var(--text-muted); max-width: 600px; margin: 0 auto 28px; line-height: 1.6; animation: fadeUp 0.8s ease 0.1s both; }
+.hero-stats { display: flex; justify-content: center; gap: 32px; flex-wrap: wrap; animation: fadeUp 0.8s ease 0.2s both; }
+.hero-stat { text-align: center; }
+.hero-stat .val { font-family: var(--font-display); font-size: 22px; font-weight: 700; color: var(--text-bright); }
+.hero-stat .label { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--text-muted); margin-top: 2px; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+.timeline { position: relative; margin-top: 48px; }
+.timeline::before { content: ''; position: absolute; left: 28px; top: 0; bottom: 0; width: 2px; background: linear-gradient(to bottom, var(--accent-blue), var(--accent-purple), var(--accent-cyan), transparent); }
+.step { position: relative; padding-left: 72px; margin-bottom: 48px; opacity: 0; transform: translateY(30px); transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
+.step.visible { opacity: 1; transform: translateY(0); }
+.step-dot { position: absolute; left: 16px; top: 4px; width: 26px; height: 26px; border-radius: 50%; background: var(--bg); border: 2px solid var(--accent-blue); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: var(--accent-blue); z-index: 2; transition: all 0.3s; }
+.step.active .step-dot { background: var(--accent-blue); color: var(--bg); box-shadow: 0 0 20px rgba(79,140,255,0.4); }
+.step-header { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+.step-title { font-family: var(--font-display); font-size: 18px; font-weight: 600; color: var(--text-bright); }
+.chain-badge { font-size: 10px; letter-spacing: 0.5px; padding: 3px 10px; border-radius: 100px; font-weight: 600; }
+.chain-polygon { background: rgba(130,71,229,0.15); color: var(--polygon); border: 1px solid rgba(130,71,229,0.3); }
+.chain-base { background: rgba(0,82,255,0.15); color: var(--base); border: 1px solid rgba(0,82,255,0.3); }
+.chain-offchain { background: rgba(107,115,148,0.15); color: var(--text-muted); border: 1px solid rgba(107,115,148,0.3); }
+.cost-badge { font-size: 11px; color: var(--accent-green); font-weight: 500; }
+.card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; transition: border-color 0.3s, box-shadow 0.3s; }
+.card:hover { border-color: var(--border-glow); box-shadow: 0 4px 40px rgba(79,140,255,0.04); }
+.card-body { padding: 20px; }
+.step-desc { font-size: 13px; color: var(--text-muted); line-height: 1.6; margin-bottom: 16px; }
+.code-block { background: #080910; border: 1px solid var(--border); border-radius: 8px; margin: 12px 0; overflow: hidden; }
+.code-header { display: flex; align-items: center; justify-content: space-between; padding: 8px 14px; background: rgba(30,34,53,0.5); border-bottom: 1px solid var(--border); font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--text-muted); }
+.code-header .method { color: var(--accent-cyan); font-weight: 600; }
+.code-content { padding: 14px; font-size: 12px; line-height: 1.7; overflow-x: auto; color: var(--text); }
+.code-content .key { color: var(--accent-purple); }
+.code-content .str { color: var(--accent-green); }
+.code-content .num { color: var(--accent-amber); }
+.code-content .bool { color: var(--accent-cyan); }
+.code-content .comment { color: var(--text-muted); font-style: italic; }
+.gates-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; margin: 16px 0; }
+.gate { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: rgba(52,211,153,0.04); border: 1px solid rgba(52,211,153,0.12); border-radius: 8px; font-size: 12px; opacity: 0; transform: translateX(-10px); transition: all 0.4s ease; }
+.gate.revealed { opacity: 1; transform: translateX(0); }
+.gate-icon { width: 22px; height: 22px; border-radius: 6px; background: rgba(52,211,153,0.15); color: var(--accent-green); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0; }
+.gate-name { color: var(--text-bright); font-weight: 500; flex: 1; }
+.gate-detail { font-size: 10px; color: var(--text-muted); }
+.gate-time { font-size: 10px; color: var(--accent-blue); font-weight: 500; }
+.json-viewer { background: #080910; border: 1px solid var(--border); border-radius: 8px; padding: 14px; font-size: 12px; line-height: 1.7; margin: 12px 0; overflow-x: auto; cursor: pointer; transition: border-color 0.2s; position: relative; }
+.json-viewer:hover { border-color: var(--border-glow); }
+.json-viewer.collapsed .json-full { display: none; }
+.json-viewer.collapsed .json-preview { display: block; }
+.json-viewer .json-preview { display: none; color: var(--text-muted); }
+.json-toggle { position: absolute; top: 8px; right: 10px; font-size: 9px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); opacity: 0.6; }
+.hash-row { display: flex; align-items: center; gap: 8px; padding: 10px 14px; background: rgba(79,140,255,0.04); border: 1px solid rgba(79,140,255,0.12); border-radius: 8px; margin: 8px 0; font-size: 11px; }
+.hash-label { font-size: 9px; letter-spacing: 1px; text-transform: uppercase; color: var(--text-muted); flex-shrink: 0; }
+.hash-value { color: var(--accent-blue); font-weight: 500; word-break: break-all; flex: 1; }
+.hash-link { color: var(--accent-cyan); text-decoration: none; font-size: 10px; white-space: nowrap; opacity: 0.7; transition: opacity 0.2s; }
+.hash-link:hover { opacity: 1; }
+.proof-section { margin-top: 64px; }
+.proof-title { font-family: var(--font-display); font-size: 22px; font-weight: 700; color: var(--text-bright); margin-bottom: 8px; display: flex; align-items: center; gap: 10px; }
+.proof-subtitle { font-size: 13px; color: var(--text-muted); margin-bottom: 24px; }
+.proof-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; margin-bottom: 24px; }
+.proof-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; transition: all 0.3s; }
+.proof-card:hover { border-color: var(--border-glow); }
+.proof-card-label { font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 12px; }
+.proof-card-addr { font-size: 12px; color: var(--accent-blue); word-break: break-all; margin-bottom: 10px; line-height: 1.5; }
+.proof-card-addr a { color: inherit; text-decoration: none; border-bottom: 1px dashed rgba(79,140,255,0.3); transition: border-color 0.2s; }
+.proof-card-addr a:hover { border-color: var(--accent-blue); }
+.proof-card-meta { font-size: 11px; color: var(--text-muted); line-height: 1.6; }
+.contracts-table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 12px; }
+.contracts-table th { text-align: left; padding: 10px 14px; font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--text-muted); border-bottom: 1px solid var(--border); font-weight: 500; }
+.contracts-table td { padding: 10px 14px; border-bottom: 1px solid rgba(30,34,53,0.5); vertical-align: middle; }
+.contracts-table td a { color: var(--accent-blue); text-decoration: none; font-size: 11px; word-break: break-all; }
+.contracts-table td a:hover { text-decoration: underline; }
+.contracts-table tr:last-child td { border-bottom: none; }
+.summary-banner { margin-top: 48px; background: linear-gradient(135deg, rgba(79,140,255,0.06), rgba(130,71,229,0.06), rgba(34,211,238,0.04)); border: 1px solid rgba(79,140,255,0.15); border-radius: 16px; padding: 32px; position: relative; overflow: hidden; }
+.summary-banner::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 2px; background: linear-gradient(90deg, var(--accent-blue), var(--accent-purple), var(--accent-cyan)); }
+.summary-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; }
+.summary-item .summary-val { font-family: var(--font-display); font-size: 18px; font-weight: 700; color: var(--text-bright); }
+.summary-item .summary-label { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--text-muted); margin-top: 2px; }
+.flow-section { margin: 48px 0; }
+.flow-title { font-family: var(--font-display); font-size: 18px; font-weight: 600; color: var(--text-bright); margin-bottom: 20px; }
+.flow-diagram { display: flex; align-items: center; justify-content: center; gap: 0; flex-wrap: wrap; padding: 24px 0; }
+.flow-node { padding: 12px 18px; border-radius: 10px; font-size: 11px; font-weight: 600; text-align: center; min-width: 120px; }
+.flow-arrow { color: var(--text-muted); font-size: 18px; padding: 0 6px; opacity: 0.4; }
+.flow-sponsor { background: rgba(79,140,255,0.1); border: 1px solid rgba(79,140,255,0.25); color: var(--accent-blue); }
+.flow-xorb { background: rgba(130,71,229,0.1); border: 1px solid rgba(130,71,229,0.25); color: var(--accent-purple); }
+.flow-gate { background: rgba(52,211,153,0.1); border: 1px solid rgba(52,211,153,0.25); color: var(--accent-green); }
+.flow-robtex { background: rgba(34,211,238,0.1); border: 1px solid rgba(34,211,238,0.25); color: var(--accent-cyan); }
+.flow-audit { background: rgba(251,191,36,0.1); border: 1px solid rgba(251,191,36,0.25); color: var(--accent-amber); }
+.flow-sub { font-size: 9px; font-weight: 400; color: var(--text-muted); display: block; margin-top: 2px; }
+.footer { margin-top: 64px; padding: 24px 0; border-top: 1px solid var(--border); text-align: center; font-size: 11px; color: var(--text-muted); }
+.footer a { color: var(--accent-blue); text-decoration: none; }
+@media (max-width: 640px) { .timeline::before { left: 18px; } .step { padding-left: 52px; } .step-dot { left: 6px; width: 22px; height: 22px; font-size: 10px; } .gates-grid { grid-template-columns: 1fr; } .proof-grid { grid-template-columns: 1fr; } .flow-diagram { flex-direction: column; } .flow-arrow { transform: rotate(90deg); } }
+</style>
+</head>
+<body>
+<div class="grid-bg"></div>
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+<div class="orb orb-3"></div>
+<div class="container">
+  <div class="hero">
+    <div class="hero-badge"><span class="dot"></span> Live Mainnet Proof — March 19, 2026</div>
+    <h1><span>X.orb</span> Integrated Journey</h1>
+    <p class="hero-sub">An AI agent verified through X.orb's 8-gate trust pipeline, then purchased real IP intelligence from Robtex — all on-chain with x402 payments. Every hash is verifiable.</p>
+    <div class="hero-stats">
+      <div class="hero-stat"><div class="val">$0.106</div><div class="label">Total USDC Spent</div></div>
+      <div class="hero-stat"><div class="val">8/8</div><div class="label">Gates Passed</div></div>
+      <div class="hero-stat"><div class="val">2</div><div class="label">Chains Used</div></div>
+      <div class="hero-stat"><div class="val">563ms</div><div class="label">Pipeline Time</div></div>
+      <div class="hero-stat"><div class="val">100%</div><div class="label">EU AI Act</div></div>
+    </div>
+  </div>
+  <div class="flow-section">
+    <div class="flow-title">Transaction Flow</div>
+    <div class="flow-diagram">
+      <div class="flow-node flow-sponsor">Sponsor<span class="flow-sub">Creates API Key</span></div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-node flow-xorb">X.orb<span class="flow-sub">$0.10 Register</span></div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-node flow-gate">8 Gates<span class="flow-sub">$0.005 Verify</span></div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-node flow-robtex">Robtex<span class="flow-sub">$0.001 Purchase</span></div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-node flow-audit">Audit<span class="flow-sub">Hash Anchored</span></div>
+    </div>
+  </div>
+  <div class="timeline">
+    <div class="step" data-step="1">
+      <div class="step-dot">1</div>
+      <div class="step-header">
+        <span class="step-title">Sponsor Creates API Key</span>
+        <span class="chain-badge chain-offchain">Off-Chain</span>
+        <span class="cost-badge">Free</span>
+      </div>
+      <div class="card"><div class="card-body">
+        <p class="step-desc">The sponsor (human) creates an API key on X.orb. This is the only human step — everything after this is fully automated by the agent.</p>
+        <div class="code-block">
+          <div class="code-header"><span class="method">POST</span> <span>/v1/auth/keys</span></div>
+          <div class="code-content">{ <span class="key">"owner_address"</span>: <span class="str">"0xF41f...1A9B"</span>, <span class="key">"label"</span>: <span class="str">"ip-research-project"</span> }</div>
+        </div>
+        <div class="json-viewer collapsed" onclick="this.classList.toggle('collapsed')">
+          <span class="json-toggle">▶ expand</span>
+          <div class="json-preview"><span class="bool">✓</span> <span class="str">xorb_sk_eb001957...</span> — key issued</div>
+          <div class="json-full">{ <span class="key">"success"</span>: <span class="bool">true</span>, <span class="key">"data"</span>: { <span class="key">"api_key"</span>: <span class="str">"xorb_sk_eb001957..."</span>, <span class="key">"warning"</span>: <span class="str">"Store this key securely. It cannot be retrieved again."</span> } }</div>
+        </div>
+      </div></div>
+    </div>
+    <div class="step" data-step="2">
+      <div class="step-dot">2</div>
+      <div class="step-header">
+        <span class="step-title">Agent Registers on X.orb</span>
+        <span class="chain-badge chain-polygon">Polygon</span>
+        <span class="cost-badge">$0.10 USDC</span>
+      </div>
+      <div class="card"><div class="card-body">
+        <p class="step-desc">The agent registers itself on X.orb. This costs $0.10 USDC on Polygon via x402. The AgentRegistry contract is called on-chain.</p>
+        <div class="code-block">
+          <div class="code-header"><span class="method">POST</span> <span>/v1/agents + x402 payment</span></div>
+          <div class="code-content">{ <span class="key">"name"</span>: <span class="str">"ip-researcher"</span>, <span class="key">"scope"</span>: <span class="str">"RESEARCHER"</span>, <span class="key">"sponsor_address"</span>: <span class="str">"0xF41f..."</span> }</div>
+        </div>
+        <div class="json-viewer collapsed" onclick="this.classList.toggle('collapsed')">
+          <span class="json-toggle">▶ expand</span>
+          <div class="json-preview"><span class="bool">✓</span> Agent <span class="str">agent_891a6249aa4a07a7b56430a1</span> — active, reputation 50</div>
+          <div class="json-full">{ <span class="key">"agentId"</span>: <span class="str">"agent_891a6249aa4a07a7b56430a1"</span>, <span class="key">"reputation"</span>: <span class="num">50</span>, <span class="key">"tier"</span>: <span class="str">"RELIABLE"</span>, <span class="key">"status"</span>: <span class="str">"active"</span> }</div>
+        </div>
+        <div class="hash-row">
+          <span class="hash-label">Contract</span>
+          <span class="hash-value"><a href="https://polygonscan.com/address/0x2a7457C2f30F9C0Bb47b62ed8554C75d13BF9ec7" target="_blank" rel="noopener noreferrer">0x2a7457C2f30F9C0Bb47b62ed8554C75d13BF9ec7</a></span>
+          <a href="https://polygonscan.com/address/0x2a7457C2f30F9C0Bb47b62ed8554C75d13BF9ec7" class="hash-link" target="_blank" rel="noopener noreferrer">AgentRegistry ↗</a>
+        </div>
+      </div></div>
+    </div>
+    <div class="step" data-step="3">
+      <div class="step-dot">3</div>
+      <div class="step-header">
+        <span class="step-title">8-Gate Trust Pipeline</span>
+        <span class="chain-badge chain-polygon">Polygon</span>
+        <span class="cost-badge">$0.005 USDC · 563ms</span>
+      </div>
+      <div class="card"><div class="card-body">
+        <p class="step-desc">The agent wants to look up <code style="background:rgba(79,140,255,0.1);padding:2px 6px;border-radius:4px;color:var(--accent-cyan);">1.1.1.1</code>. Before calling Robtex, it must pass all 8 trust gates.</p>
+        <div class="gates-grid" id="gates">
+          <div class="gate" data-delay="0"><div class="gate-icon">✓</div><div><span class="gate-name">Identity</span><br><span class="gate-detail">agent_891a... active</span></div></div>
+          <div class="gate" data-delay="1"><div class="gate-icon">✓</div><div><span class="gate-name">Permissions</span><br><span class="gate-detail">RESEARCHER scope</span></div></div>
+          <div class="gate" data-delay="2"><div class="gate-icon">✓</div><div><span class="gate-name">Rate Limit</span><br><span class="gate-detail">1/120 this hour</span></div></div>
+          <div class="gate" data-delay="3"><div class="gate-icon">✓</div><div><span class="gate-name">x402 Payment</span><br><span class="gate-detail">$0.005 collected</span></div><span class="gate-time">276ms</span></div>
+          <div class="gate" data-delay="4"><div class="gate-icon">✓</div><div><span class="gate-name">Audit Log</span><br><span class="gate-detail">SHA-256 anchored</span></div><span class="gate-time">274ms</span></div>
+          <div class="gate" data-delay="5"><div class="gate-icon">✓</div><div><span class="gate-name">Trust Score</span><br><span class="gate-detail">50 — RELIABLE</span></div></div>
+          <div class="gate" data-delay="6"><div class="gate-icon">✓</div><div><span class="gate-name">Execute</span><br><span class="gate-detail">Action approved</span></div></div>
+          <div class="gate" data-delay="7"><div class="gate-icon">✓</div><div><span class="gate-name">Escrow</span><br><span class="gate-detail">Skipped (N/A)</span></div></div>
+        </div>
+        <div class="hash-row">
+          <span class="hash-label">Audit Hash</span>
+          <span class="hash-value">0x5499408a17e03a7efce4649cdcd92b638df85c...</span>
+        </div>
+      </div></div>
+    </div>
+    <div class="step" data-step="4">
+      <div class="step-dot">4</div>
+      <div class="step-header">
+        <span class="step-title">Robtex x402 Purchase</span>
+        <span class="chain-badge chain-base">Base</span>
+        <span class="cost-badge">$0.001 USDC</span>
+      </div>
+      <div class="card"><div class="card-body">
+        <p class="step-desc">X.orb approved the action. Now the agent calls Robtex directly using x402 v2 (EIP-3009). No <code style="background:rgba(248,113,113,0.1);padding:2px 6px;border-radius:4px;color:var(--accent-red);">USDC.approve()</code> needed.</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:12px 0;">
+          <div>
+            <div style="font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted);margin-bottom:6px;">402 Payment Required</div>
+            <div class="json-viewer" style="margin:0;cursor:default;">{ <span class="key">"x402Version"</span>: <span class="num">2</span>, <span class="key">"scheme"</span>: <span class="str">"exact"</span>, <span class="key">"network"</span>: <span class="str">"eip155:8453"</span>, <span class="key">"amount"</span>: <span class="str">"1000"</span> }</div>
+          </div>
+          <div>
+            <div style="font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted);margin-bottom:6px;">IP Intelligence Response</div>
+            <div class="json-viewer" style="margin:0;cursor:default;">{ <span class="key">"as"</span>: <span class="num">13335</span>, <span class="key">"asname"</span>: <span class="str">"Cloudflare"</span>, <span class="key">"asdesc"</span>: <span class="str">"CLOUDFLARENET"</span>, <span class="key">"bgproute"</span>: <span class="str">"1.1.1.0/24"</span> }</div>
+          </div>
+        </div>
+        <div class="hash-row">
+          <span class="hash-label">Deployer</span>
+          <span class="hash-value"><a href="https://basescan.org/address/0xbA29f888453C5fEe4c114C5eB1ca4E6256261a25" target="_blank" rel="noopener noreferrer">0xbA29f888453C5fEe4c114C5eB1ca4E6256261a25</a></span>
+          <a href="https://basescan.org/address/0xbA29f888453C5fEe4c114C5eB1ca4E6256261a25" class="hash-link" target="_blank" rel="noopener noreferrer">BaseScan ↗</a>
+        </div>
+      </div></div>
+    </div>
+    <div class="step" data-step="5">
+      <div class="step-dot">5</div>
+      <div class="step-header">
+        <span class="step-title">Verify Audit Trail</span>
+        <span class="chain-badge chain-offchain">API</span>
+        <span class="cost-badge" style="color:var(--accent-amber);">100% Compliant</span>
+      </div>
+      <div class="card"><div class="card-body">
+        <p class="step-desc">After the action, the sponsor verifies everything via API or dashboard.</p>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin:12px 0;">
+          <div class="json-viewer" style="margin:0;cursor:default;"><span class="comment">// Trust Score</span><br>{ <span class="key">"score"</span>: <span class="num">50</span>, <span class="key">"tier"</span>: <span class="str">"RELIABLE"</span> }</div>
+          <div class="json-viewer" style="margin:0;cursor:default;"><span class="comment">// Audit Events</span><br>{ <span class="key">"events"</span>: <span class="num">2</span> }</div>
+          <div class="json-viewer" style="margin:0;cursor:default;"><span class="comment">// EU AI Act</span><br>{ <span class="key">"status"</span>: <span class="str">"compliant"</span>, <span class="key">"score"</span>: <span class="num">100</span> }</div>
+        </div>
+      </div></div>
+    </div>
+  </div>
+  <div class="proof-section">
+    <div class="proof-title">⛓ On-Chain Proof</div>
+    <p class="proof-subtitle">Real transactions on Polygon PoS and Base mainnets. Click any address to verify.</p>
+    <div class="proof-grid">
+      <div class="proof-card">
+        <div class="proof-card-label">Deployer — Base</div>
+        <div class="proof-card-addr"><a href="https://basescan.org/address/0xbA29f888453C5fEe4c114C5eB1ca4E6256261a25" target="_blank" rel="noopener noreferrer">0xbA29...1a25</a></div>
+        <div class="proof-card-meta">2.973 → 2.958 USDC · 11 transactions</div>
+      </div>
+      <div class="proof-card">
+        <div class="proof-card-label">Facilitator — Polygon</div>
+        <div class="proof-card-addr"><a href="https://polygonscan.com/address/0xF41faE67716670edBFf581aEe37014307dF71A9B" target="_blank" rel="noopener noreferrer">0xF41f...1A9B</a></div>
+        <div class="proof-card-meta">X.orb fee collection · 24 MATIC for gas</div>
+      </div>
+      <div class="proof-card">
+        <div class="proof-card-label">USDC Approval TX</div>
+        <div class="proof-card-addr"><a href="https://polygonscan.com/tx/0xe1c8a0c975d5c0d06949c99db49b4433c27b284be2f2d0da2f08497baf671bab" target="_blank" rel="noopener noreferrer">0xe1c8...1bab</a></div>
+        <div class="proof-card-meta">Polygon PoS · USDC approval for x402</div>
+      </div>
+    </div>
+  </div>
+  <div class="summary-banner">
+    <div style="font-family:var(--font-display);font-size:16px;font-weight:700;color:var(--text-bright);margin-bottom:20px;">Journey Complete</div>
+    <div class="summary-grid">
+      <div class="summary-item"><div class="summary-val">$0.106</div><div class="summary-label">Total Cost</div></div>
+      <div class="summary-item"><div class="summary-val" style="color:var(--polygon);">$0.105</div><div class="summary-label">X.orb (Polygon)</div></div>
+      <div class="summary-item"><div class="summary-val" style="color:var(--base);">$0.001</div><div class="summary-label">Robtex (Base)</div></div>
+      <div class="summary-item"><div class="summary-val">x402 v2</div><div class="summary-label">Protocol</div></div>
+      <div class="summary-item"><div class="summary-val" style="color:var(--accent-green);">No approve()</div><div class="summary-label">EIP-3009</div></div>
+      <div class="summary-item"><div class="summary-val">0x5499...</div><div class="summary-label">Audit Hash</div></div>
+    </div>
+  </div>
+  <div class="footer">
+    <a href="https://xorb.xyz" target="_blank" rel="noopener noreferrer">X.orb</a> — The orchestration layer for AI agent trust.
+    <br>All transactions March 19, 2026. Verifiable on <a href="https://polygonscan.com" target="_blank" rel="noopener noreferrer">PolygonScan</a> and <a href="https://basescan.org" target="_blank" rel="noopener noreferrer">BaseScan</a>.
+    <br>Fintex Australia Pty Ltd
+  </div>
+</div>
+<script>
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      entry.target.classList.add('visible');
+      entry.target.classList.add('active');
+      if (entry.target.dataset.step === '3') {
+        entry.target.querySelectorAll('.gate').forEach((gate, i) => {
+          setTimeout(() => gate.classList.add('revealed'), i * 120);
+        });
+      }
+    }
+  });
+}, { threshold: 0.15 });
+document.querySelectorAll('.step').forEach(step => observer.observe(step));
+document.querySelectorAll('.json-viewer').forEach(v => {
+  v.addEventListener('click', function() {
+    const t = this.querySelector('.json-toggle');
+    if (t) t.textContent = this.classList.contains('collapsed') ? '▶ expand' : '▼ collapse';
+  });
+});
+</script>
+</body>
+</html>
