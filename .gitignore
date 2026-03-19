@@ -66,3 +66,17 @@ xorb-db/migrations/run_now.sql
 apps/landing/generate-og.html
 xorb-contracts/standalone-deploy.js
 .claude/
+
+# Supabase temp files
+xorb-db/.temp/
+xorb-db/supabase/.temp/
+
+# Claude config
+.claude/
+
+# Deploy env files (may contain secrets)
+xorb-deploy/environments/
+
+# Legacy/temp files
+xorb-db/tables/agent_audits.sql
+xorb-db/functions/*-temp/
