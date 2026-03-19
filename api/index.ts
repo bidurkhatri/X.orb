@@ -36,7 +36,7 @@ try {
 // ─── x402 Payment Validation ───
 const SUPPORTED_NETWORKS = new Set(['eip155:8453', 'eip155:137', 'solana:mainnet'])
 const MIN_PAYMENT_AMOUNT = 5000 // $0.005 USDC (6 decimals)
-const FREE_TIER_LIMIT = 500
+const FREE_TIER_LIMIT = 0 // No free tier — every action requires x402 payment
 const USDC_CONTRACT_BASE = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913'
 const USDC_CONTRACT_POLYGON = '0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359'
 
@@ -829,8 +829,9 @@ export default async function handler(req: any, res: any) {
         { endpoint: 'POST /v1/webhooks', price_usdc: 0.10, description: 'Webhook subscription' },
         { endpoint: 'GET /v1/compliance', price_usdc: 1.00, description: 'Compliance report generation' },
       ],
-      free_tier: { limit: 500, period: 'monthly' },
-      free_endpoints: ['GET /v1/health', 'GET /v1/pricing', 'GET /v1/docs', 'PATCH /v1/agents/:id (pause/resume)', 'DELETE /v1/agents/:id (revoke)', 'GET /v1/events', 'POST /v1/auth/keys'],
+      free_tier: null,
+      free_endpoints: ['GET /v1/health', 'GET /v1/pricing', 'GET /v1/docs', 'GET /v1/agents', 'POST /v1/auth/keys', 'PATCH /v1/agents/:id (pause/resume)', 'DELETE /v1/agents/:id (revoke)'],
+      note: 'All action endpoints require x402 payment. Reading your own data is free.',
       payment_protocol: 'https://x402.org',
     })
   }

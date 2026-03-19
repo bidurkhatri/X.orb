@@ -3,6 +3,8 @@
  * Zero floating point. Every cent accounted for.
  *
  * All amounts in USDC micro-units (6 decimals): 1_000_000 = $1.00
+ *
+ * No free tier. Every action requires x402 payment.
  */
 
 export interface FeeCalculation {
@@ -12,15 +14,13 @@ export interface FeeCalculation {
   feeBasisPoints: number     // The rate applied
   feeExempt: boolean         // Whether this action is fee-exempt
   reason?: string            // Why exempt (if applicable)
-  freeActionsRemaining: number
 }
 
 export interface FeeConfig {
   basisPoints: number          // Default: 30 (0.30%)
   minimumUsdc: bigint          // Default: 1000n ($0.001)
   maximumUsdc: bigint          // Default: 50_000_000n ($50.00)
-  freeTierLimit: number        // Default: 1000
-  highVolumeThreshold: number  // Default: 100_000
+  highVolumeThreshold: number  // Default: 50_000
   highVolumeBps: number        // Default: 15 (0.15%)
   exemptActions: string[]      // Actions that never pay fees
 }
@@ -29,7 +29,6 @@ const DEFAULT_CONFIG: FeeConfig = {
   basisPoints: 30,
   minimumUsdc: 1000n,       // $0.001
   maximumUsdc: 50_000_000n, // $50.00
-  freeTierLimit: 500,
   highVolumeThreshold: 50_000,
   highVolumeBps: 15,
   exemptActions: ['health_check', 'agent_query', 'reputation_query'],
@@ -51,23 +50,12 @@ export function calculateFee(
   config: FeeConfig = DEFAULT_CONFIG,
   customBps?: number,
 ): FeeCalculation {
-  const freeRemaining = Math.max(0, config.freeTierLimit - monthlyUsage)
-
   // Check if action type is exempt (no fee regardless of usage)
   if (config.exemptActions.includes(actionType)) {
     return {
       grossAmount, feeAmount: 0n, netAmount: grossAmount,
       feeBasisPoints: 0, feeExempt: true,
-      reason: 'exempt_action_type', freeActionsRemaining: freeRemaining,
-    }
-  }
-
-  // Check if sponsor is still within free tier
-  if (monthlyUsage < config.freeTierLimit) {
-    return {
-      grossAmount, feeAmount: 0n, netAmount: grossAmount,
-      feeBasisPoints: 0, feeExempt: true,
-      reason: 'free_tier', freeActionsRemaining: freeRemaining - 1,
+      reason: 'exempt_action_type',
     }
   }
 
@@ -76,7 +64,7 @@ export function calculateFee(
     return {
       grossAmount: 0n, feeAmount: 0n, netAmount: 0n,
       feeBasisPoints: 0, feeExempt: true,
-      reason: 'zero_amount', freeActionsRemaining: 0,
+      reason: 'zero_amount',
     }
   }
 
@@ -108,7 +96,6 @@ export function calculateFee(
   return {
     grossAmount, feeAmount, netAmount,
     feeBasisPoints: effectiveBps, feeExempt: false,
-    freeActionsRemaining: 0,
   }
 }
 

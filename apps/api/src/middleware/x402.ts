@@ -123,7 +123,7 @@ async function checkNonce(nonce: string): Promise<{ valid: boolean; nonceHash: s
 // Default fee config
 const DEFAULT_FEE_CONFIG: FeeConfig = {
   basisPoints: 30, minimumUsdc: 1000n, maximumUsdc: 50_000_000n,
-  freeTierLimit: 500, highVolumeThreshold: 50_000, highVolumeBps: 15,
+  freeTierLimit: 0, highVolumeThreshold: 50_000, highVolumeBps: 15,
   exemptActions: ['health_check', 'agent_query', 'reputation_query'],
 }
 
