@@ -273,33 +273,60 @@ async function saveNonce(nonce: string): Promise<void> {
 const ERC_8004_REGISTRY_BASE = process.env.ERC_8004_REGISTRY_BASE || '0x8004A169FB4a3325136EB29fA0ceB6D2e539a432'
 const AGENTSCORE_API = process.env.AGENTSCORE_API || 'https://api.agentscore.dev'
 const PAYCROW_API = process.env.PAYCROW_API || 'https://api.paycrow.xyz'
-const BASE_RPC = process.env.BASE_RPC || 'https://mainnet.base.org'
 const ETH_ADDR_RE = /^0x[a-fA-F0-9]{40}$/
 
-// ─── Smart Contract Integration (C3) ───
-// Reads contract addresses from env vars. When set, on-chain calls activate automatically.
-// When not set, on-chain calls are skipped gracefully — API works identically to before.
-// Uses raw JSON-RPC via fetch to BASE_RPC — no ethers.js dependency.
-const CONTRACT_ADDRESSES = {
-  actionVerifier: process.env.ACTION_VERIFIER_ADDRESS || '',
-  agentRegistry: process.env.AGENT_REGISTRY_ADDRESS || '',
-  slashingEngine: process.env.SLASHING_ENGINE_ADDRESS || '',
+// ─── Multi-Chain Contract Config ───
+// Contracts are deployed on both Polygon PoS and Base.
+// The API routes on-chain operations to the correct chain based on the x402 payment network.
+interface ChainConfig {
+  rpc: string
+  contracts: { actionVerifier: string; agentRegistry: string; slashingEngine: string }
+  deployer: string
 }
-const DEPLOYER_ADDRESS = process.env.DEPLOYER_ADDRESS || ''
 
-function getContractStatus(): { configured: Record<string, string>; missing: string[]; signer: boolean } {
-  const entries = [
-    { key: 'ACTION_VERIFIER_ADDRESS', name: 'actionVerifier', value: CONTRACT_ADDRESSES.actionVerifier },
-    { key: 'AGENT_REGISTRY_ADDRESS', name: 'agentRegistry', value: CONTRACT_ADDRESSES.agentRegistry },
-    { key: 'SLASHING_ENGINE_ADDRESS', name: 'slashingEngine', value: CONTRACT_ADDRESSES.slashingEngine },
-  ]
-  const configured: Record<string, string> = {}
-  const missing: string[] = []
-  for (const e of entries) {
-    if (ETH_ADDR_RE.test(e.value)) configured[e.name] = e.value
-    else missing.push(e.key)
+const CHAIN_CONFIGS: Record<string, ChainConfig> = {
+  'eip155:137': {
+    rpc: process.env.POLYGON_RPC_URL || 'https://polygon-rpc.com',
+    contracts: {
+      actionVerifier: process.env.ACTION_VERIFIER_ADDRESS || '0x463856987bD9f3939DD52df52649e9B8Cb07B057',
+      agentRegistry: process.env.AGENT_REGISTRY_ADDRESS || '0x2a7457C2f30F9C0Bb47b62ed8554C75d13BF9ec7',
+      slashingEngine: process.env.SLASHING_ENGINE_ADDRESS || '0xA64E71Aa00F8f6e8e8acb3a81200dD270FF13625',
+    },
+    deployer: process.env.DEPLOYER_ADDRESS || '',
+  },
+  'eip155:8453': {
+    rpc: process.env.BASE_RPC || 'https://mainnet.base.org',
+    contracts: {
+      actionVerifier: process.env.BASE_ACTION_VERIFIER || '0xF20102429bC6AAFd4eBfD74187E01b4125168DE3',
+      agentRegistry: process.env.BASE_AGENT_REGISTRY || '0x5b1C0475ab3D32fB97Fad4630F8aBBb81ea00b07',
+      slashingEngine: process.env.BASE_SLASHING_ENGINE || '0x67ebac5f352Cda62De2f126d02063002dc8B6510',
+    },
+    deployer: process.env.DEPLOYER_ADDRESS || '',
+  },
+}
+
+// Default chain for operations when no payment context (e.g., direct API calls)
+const DEFAULT_CHAIN = 'eip155:137'
+
+function getChainConfig(network?: string): ChainConfig {
+  return CHAIN_CONFIGS[network || DEFAULT_CHAIN] || CHAIN_CONFIGS[DEFAULT_CHAIN]
+}
+
+// Legacy aliases for backward compat
+const BASE_RPC = CHAIN_CONFIGS[DEFAULT_CHAIN].rpc
+const CONTRACT_ADDRESSES = CHAIN_CONFIGS[DEFAULT_CHAIN].contracts
+const DEPLOYER_ADDRESS = CHAIN_CONFIGS[DEFAULT_CHAIN].deployer
+
+function getContractStatus(): { chains: Record<string, Record<string, string>>; signer: boolean } {
+  const chains: Record<string, Record<string, string>> = {}
+  for (const [networkId, config] of Object.entries(CHAIN_CONFIGS)) {
+    const contracts: Record<string, string> = {}
+    for (const [name, addr] of Object.entries(config.contracts)) {
+      if (ETH_ADDR_RE.test(addr)) contracts[name] = addr
+    }
+    if (Object.keys(contracts).length > 0) chains[networkId] = contracts
   }
-  return { configured, missing, signer: !!DEPLOYER_ADDRESS }
+  return { chains, signer: !!DEPLOYER_ADDRESS }
 }
 
 /** Encode a UTF-8 string as a Solidity bytes32 (right-padded with zeros). */
@@ -313,17 +340,18 @@ function normalizeBytes32(hash: string): string {
   return hash.length === 66 ? hash : '0x' + hash.replace('0x', '').padEnd(64, '0')
 }
 
-/** Raw JSON-RPC eth_call (read-only). Returns hex result or null. */
-async function ethCall(to: string, data: string): Promise<string | null> {
+/** Raw JSON-RPC eth_call (read-only). Routes to correct chain RPC. */
+async function ethCall(to: string, data: string, network?: string): Promise<string | null> {
   if (!ETH_ADDR_RE.test(to)) return null
+  const rpc = getChainConfig(network).rpc
   try {
-    const r = await fetch(BASE_RPC, {
+    const r = await fetch(rpc, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ jsonrpc: '2.0', id: Date.now(), method: 'eth_call', params: [{ to, data }, 'latest'] }),
       signal: AbortSignal.timeout(8000),
     })
     const j = await r.json()
-    if (j.error) { console.warn('[Contract] eth_call error:', j.error.message); return null }
+    if (j.error) { console.warn('[Contract] eth_call error:', j.error.message, 'chain:', network); return null }
     return j.result || null
   } catch (e: any) { console.warn('[Contract] eth_call failed:', e.message); return null }
 }
@@ -339,20 +367,21 @@ async function ethCall(to: string, data: string): Promise<string | null> {
  *   3. Call eth_sendRawTransaction with the signed tx
  * The calldata encoding below is production-ready — only signing needs upgrading.
  */
-async function ethSendTx(to: string, data: string): Promise<{ txHash: string | null; error?: string }> {
+async function ethSendTx(to: string, data: string, network?: string): Promise<{ txHash: string | null; error?: string }> {
   if (!ETH_ADDR_RE.test(to)) return { txHash: null, error: 'Invalid contract address' }
-  if (!DEPLOYER_ADDRESS) return { txHash: null, error: 'DEPLOYER_ADDRESS not configured' }
+  const chain = getChainConfig(network)
+  if (!chain.deployer) return { txHash: null, error: 'DEPLOYER_ADDRESS not configured' }
   try {
-    const gasRes = await fetch(BASE_RPC, {
+    const gasRes = await fetch(chain.rpc, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_estimateGas', params: [{ from: DEPLOYER_ADDRESS, to, data }] }),
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_estimateGas', params: [{ from: chain.deployer, to, data }] }),
       signal: AbortSignal.timeout(8000),
     })
     const gasJson = await gasRes.json()
     if (gasJson.error) return { txHash: null, error: `Gas estimate: ${gasJson.error.message}` }
-    const sendRes = await fetch(BASE_RPC, {
+    const sendRes = await fetch(chain.rpc, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'eth_sendTransaction', params: [{ from: DEPLOYER_ADDRESS, to, data, gas: gasJson.result }] }),
+      body: JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'eth_sendTransaction', params: [{ from: chain.deployer, to, data, gas: gasJson.result }] }),
       signal: AbortSignal.timeout(15000),
     })
     const sendJson = await sendRes.json()
@@ -377,52 +406,57 @@ const SEL_AGENT_ACTION_COUNT = process.env.SEL_AGENT_ACTION_COUNT || '0xf2a2929b
 const SEL_TOTAL_ACTIONS = process.env.SEL_TOTAL_ACTIONS || '0xa8f27054'        // totalActions()
 const SEL_RECORD_ACTION = process.env.SEL_RECORD_ACTION || '0x7b103999'        // AgentRegistry.recordAction(bytes32)
 
-/** Anchor audit hash on-chain via ActionVerifier.anchorAction. Non-blocking. */
-async function anchorAuditHashOnChain(agentId: string, auditHash: string): Promise<{ on_chain: boolean; tx_hash?: string; reason?: string }> {
-  const addr = CONTRACT_ADDRESSES.actionVerifier
+/** Anchor audit hash on-chain via ActionVerifier.anchorAction. Routes to correct chain. */
+async function anchorAuditHashOnChain(agentId: string, auditHash: string, network?: string): Promise<{ on_chain: boolean; tx_hash?: string; reason?: string; chain?: string }> {
+  const chain = getChainConfig(network)
+  const addr = chain.contracts.actionVerifier
   if (!ETH_ADDR_RE.test(addr)) return { on_chain: false, reason: 'ACTION_VERIFIER_ADDRESS not configured' }
   const calldata = `${SEL_ANCHOR_ACTION}${toBytes32(agentId).slice(2)}${normalizeBytes32(auditHash).slice(2)}${'0'.repeat(64)}`
-  const result = await ethSendTx(addr, calldata)
+  const result = await ethSendTx(addr, calldata, network)
   if (result.txHash) {
-    console.info(JSON.stringify({ level: 'info', service: 'contracts', event: 'action_anchored', tx: result.txHash }))
-    return { on_chain: true, tx_hash: result.txHash }
+    console.info(JSON.stringify({ level: 'info', service: 'contracts', event: 'action_anchored', tx: result.txHash, chain: network }))
+    return { on_chain: true, tx_hash: result.txHash, chain: network }
   }
-  console.warn(`[Contract] anchorAction skipped: ${result.error}`)
-  return { on_chain: false, reason: result.error }
+  console.warn(`[Contract] anchorAction skipped on ${network}: ${result.error}`)
+  return { on_chain: false, reason: result.error, chain: network }
 }
 
-/** Record action on AgentRegistry contract. Fire-and-forget. */
-async function recordActionOnChain(agentId: string): Promise<void> {
-  const addr = CONTRACT_ADDRESSES.agentRegistry
+/** Record action on AgentRegistry contract. Routes to correct chain. */
+async function recordActionOnChain(agentId: string, network?: string): Promise<void> {
+  const chain = getChainConfig(network)
+  const addr = chain.contracts.agentRegistry
   if (!ETH_ADDR_RE.test(addr)) return
-  const result = await ethSendTx(addr, `${SEL_RECORD_ACTION}${toBytes32(agentId).slice(2)}`)
-  if (result.txHash) console.info(JSON.stringify({ level: 'info', service: 'contracts', event: 'action_recorded', tx: result.txHash }))
-  else console.warn(`[Contract] recordAction skipped: ${result.error}`)
+  const result = await ethSendTx(addr, `${SEL_RECORD_ACTION}${toBytes32(agentId).slice(2)}`, network)
+  if (result.txHash) console.info(JSON.stringify({ level: 'info', service: 'contracts', event: 'action_recorded', tx: result.txHash, chain: network }))
+  else console.warn(`[Contract] recordAction skipped on ${network}: ${result.error}`)
 }
 
-/** Check if audit hash is anchored on-chain (read-only, no signer needed). */
-async function isActionAnchored(auditHash: string): Promise<boolean | null> {
-  const addr = CONTRACT_ADDRESSES.actionVerifier
+/** Check if audit hash is anchored on-chain (read-only). Routes to correct chain. */
+async function isActionAnchored(auditHash: string, network?: string): Promise<boolean | null> {
+  const chain = getChainConfig(network)
+  const addr = chain.contracts.actionVerifier
   if (!ETH_ADDR_RE.test(addr)) return null
-  const result = await ethCall(addr, `${SEL_IS_ANCHORED}${normalizeBytes32(auditHash).slice(2)}`)
+  const result = await ethCall(addr, `${SEL_IS_ANCHORED}${normalizeBytes32(auditHash).slice(2)}`, network)
   if (!result) return null
   return result !== '0x' + '0'.repeat(64)
 }
 
-/** Get agent's on-chain action count from ActionVerifier (read-only). */
-async function getOnChainActionCount(agentId: string): Promise<number | null> {
-  const addr = CONTRACT_ADDRESSES.actionVerifier
+/** Get agent's on-chain action count from ActionVerifier (read-only). Routes to correct chain. */
+async function getOnChainActionCount(agentId: string, network?: string): Promise<number | null> {
+  const chain = getChainConfig(network)
+  const addr = chain.contracts.actionVerifier
   if (!ETH_ADDR_RE.test(addr)) return null
-  const result = await ethCall(addr, `${SEL_AGENT_ACTION_COUNT}${toBytes32(agentId).slice(2)}`)
+  const result = await ethCall(addr, `${SEL_AGENT_ACTION_COUNT}${toBytes32(agentId).slice(2)}`, network)
   if (!result) return null
   return parseInt(result, 16)
 }
 
-/** Get total anchored actions from ActionVerifier (read-only). */
-async function getTotalOnChainActions(): Promise<number | null> {
-  const addr = CONTRACT_ADDRESSES.actionVerifier
+/** Get total anchored actions from ActionVerifier (read-only). Routes to correct chain. */
+async function getTotalOnChainActions(network?: string): Promise<number | null> {
+  const chain = getChainConfig(network)
+  const addr = chain.contracts.actionVerifier
   if (!ETH_ADDR_RE.test(addr)) return null
-  const result = await ethCall(addr, SEL_TOTAL_ACTIONS)
+  const result = await ethCall(addr, SEL_TOTAL_ACTIONS, network)
   if (!result) return null
   return parseInt(result, 16)
 }
@@ -1215,10 +1249,14 @@ console.log(result.approved, result.audit_hash)</code></pre>
         { name: 'x402', role: 'Per-action micropayments', package: '@x402/hono@2.7.0', url: 'https://x402.org' },
         { name: 'Xorb Escrow', role: 'Native escrow', url: 'https://polygonscan.com/address/0xEAbf85Bf2AE49aFdA531631E8bba219f6e62bF6c' },
         { name: 'Supabase', role: 'Persistent storage', status: store.persistence },
-        { name: 'ActionVerifier', role: 'On-chain audit hash anchoring', chain: 'polygon', address: cs.configured['actionVerifier'] || 'not configured', status: cs.configured['actionVerifier'] ? 'active' : 'awaiting deployment' },
-        { name: 'AgentRegistry', role: 'On-chain agent registry + staking', chain: 'polygon', address: cs.configured['agentRegistry'] || 'not configured', status: cs.configured['agentRegistry'] ? 'active' : 'awaiting deployment' },
-        { name: 'SlashingEngine', role: 'On-chain violation reporting + bond slashing', chain: 'polygon', address: cs.configured['slashingEngine'] || 'not configured', status: cs.configured['slashingEngine'] ? 'active' : 'awaiting deployment' },
+        ...Object.entries(cs.chains).flatMap(([chainId, contracts]) => [
+          contracts.actionVerifier ? { name: 'ActionVerifier', role: 'On-chain audit hash anchoring', chain: chainId, address: contracts.actionVerifier, status: 'active' } : null,
+          contracts.agentRegistry ? { name: 'AgentRegistry', role: 'On-chain agent registry + staking', chain: chainId, address: contracts.agentRegistry, status: 'active' } : null,
+          contracts.slashingEngine ? { name: 'SlashingEngine', role: 'On-chain violation reporting + bond slashing', chain: chainId, address: contracts.slashingEngine, status: 'active' } : null,
+        ].filter(Boolean)),
       ],
+      smart_contracts: cs.chains,
+      supported_networks: Object.keys(CHAIN_CONFIGS),
       xorb_unique_value: 'The 8-gate pipeline that orchestrates identity, permissions, rate limiting, payment, auditing, trust scoring, execution, and escrow into a single API call.',
     })
   }
@@ -1741,14 +1779,16 @@ console.log(result.approved, result.audit_hash)</code></pre>
     // Anchor the audit hash on ActionVerifier + record on AgentRegistry.
     // Both are async fire-and-forget — API responds immediately, on-chain writes happen in background.
     // If contracts aren't configured, these calls return instantly with reason.
-    const onChainResult = await anchorAuditHashOnChain(agent_id, auditHash)
+    // Route on-chain operations to the same chain as the x402 payment
+    const paymentNetwork = x402Details?.network || DEFAULT_CHAIN
+    const onChainResult = await anchorAuditHashOnChain(agent_id, auditHash, paymentNetwork)
     // Fire-and-forget: don't await AgentRegistry.recordAction
-    recordActionOnChain(agent_id).catch(e => console.warn('[Contract] recordAction error:', e))
+    recordActionOnChain(agent_id, paymentNetwork).catch(e => console.warn('[Contract] recordAction error:', e))
 
     return res.json({
       action_id: actionId, agent_id, approved: true, gates,
       timestamp: ts, latency_ms: Date.now() - pipelineStart,
-      integrations_consulted: ['erc8004', 'moltguard', 'x402', 'xorb_escrow', ...(ETH_ADDR_RE.test(CONTRACT_ADDRESSES.actionVerifier) ? ['actionVerifier'] : []), ...(ETH_ADDR_RE.test(CONTRACT_ADDRESSES.agentRegistry) ? ['agentRegistry'] : [])],
+      integrations_consulted: ['erc8004', 'moltguard', 'x402', 'xorb_escrow', ...(onChainResult.on_chain ? ['actionVerifier'] : []), ...(getChainConfig(paymentNetwork).contracts.agentRegistry ? ['agentRegistry'] : [])],
       audit_hash: auditHash,
       on_chain: onChainResult,
       persistence: store.persistence,
