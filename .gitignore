@@ -110,3 +110,17 @@ xorb-db/functions/pop-tracker/
 xorb-db/functions/user-management/
 xorb-db/functions/wallet-operations/
 xorb-db/functions/verify-siwe/
+
+# package-lock (we use pnpm)
+package-lock.json
+xorb-contracts/package-lock.json
+
+# Legacy functions
+xorb-db/functions/agent-gateway/
+xorb-db/functions/api-proxy/
+
+# Unused dashboard assets
+apps/dashboard/public/logo.png
+
+# Legacy test
+xorb-contracts/test/AgentCivilization.test.js
