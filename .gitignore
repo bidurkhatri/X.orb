@@ -85,3 +85,28 @@ xorb-db/functions/*-temp/
 xorb-docs/
 xorb-deploy/deploy-sylos.sh
 xorb-db/tables/civilization_stats.sql
+
+# Build/debug artifacts
+xorb-contracts/compile_log.txt
+xorb-contracts/error.txt
+xorb-contracts/.hardhat-deploy-v2-notice
+xorb-contracts/PROJECT_SUMMARY.md
+
+# Legacy SYLOS database tables
+xorb-db/tables/community_posts.sql
+xorb-db/tables/decentralized_files.sql
+xorb-db/tables/governance_*.sql
+xorb-db/tables/nft_items.sql
+xorb-db/tables/pop_records.sql
+xorb-db/tables/staking_pools.sql
+xorb-db/tables/transactions.sql
+xorb-db/tables/user_staking.sql
+xorb-db/tables/users.sql
+xorb-db/tables/wallet_sessions.sql
+xorb-db/setup_tables.sql
+
+# Legacy SYLOS functions
+xorb-db/functions/pop-tracker/
+xorb-db/functions/user-management/
+xorb-db/functions/wallet-operations/
+xorb-db/functions/verify-siwe/
