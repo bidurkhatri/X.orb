@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Bot, Zap, Shield, ChevronRight, X } from 'lucide-react'
-import { api } from '../lib/api'
+import { api, API_BASE } from '../lib/api'
 
 const STEPS = [
-  { icon: Bot, title: 'Create your first agent', description: 'Register an AI agent with a name, role, and trust bond.' },
+  { icon: Bot, title: 'Create your first agent', description: 'Register an AI agent with a name, role, and wallet address.' },
   { icon: Zap, title: 'Run a test action', description: 'Execute an action through the 8-gate security pipeline.' },
   { icon: Shield, title: 'View your audit log', description: 'See the cryptographic audit trail for your agent.' },
 ]
@@ -14,22 +14,42 @@ export function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
   const [agentId, setAgentId] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [agentName, setAgentName] = useState('')
+  const [sponsorAddress, setSponsorAddress] = useState('')
   const navigate = useNavigate()
 
   const handleStep1 = async () => {
+    if (!agentName.trim() || agentName.length < 2) {
+      setError('Agent name must be at least 2 characters')
+      return
+    }
+    if (!sponsorAddress.match(/^0x[a-fA-F0-9]{40}$/)) {
+      setError('Enter a valid Ethereum address (0x + 40 hex characters)')
+      return
+    }
+
     setLoading(true)
     setError('')
     try {
-      const { agent } = await api.agents.register({
-        name: 'My First Agent',
-        role: 'RESEARCHER',
-        sponsor_address: '0x0000000000000000000000000000000000000000',
-        description: 'Onboarding test agent',
+      const res = await fetch(`${API_BASE}/v1/agents`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': sessionStorage.getItem('xorb_api_key') || '' },
+        body: JSON.stringify({
+          name: agentName.trim(),
+          scope: 'RESEARCHER',
+          sponsor_address: sponsorAddress,
+          description: 'Created during onboarding',
+        }),
       })
-      setAgentId(agent.agentId)
-      setStep(1)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to create agent')
+      const data = await res.json()
+      if (data.agent?.agentId) {
+        setAgentId(data.agent.agentId)
+        setStep(1)
+      } else {
+        setError(data.error?.message || data.error || 'Failed to create agent. Check your inputs.')
+      }
+    } catch {
+      setError('Cannot reach API server.')
     } finally {
       setLoading(false)
     }
@@ -40,14 +60,29 @@ export function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
     setLoading(true)
     setError('')
     try {
-      await api.actions.execute({
-        agent_id: agentId,
-        action: 'test_query',
-        tool: 'get_balance',
+      const res = await fetch(`${API_BASE}/v1/actions/execute`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': sessionStorage.getItem('xorb_api_key') || '' },
+        body: JSON.stringify({
+          agent_id: agentId,
+          action: 'test_query',
+          tool: 'get_balance',
+          params: { address: sponsorAddress },
+        }),
       })
-      setStep(2)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Action failed')
+      const data = await res.json()
+      if (data.approved || data.action_id) {
+        setStep(2)
+      } else {
+        // Action may require payment (402) — still show success for onboarding
+        if (data.payment_required) {
+          setStep(2) // Show audit log even if 402 — agent was created
+        } else {
+          setError('Action was blocked by the pipeline. Check your agent status.')
+        }
+      }
+    } catch {
+      setError('Cannot reach API server.')
     } finally {
       setLoading(false)
     }
@@ -56,7 +91,7 @@ export function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
   const handleStep3 = () => {
     sessionStorage.setItem('xorb_onboarded', 'true')
     onComplete()
-    navigate(`/audit`)
+    navigate(`/agents`)
   }
 
   const handleSkip = () => {
@@ -84,9 +119,49 @@ export function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
         {/* Current Step */}
         <div className="flex items-start gap-4 mb-6">
           {(() => { const Icon = STEPS[step].icon; return <Icon size={24} className="text-xorb-blue shrink-0" /> })()}
-          <div>
+          <div className="flex-1">
             <h3 className="font-medium">{STEPS[step].title}</h3>
             <p className="text-sm text-xorb-muted mt-1">{STEPS[step].description}</p>
+
+            {/* Step 1: Agent creation form */}
+            {step === 0 && (
+              <div className="mt-4 space-y-3">
+                <div>
+                  <label className="block text-xs text-xorb-muted mb-1">Agent Name</label>
+                  <input
+                    type="text"
+                    value={agentName}
+                    onChange={e => setAgentName(e.target.value)}
+                    placeholder="my-research-bot"
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-xorb-blue/50"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-xorb-muted mb-1">Your Wallet Address</label>
+                  <input
+                    type="text"
+                    value={sponsorAddress}
+                    onChange={e => setSponsorAddress(e.target.value)}
+                    placeholder="0x..."
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:border-xorb-blue/50"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Step 2: Pipeline info */}
+            {step === 1 && (
+              <p className="mt-3 text-xs text-xorb-muted">
+                Agent <code className="text-xorb-blue">{agentId}</code> will run through all 8 gates.
+              </p>
+            )}
+
+            {/* Step 3: Success */}
+            {step === 2 && (
+              <p className="mt-3 text-xs text-green-400">
+                Your agent is registered and ready. View your agents to manage it.
+              </p>
+            )}
           </div>
         </div>
 
@@ -103,7 +178,7 @@ export function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
             disabled={loading}
             className="flex items-center gap-2 px-5 py-2.5 bg-xorb-blue hover:bg-xorb-blue-hover disabled:opacity-50 rounded-lg text-sm font-medium transition-colors"
           >
-            {loading ? 'Working...' : step === 2 ? 'View Audit Log' : 'Continue'}
+            {loading ? 'Working...' : step === 2 ? 'View Agents' : 'Continue'}
             <ChevronRight size={14} />
           </button>
         </div>
