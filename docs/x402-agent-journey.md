@@ -135,7 +135,7 @@ In MetaMask (or via script):
 USDC.approve(
   spender: 0xF41faE67716670edBFf581aEe37014307dF71A9B,  // X.orb facilitator
   amount: 115792089237316195423570985008687907853269984665640564039457584007913129639935
-  // type(uint256).max — unlimited approval (or set a specific cap)
+  // Recommended: set a specific cap, e.g. 100 USDC (100000000 in 6 decimals)
 )
 
 This is a single on-chain transaction on Polygon.
@@ -622,7 +622,7 @@ BILLING PAGE:
   ├─ Payment protocol: x402 (USDC on Polygon)
   ├─ Fee rate: 30 bps (0.30%)
   ├─ Wallet balance: 999.76 USDC
-  ├─ Allowance remaining: unlimited
+  ├─ Allowance remaining: $100.00 (or your chosen cap)
   └─ Spending cap: $1000/day
 ```
 
@@ -776,7 +776,7 @@ sequenceDiagram
     participant T as Treasury
 
     Note over S: ONE-TIME SETUP
-    S->>U: approve(facilitator, maxUint256)
+    S->>U: approve(facilitator, sponsorChosenAmount)
     Note over S: Facilitator can now charge sponsor
 
     Note over A: EVERY ACTION

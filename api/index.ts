@@ -1015,7 +1015,7 @@ export default async function handler(req: any, res: any) {
     <a href="#payments">Payments</a>
   </div>
 
-  <div class="note">Base URL: <code>https://api.xorb.xyz</code> · All action endpoints require <code>x-api-key</code> header + x402 USDC payment. Install SDK: <code>npm install xorb-sdk</code></div>
+  <div class="note">Base URL: <code>https://api.xorb.xyz</code> · All action endpoints require <code>x-api-key</code> header + x402 USDC payment on Polygon PoS or Base. Install SDK: <code>npm install xorb-sdk</code></div>
 
   <h2 id="auth">Authentication</h2>
   <p style="font-size:14px;color:#A3A3A3;margin-bottom:16px">Create an API key, then include it in every request as <code>x-api-key</code> header.</p>

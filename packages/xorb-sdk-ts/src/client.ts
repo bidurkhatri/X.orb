@@ -294,8 +294,12 @@ class PaymentsAPI {
 }
 
 export class WalletHelpers {
-  /** Generate USDC.approve() transaction data for the facilitator address */
-  static approveUsdcData(facilitatorAddress: string, amount: bigint = BigInt('115792089237316195423570985008687907853269984665640564039457584007913129639935')): { to: string, data: string } {
+  /**
+   * Generate USDC.approve() transaction data for the facilitator address.
+   * @param facilitatorAddress - X.orb facilitator wallet
+   * @param amount - USDC amount in micro-units (6 decimals). Default: 100 USDC (100000000). Set your own cap.
+   */
+  static approveUsdcData(facilitatorAddress: string, amount: bigint = BigInt('100000000')): { to: string, data: string } {
     // ERC-20 approve(address,uint256) selector = 0x095ea7b3
     const paddedAddr = facilitatorAddress.slice(2).padStart(64, '0')
     const paddedAmount = amount.toString(16).padStart(64, '0')

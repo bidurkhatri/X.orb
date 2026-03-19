@@ -81,7 +81,7 @@ Every AI agent action passes through 8 sequential gates. If any gate fails, the 
 2. Go to dashboard.xorb.xyz → Connect wallet via WalletConnect
 3. Sign challenge message → proves wallet ownership
 4. Receive API key: xorb_sk_... (shown once, store securely)
-5. Approve USDC spending: USDC.approve(facilitator, amount)
+5. Approve USDC spending: USDC.approve(facilitator, yourChosenLimit)
 ```
 
 ### Phase 2: Developer Integration (~30 min)
