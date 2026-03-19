@@ -142,7 +142,7 @@ export async function runPipeline(
       streak_count: (repEvent as any).streak ?? 0,
       tier_after: agent?.reputationTier,
       action_id: result.action_id,
-    }).catch(e => console.error('[Pipeline] Reputation persist failed:', e))
+    }).catch(e => console.error(JSON.stringify({ level: 'error', service: 'pipeline', event: 'reputation_persist_failed', error: String(e) })))
 
     await events.emit({
       type: 'action.approved',
@@ -162,7 +162,7 @@ export async function runPipeline(
       agent_id: agentId,
       event_type: 'action.approved',
       payload: { action, tool, latency_ms: result.latency_ms, reputation_delta: result.reputation_delta },
-    }).catch(e => console.error('[Pipeline] Event persist failed:', e))
+    }).catch(e => console.error(JSON.stringify({ level: 'error', service: 'pipeline', event: 'event_persist_failed', error: String(e) })))
 
     // Anchor audit hash on-chain (non-blocking, gracefully skipped if contracts not configured)
     if (process.env.ENABLE_ONCHAIN_ANCHORING !== 'false') {
@@ -170,7 +170,7 @@ export async function runPipeline(
         agentId,
         auditHash: result.audit_hash,
         actionId: result.action_id,
-      }).catch(e => console.error('[Pipeline] On-chain anchoring failed (non-blocking):', e))
+      }).catch(e => console.error(JSON.stringify({ level: 'error', service: 'pipeline', event: 'onchain_anchoring_failed', error: String(e) })))
     }
 
     // Post-pipeline payment settlement: split fee to treasury, forward net to recipient
@@ -206,7 +206,7 @@ export async function runPipeline(
           })
         }
       } catch (err) {
-        console.error('[Pipeline] Payment settlement failed:', err)
+        console.error(JSON.stringify({ level: 'error', service: 'pipeline', event: 'payment_settlement_failed', error: String(err) }))
         // Funds are still in facilitator wallet — safe to retry
       }
     }
@@ -248,7 +248,7 @@ export async function runPipeline(
       streak_count: 0,
       tier_after: failedAgent?.reputationTier,
       action_id: result.action_id,
-    }).catch(e => console.error('[Pipeline] Reputation persist failed:', e))
+    }).catch(e => console.error(JSON.stringify({ level: 'error', service: 'pipeline', event: 'reputation_persist_failed', error: String(e) })))
 
     await events.emit({
       type: 'action.blocked',
@@ -268,7 +268,7 @@ export async function runPipeline(
       agent_id: agentId,
       event_type: 'action.blocked',
       payload: { action, tool, gate_failed: failedGate?.gate, reason: failedGate?.reason },
-    }).catch(e => console.error('[Pipeline] Event persist failed:', e))
+    }).catch(e => console.error(JSON.stringify({ level: 'error', service: 'pipeline', event: 'event_persist_failed', error: String(e) })))
 
     // Post-pipeline refund: full gross amount returned to payer (M-8a)
     if (paymentCtx && paymentCtx.grossAmount > 0n) {
@@ -295,7 +295,7 @@ export async function runPipeline(
           })
         }
       } catch (err) {
-        console.error('[Pipeline] Refund failed:', err)
+        console.error(JSON.stringify({ level: 'error', service: 'pipeline', event: 'refund_failed', error: String(err) }))
         // Critical: funds are in facilitator — alert admin for manual resolution
       }
     }

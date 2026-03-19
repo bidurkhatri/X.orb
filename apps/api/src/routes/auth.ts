@@ -51,7 +51,8 @@ authRouter.post('/keys', zValidator('json', generateKeySchema), async (c) => {
     })
 
     if (error) {
-      return err(c, 'key_creation_failed', `Failed to create API key: ${error.message}`, 500)
+      console.error('[Auth] Key creation failed:', error.message)
+      return err(c, 'key_creation_failed', 'Failed to create API key. Please try again.', 500)
     }
   }
 

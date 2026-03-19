@@ -52,7 +52,7 @@ function createDataStore(): DataStore {
   const supabaseKey = process.env.SUPABASE_SERVICE_KEY || process.env.VITE_SUPABASE_ANON_KEY
 
   if (supabaseUrl && supabaseKey) {
-    console.log('[Registry] Using Supabase DataStore')
+    console.info(JSON.stringify({ level: 'info', service: 'registry', event: 'datastore_init', type: 'supabase' }))
     return new SupabaseDataStore(supabaseUrl, supabaseKey)
   }
 
@@ -61,13 +61,13 @@ function createDataStore(): DataStore {
   }
 
   if (supabaseUrl && !supabaseKey) {
-    console.warn('[Registry] WARNING: SUPABASE_URL set but SUPABASE_SERVICE_KEY missing — falling back to in-memory')
+    console.warn(JSON.stringify({ level: 'warn', service: 'registry', event: 'partial_config', detail: 'SUPABASE_URL set but SUPABASE_SERVICE_KEY missing' }))
   }
   if (!supabaseUrl && supabaseKey) {
-    console.warn('[Registry] WARNING: SUPABASE_SERVICE_KEY set but SUPABASE_URL missing — falling back to in-memory')
+    console.warn(JSON.stringify({ level: 'warn', service: 'registry', event: 'partial_config', detail: 'SUPABASE_SERVICE_KEY set but SUPABASE_URL missing' }))
   }
 
-  console.log('[Registry] Using in-memory DataStore (set SUPABASE_URL + SUPABASE_SERVICE_KEY for persistence)')
+  console.info(JSON.stringify({ level: 'info', service: 'registry', event: 'datastore_init', type: 'in-memory' }))
   return new InMemoryDataStore()
 }
 

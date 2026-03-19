@@ -40,7 +40,7 @@ agentsRouter.post('/', zValidator('json', createAgentSchema), async (c) => {
     permissionHash: JSON.stringify(agent.permissionScope),
     expiresAt: agent.expiresAt ? Math.floor(agent.expiresAt / 1000) : 0,
     sessionWallet: agent.sessionWalletAddress,
-  }).catch(e => console.error('[Agents] On-chain registration failed (non-blocking):', e))
+  }).catch(e => console.error(JSON.stringify({ level: 'error', service: 'agents', event: 'onchain_registration_failed', error: String(e) })))
 
   return ok(c, { agent }, 201)
 })

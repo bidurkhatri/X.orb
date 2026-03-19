@@ -45,7 +45,7 @@ export function Agents() {
       toast.success('Agent registered successfully')
     },
     onError: (err: Error) => {
-      toast.error(err.message || 'Failed to register agent')
+      toast.error('Failed to register agent. Check your inputs and try again.')
     },
   })
 

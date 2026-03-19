@@ -28,7 +28,7 @@ export function Webhooks() {
       toast.success('Webhook created successfully')
     },
     onError: (err: Error) => {
-      toast.error(err.message || 'Failed to create webhook')
+      toast.error('Failed to create webhook. Check the URL and try again.')
     },
   })
 
@@ -39,7 +39,7 @@ export function Webhooks() {
       toast.success('Webhook deleted')
     },
     onError: (err: Error) => {
-      toast.error(err.message || 'Failed to delete webhook')
+      toast.error('Failed to delete webhook. Please try again.')
     },
   })
 

@@ -34,7 +34,7 @@ export function AgentDetail() {
       queryClient.invalidateQueries({ queryKey: ['agent', id] })
       toast.success('Agent paused')
     },
-    onError: (err: Error) => toast.error(err.message || 'Failed to pause agent'),
+    onError: () => toast.error('Failed to pause agent. Please try again.'),
   })
 
   const resumeMutation = useMutation({
@@ -43,7 +43,7 @@ export function AgentDetail() {
       queryClient.invalidateQueries({ queryKey: ['agent', id] })
       toast.success('Agent resumed')
     },
-    onError: (err: Error) => toast.error(err.message || 'Failed to resume agent'),
+    onError: () => toast.error('Failed to resume agent. Please try again.'),
   })
 
   const revokeMutation = useMutation({
@@ -52,7 +52,7 @@ export function AgentDetail() {
       queryClient.invalidateQueries({ queryKey: ['agent', id] })
       toast.success('Agent revoked')
     },
-    onError: (err: Error) => toast.error(err.message || 'Failed to revoke agent'),
+    onError: () => toast.error('Failed to revoke agent. Please try again.'),
   })
 
   const agent = agentData?.agent

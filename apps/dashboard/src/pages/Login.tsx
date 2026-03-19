@@ -32,7 +32,8 @@ export function Login() {
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({ error: 'Invalid API key' }))
-        setError(data.error?.message || data.error || `Authentication failed (${res.status})`)
+        const status = res.status
+        setError(status === 401 ? 'Invalid API key. Check your key and try again.' : status === 429 ? 'Too many attempts. Wait a moment and try again.' : 'Authentication failed. Please check your key.')
         return
       }
 
@@ -70,7 +71,7 @@ export function Login() {
         setCreatedKey(data.data.api_key)
         setApiKey(data.data.api_key)
       } else {
-        setError(data.error?.message || 'Failed to create key')
+        setError('Failed to create API key. Check your wallet address and try again.')
       }
     } catch {
       setError('Cannot reach API server. Check your connection.')

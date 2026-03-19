@@ -53,7 +53,7 @@ export class ContractMonitor {
       }
     })
 
-    console.log('[Monitor] Contract event monitoring started')
+    console.info(JSON.stringify({ level: 'info', service: 'contract-monitor', event: 'monitoring_started' }))
   }
 
   /** Check facilitator wallet health */
@@ -81,7 +81,9 @@ export class ContractMonitor {
 
     let pending = 0
     if (this.contract) {
-      try { pending = Number(await this.contract.pendingCount()) } catch {}
+      try { pending = Number(await this.contract.pendingCount()) } catch (err) {
+        console.error(JSON.stringify({ level: 'warn', service: 'contract-monitor', event: 'pending_count_failed', error: err instanceof Error ? err.message : 'unknown' }))
+      }
     }
 
     return {
@@ -102,7 +104,9 @@ export class ContractMonitor {
       fetch(sentryDsn, {
         method: 'POST',
         body: JSON.stringify({ message: `[Contract Monitor] ${severity}: ${message}` }),
-      }).catch(() => {})
+      }).catch((err) => {
+        console.error(JSON.stringify({ level: 'error', service: 'contract-monitor', event: 'sentry_alert_failed', error: err instanceof Error ? err.message : 'unknown' }))
+      })
     }
   }
 }
