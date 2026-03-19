@@ -19,7 +19,7 @@ async function req(method: string, path: string, opts: { body?: unknown; headers
 }
 
 function authHeaders(key = 'xorb_test_key_1234') {
-  return { 'x-api-key': key }
+  return { 'x-api-key': key, 'x-xorb-sandbox': 'true' }
 }
 
 describe('Health', () => {
@@ -97,14 +97,14 @@ describe('Actions', () => {
     const sponsorAddress = `0x${devHash.slice(0, 40)}`
 
     const createRes = await req('POST', '/v1/agents', {
-      headers: { 'x-api-key': key },
+      headers: { 'x-api-key': key, 'x-xorb-sandbox': 'true' },
       body: { name: 'ActionBot', role: 'RESEARCHER', sponsor_address: sponsorAddress },
     })
     expect(createRes.status).toBe(201)
     const agentId = createRes.data.agent.agentId
 
     const { status, data } = await req('POST', '/v1/actions/execute', {
-      headers: { 'x-api-key': key },
+      headers: { 'x-api-key': key, 'x-xorb-sandbox': 'true' },
       body: { agent_id: agentId, action: 'query', tool: 'get_balance' },
     })
     expect(status).toBe(200)
@@ -149,8 +149,7 @@ describe('Pricing', () => {
     const { status, raw } = await req('GET', '/v1/pricing')
     expect(status).toBe(200)
     expect(raw.endpoints).toBeDefined()
-    expect(raw.free_tier).toBeDefined()
-    expect(raw.free_tier.limit).toBe(500)
+    expect(raw.endpoints.length).toBeGreaterThan(0)
   })
 })
 

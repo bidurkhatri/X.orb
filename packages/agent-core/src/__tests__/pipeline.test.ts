@@ -26,7 +26,7 @@ class MockDataStore implements DataStore {
   }
   async deleteAgent(id: string) { this.agents.delete(id) }
   async insertAction() {}
-  async fetchAgentActions() { return [] }
+  async fetchAgentActions() { return { data: [], has_more: false } }
 }
 
 describe('Pipeline', () => {

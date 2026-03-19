@@ -717,9 +717,13 @@ export default async function handler(req: any, res: any) {
   const path = req.url || '/'
   const clientIp = req.headers?.['x-forwarded-for']?.split(',')[0]?.trim() || 'unknown'
 
-  // Attach request ID to every response for traceability
+  // Attach request ID and security headers to every response
   const requestId = req.headers?.['x-request-id'] || `req_${randomBytes(8).toString('hex')}`
   res.setHeader('x-request-id', requestId)
+  res.setHeader('X-Content-Type-Options', 'nosniff')
+  res.setHeader('X-Frame-Options', 'DENY')
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin')
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()')
 
   // CORS: Allow-Origin is intentionally set to '*' — this is a public API designed
   // for cross-origin access by any agent, SDK, or dashboard client.
@@ -1029,8 +1033,10 @@ export default async function handler(req: any, res: any) {
     })
   }
 
-  // ─── GET /v1/events ───
+  // ─── GET /v1/events (requires auth) ───
   if (req.method === 'GET' && path.match(/\/events\/?(\?|$)/) && !path.includes('stream')) {
+    const auth = await requireAuth()
+    if (!auth.valid) return res.status(401).json({ success: false, error: { code: 'missing_api_key', message: 'x-api-key header required' } })
     const url = new URL(`http://x${req.url}`)
     const since = url.searchParams.get('since')
     const agentId = url.searchParams.get('agent_id')
@@ -1166,8 +1172,10 @@ export default async function handler(req: any, res: any) {
     return res.json(listing)
   }
 
-  // ─── GET /v1/webhooks (public for owner) ───
+  // ─── GET /v1/webhooks (requires auth) ───
   if (req.method === 'GET' && path.match(/\/webhooks\/?$/)) {
+    const auth = await requireAuth()
+    if (!auth.valid) return res.status(401).json({ success: false, error: { code: 'missing_api_key', message: 'x-api-key header required' } })
     return res.json({ webhooks: (store.webhooks || []).map((w: any) => ({ ...w, secret: undefined })) })
   }
 
