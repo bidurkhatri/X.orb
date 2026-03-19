@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, Trash2 } from 'lucide-react'
-import { useState } from 'react'
+import { Plus, Trash2, Search } from 'lucide-react'
+import { useState, useMemo } from 'react'
 import { toast } from 'sonner'
 import { PageHeader } from '../components/layout/PageHeader'
 import { GlassTable } from '../components/glass/GlassTable'
@@ -44,6 +44,13 @@ export function Webhooks() {
   })
 
   const webhooks = data?.webhooks || []
+  const [searchQuery, setSearchQuery] = useState('')
+
+  const filteredWebhooks = useMemo(() => {
+    if (!searchQuery.trim()) return webhooks
+    const q = searchQuery.toLowerCase()
+    return webhooks.filter((w: any) => (w.url || '').toLowerCase().includes(q))
+  }, [webhooks, searchQuery])
 
   return (
     <div>
@@ -83,6 +90,19 @@ export function Webhooks() {
         </div>
       )}
 
+      <div className="mb-4">
+        <div className="relative max-w-sm">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-xorb-muted" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            placeholder="Search by URL..."
+            className="w-full bg-white/5 border border-white/10 rounded-lg pl-9 pr-3 py-2 text-sm placeholder:text-xorb-muted/60 focus:outline-none focus:border-xorb-blue/50 transition-colors"
+          />
+        </div>
+      </div>
+
       {isLoading ? (
         <TableSkeleton rows={3} cols={4} />
       ) : (
@@ -98,6 +118,7 @@ export function Webhooks() {
               key: 'actions', header: '',
               render: (w: any) => (
                 <button onClick={(e) => { e.stopPropagation(); deleteMutation.mutate(w.id) }}
+                  aria-label="Delete webhook"
                   className="p-1 hover:bg-xorb-red/20 rounded text-xorb-muted hover:text-xorb-red transition-colors">
                   <Trash2 size={14} />
                 </button>
@@ -105,8 +126,8 @@ export function Webhooks() {
               className: 'text-right w-12',
             },
           ]}
-          data={webhooks}
-          emptyMessage="No webhook subscriptions."
+          data={filteredWebhooks}
+          emptyMessage={searchQuery ? "No webhooks match your search." : "No webhook subscriptions."}
         />
       )}
     </div>

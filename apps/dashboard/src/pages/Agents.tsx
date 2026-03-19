@@ -28,6 +28,7 @@ export function Agents() {
   const [showCreate, setShowCreate] = useState(false)
   const [form, setForm] = useState({ name: '', role: 'RESEARCHER', sponsor_address: '', description: '' })
   const [searchQuery, setSearchQuery] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
   const [page, setPage] = useState(1)
 
   const { data, isLoading } = useQuery({
@@ -51,16 +52,20 @@ export function Agents() {
 
   const agents = data?.agents || []
 
-  // Filter agents by search query (name or scope/role)
+  // Filter agents by search query (name or scope/role) and status
   const filteredAgents = useMemo(() => {
-    if (!searchQuery.trim()) return agents
+    let result = agents
+    if (statusFilter) {
+      result = result.filter((a: any) => a.status === statusFilter)
+    }
+    if (!searchQuery.trim()) return result
     const q = searchQuery.toLowerCase()
-    return agents.filter((a: any) =>
+    return result.filter((a: any) =>
       (a.name || '').toLowerCase().includes(q) ||
       (a.scope || a.permissionScope || a.role || '').toLowerCase().includes(q) ||
       (a.agentId || '').toLowerCase().includes(q)
     )
-  }, [agents, searchQuery])
+  }, [agents, searchQuery, statusFilter])
 
   // Reset to page 1 when search query changes
   const totalPages = Math.max(1, Math.ceil(filteredAgents.length / PAGE_SIZE))
@@ -189,15 +194,27 @@ export function Agents() {
 
       {/* Search / filter bar */}
       <div className="mb-4">
-        <div className="relative max-w-sm">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-xorb-muted" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={e => { setSearchQuery(e.target.value); setPage(1) }}
-            placeholder="Search by name, scope, or ID..."
-            className="w-full bg-white/5 border border-white/10 rounded-lg pl-9 pr-3 py-2 text-sm placeholder:text-xorb-muted/60 focus:outline-none focus:border-xorb-blue/50 transition-colors"
-          />
+        <div className="flex items-center gap-3">
+          <div className="relative max-w-sm flex-1">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-xorb-muted" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={e => { setSearchQuery(e.target.value); setPage(1) }}
+              placeholder="Search by name, scope, or ID..."
+              className="w-full bg-white/5 border border-white/10 rounded-lg pl-9 pr-3 py-2 text-sm placeholder:text-xorb-muted/60 focus:outline-none focus:border-xorb-blue/50 transition-colors"
+            />
+          </div>
+          <select
+            value={statusFilter}
+            onChange={e => { setStatusFilter(e.target.value); setPage(1) }}
+            className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm"
+          >
+            <option value="">All statuses</option>
+            <option value="active">Active</option>
+            <option value="paused">Paused</option>
+            <option value="revoked">Revoked</option>
+          </select>
         </div>
       </div>
 

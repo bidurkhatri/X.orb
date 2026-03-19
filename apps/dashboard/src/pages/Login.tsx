@@ -106,6 +106,7 @@ export function Login() {
                 onClick={copyKey}
                 className="shrink-0 p-1.5 rounded hover:bg-white/10 transition-colors"
                 title="Copy to clipboard"
+                aria-label="Copy API key to clipboard"
               >
                 {copied ? <Check size={14} className="text-green-400" /> : <Copy size={14} className="text-xorb-muted" />}
               </button>

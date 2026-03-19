@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, Bot, Zap, Store, Shield, Webhook,
-  CreditCard, Settings, Activity, LogOut, Menu, X
+  CreditCard, Settings, Activity, LogOut, Menu, X, ExternalLink
 } from 'lucide-react'
 
 const navItems = [
@@ -53,6 +53,15 @@ export function Sidebar() {
             {label}
           </NavLink>
         ))}
+        <a
+          href="https://api.xorb.xyz/v1/docs"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors text-xorb-muted hover:text-xorb-text hover:bg-white/5"
+        >
+          <ExternalLink size={18} />
+          API Docs
+        </a>
       </nav>
 
       <div className="p-4 border-t border-white/10 space-y-3">
@@ -82,6 +91,7 @@ export function Sidebar() {
       {/* Mobile hamburger button */}
       <button
         onClick={() => setMobileOpen(true)}
+        aria-label="Open navigation menu"
         className="md:hidden fixed top-4 left-4 z-50 p-2 bg-white/10 backdrop-blur rounded-lg hover:bg-white/20 transition-colors"
       >
         <Menu size={20} />
@@ -94,6 +104,7 @@ export function Sidebar() {
           <aside className="glass-sidebar w-[220px] flex flex-col h-screen shrink-0 relative z-50">
             <button
               onClick={() => setMobileOpen(false)}
+              aria-label="Close navigation menu"
               className="absolute top-4 right-4 p-1 text-xorb-muted hover:text-white"
             >
               <X size={18} />

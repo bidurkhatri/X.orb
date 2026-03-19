@@ -717,6 +717,10 @@ export default async function handler(req: any, res: any) {
   const path = req.url || '/'
   const clientIp = req.headers?.['x-forwarded-for']?.split(',')[0]?.trim() || 'unknown'
 
+  // Attach request ID to every response for traceability
+  const requestId = req.headers?.['x-request-id'] || `req_${randomBytes(8).toString('hex')}`
+  res.setHeader('x-request-id', requestId)
+
   // CORS: Allow-Origin is intentionally set to '*' — this is a public API designed
   // for cross-origin access by any agent, SDK, or dashboard client.
   res.setHeader('Access-Control-Allow-Origin', '*')
@@ -783,10 +787,31 @@ export default async function handler(req: any, res: any) {
 
   // Helper: add event + cap at 10K + persist
   function emitEvent(type: string, agentId: string, data: any) {
-    const evt = { id: `evt_${Date.now().toString(36)}${Math.random().toString(36).slice(2,8)}`, type, agentId, data, timestamp: new Date().toISOString() }
+    const evt = { id: `evt_${randomBytes(8).toString('hex')}`, type, agentId, data, timestamp: new Date().toISOString() }
     store.events.push(evt)
     if (store.events.length > 10000) store.events.splice(0, store.events.length - 10000)
     saveEvent(evt) // async, fire and forget
+
+    // Deliver to registered webhooks
+    const webhooks = store.webhooks || []
+    for (const wh of webhooks) {
+      if (!wh.active) continue
+      if (wh.event_types && wh.event_types.length > 0 && !wh.event_types.includes(type) && !wh.event_types.includes('*')) continue
+      fetch(wh.url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Xorb-Event': type,
+          'X-Xorb-Timestamp': evt.timestamp,
+        },
+        body: JSON.stringify(evt),
+        signal: AbortSignal.timeout(5000),
+      }).catch(() => {
+        wh.failure_count = (wh.failure_count || 0) + 1
+        if (wh.failure_count >= 5) wh.active = false
+      })
+    }
+
     return evt
   }
 
@@ -1274,7 +1299,7 @@ export default async function handler(req: any, res: any) {
 
     const { agent_id, action, tool, params } = req.body || {}
     if (!agent_id || !tool) return res.status(400).json({ error: 'agent_id and tool are required' })
-    const actionId = `act_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`
+    const actionId = `act_${randomBytes(16).toString('hex')}`
     const gates: any[] = []
     const pipelineStart = Date.now()
     const ts = new Date().toISOString()
@@ -1467,7 +1492,7 @@ export default async function handler(req: any, res: any) {
       const agent = store.agents[act.agent_id]
       const approved = agent && agent.status === 'active' && agent.allowedTools?.includes(act.tool)
       const ts = new Date().toISOString()
-      const actId = `act_${Date.now().toString(36)}${Math.random().toString(36).slice(2,8)}`
+      const actId = `act_${randomBytes(16).toString('hex')}`
       results.push({
         action_id: actId, agent_id: act.agent_id, approved, tool: act.tool,
         gates: [{ gate: 'batch_check', passed: approved, reason: approved ? undefined : 'Failed identity/permissions check' }],
@@ -1487,8 +1512,8 @@ export default async function handler(req: any, res: any) {
     if (!url) return res.status(400).json({ error: 'url required' })
     if (!isValidWebhookUrl(url)) return res.status(400).json({ error: 'Invalid webhook URL. Must be HTTPS and not a private/local address.' })
 
-    const id = `wh_${Date.now().toString(36)}${Math.random().toString(36).slice(2,8)}`
-    const secret = `whsec_${Date.now().toString(36)}${Math.random().toString(36).slice(2,16)}`
+    const id = `wh_${randomBytes(8).toString('hex')}`
+    const secret = `whsec_${randomBytes(16).toString('hex')}`
     const webhook = { id, url, event_types: event_types || ['*'], secret, active: true, failure_count: 0, owner_key_hash: apiKey ? createHash('sha256').update(apiKey).digest('hex').slice(0, 16) : 'unknown', created_at: new Date().toISOString() }
     store.webhooks.push(webhook)
     return res.status(201).json(webhook)
@@ -1518,7 +1543,7 @@ export default async function handler(req: any, res: any) {
     if (typeof rate_usdc_per_hour === 'number' && (rate_usdc_per_hour < 0 || rate_usdc_per_hour > 1000000)) return res.status(400).json({ error: 'rate_usdc_per_hour must be 0-1000000' })
     if (typeof rate_usdc_per_action === 'number' && (rate_usdc_per_action < 0 || rate_usdc_per_action > 1000000)) return res.status(400).json({ error: 'rate_usdc_per_action must be 0-1000000' })
 
-    const id = `lst_${Date.now().toString(36)}${Math.random().toString(36).slice(2,8)}`
+    const id = `lst_${randomBytes(8).toString('hex')}`
     const listing = { id, agent_id, agent_name: agent.name, rate_usdc_per_hour, rate_usdc_per_action, description, available: true, created_at: new Date().toISOString() }
     store.listings[id] = listing
     emitEvent('listing.created', agent_id, { listing_id: id })
@@ -1534,7 +1559,7 @@ export default async function handler(req: any, res: any) {
     if (!listing) return res.status(404).json({ error: 'Listing not found' })
     if (typeof escrow_amount_usdc !== 'number' || escrow_amount_usdc <= 0) return res.status(400).json({ error: 'escrow_amount_usdc must be a positive number' })
 
-    const id = `eng_${Date.now().toString(36)}${Math.random().toString(36).slice(2,8)}`
+    const id = `eng_${randomBytes(8).toString('hex')}`
     const engagement = { id, listing_id, agent_id: listing.agent_id, escrow_amount_usdc, status: 'active', started_at: new Date().toISOString() }
     store.engagements[id] = engagement
     emitEvent('engagement.started', listing.agent_id, { engagement_id: id, escrow: escrow_amount_usdc })

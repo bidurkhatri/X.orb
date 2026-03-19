@@ -123,7 +123,7 @@ async function checkNonce(nonce: string): Promise<{ valid: boolean; nonceHash: s
 // Default fee config
 const DEFAULT_FEE_CONFIG: FeeConfig = {
   basisPoints: 30, minimumUsdc: 1000n, maximumUsdc: 50_000_000n,
-  freeTierLimit: 0, highVolumeThreshold: 50_000, highVolumeBps: 15,
+  highVolumeThreshold: 50_000, highVolumeBps: 15,
   exemptActions: ['health_check', 'agent_query', 'reputation_query'],
 }
 
@@ -226,7 +226,7 @@ export function x402Middleware() {
         netAmount: fee.netAmount,
         collectTxHash,
         payerAddress: sigResult.signer!,
-        freeActionsRemaining: fee.freeActionsRemaining,
+        freeActionsRemaining: 0,
         feeExempt: fee.feeExempt,
       })
 
@@ -241,31 +241,16 @@ export function x402Middleware() {
       return next()
     }
 
-    // --- Path B: No payment header — check free tier ---
-    const monthlyUsage = await getMonthlyUsage(sponsorAddress)
-    const freeTierLimit = DEFAULT_FEE_CONFIG.freeTierLimit
-
-    if (monthlyUsage < freeTierLimit) {
-      const remaining = freeTierLimit - monthlyUsage - 1
-      c.header('X-Xorb-Payment-Status', 'free_tier')
-      c.header('X-Xorb-Fee-Amount', '0')
-      c.header('X-Xorb-Free-Remaining', Math.max(0, remaining).toString())
-      return next()
-    }
-
-    // Free tier exhausted — 402
+    // --- Path B: No payment header — payment required (no free tier) ---
     const expectedAmount = Math.round(price.usdc * 1_000_000)
     return c.json({
       error: 'Payment Required',
-      message: `Free tier exhausted (${freeTierLimit} actions/month). Include x402 payment header with USDC.`,
+      message: 'x402 payment required. Include payment header with USDC.',
       status: 402,
       details: {
         endpoint: pricingKey,
         price_usdc: price.usdc,
         description: price.description,
-        free_tier_exhausted: true,
-        free_tier_limit: freeTierLimit,
-        free_tier_used: monthlyUsage,
         facilitator_address: payments.getFacilitatorAddress(),
         accepts: [
           { network: 'eip155:137', asset: 'USDC', amount: expectedAmount.toString() },

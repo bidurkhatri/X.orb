@@ -4,7 +4,7 @@ import { Bot, Zap, Shield, TrendingUp } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { PageHeader } from '../components/layout/PageHeader'
 import { MetricCard } from '../components/glass/MetricCard'
-import { api } from '../lib/api'
+import { api, API_BASE } from '../lib/api'
 
 type SortKey = 'score' | 'actions' | 'name'
 
@@ -20,6 +20,12 @@ export function Overview() {
     queryFn: () => api.events.list({ limit: 20 }),
     retry: false,
     refetchInterval: 5000,
+  })
+
+  const { data: integrations } = useQuery({
+    queryKey: ['integrations'],
+    queryFn: () => fetch(`${API_BASE}/v1/integrations`).then(r => r.json()),
+    staleTime: 60000,
   })
 
   const navigate = useNavigate()
@@ -67,7 +73,7 @@ export function Overview() {
             <div className="space-y-2 max-h-[300px] overflow-y-auto">
               {events.slice(0, 10).map((event: any) => (
                 <div key={event.id} className="flex items-center gap-3 text-sm">
-                  <div className={`w-2 h-2 rounded-full shrink-0 ${
+                  <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${
                     event.type === 'action.approved' ? 'bg-xorb-green' :
                     event.type === 'action.blocked' ? 'bg-xorb-red' :
                     event.type.includes('slash') ? 'bg-xorb-amber' : 'bg-xorb-blue'
@@ -83,19 +89,19 @@ export function Overview() {
         <div className="glass-card p-5">
           <h3 className="text-sm font-medium text-xorb-muted mb-4">Orchestrated Services</h3>
           <div className="space-y-3">
-            {[
+            {(integrations?.services || [
               { name: 'ERC-8004', role: 'Identity', status: 'connected', color: 'text-orange-400' },
               { name: 'MoltGuard', role: 'Trust Scoring', status: 'available', color: 'text-purple-400' },
               { name: 'x402', role: 'Payments', status: 'available', color: 'text-blue-400' },
               { name: 'Xorb Escrow', role: 'Escrow', status: 'available', color: 'text-green-400' },
-            ].map(svc => (
+            ]).map((svc: any) => (
               <div key={svc.name} className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-xorb-green" />
+                  <div className="w-2.5 h-2.5 rounded-full bg-xorb-green" />
                   <span className="text-sm font-medium">{svc.name}</span>
                   <span className="text-xs text-xorb-muted">— {svc.role}</span>
                 </div>
-                <span className={`text-xs font-mono ${svc.color}`}>{svc.status}</span>
+                <span className={`text-xs font-mono ${svc.color || 'text-xorb-blue'}`}>{svc.status}</span>
               </div>
             ))}
           </div>

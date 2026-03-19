@@ -79,9 +79,23 @@ export function Audit() {
             <h3 className="text-sm font-medium">
               {framework === 'eu-ai-act' ? 'EU AI Act' : framework === 'nist-ai-rmf' ? 'NIST AI RMF' : 'SOC 2'} Report
             </h3>
-            <span className={`text-xs px-2 py-1 rounded-full ${report.summary.overall_status === 'compliant' ? 'bg-green-500/20 text-green-400' : report.summary.overall_status === 'partially_compliant' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-red-500/20 text-red-400'}`}>
-              {report.summary.overall_status}
-            </span>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' })
+                  const url = URL.createObjectURL(blob)
+                  const a = document.createElement('a')
+                  a.href = url; a.download = `xorb-compliance-${selectedAgent}-${framework}.json`; a.click()
+                  URL.revokeObjectURL(url)
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-sm transition-colors"
+              >
+                <Download size={14} /> Download Report
+              </button>
+              <span className={`text-xs px-2 py-1 rounded-full ${report.summary.overall_status === 'compliant' ? 'bg-green-500/20 text-green-400' : report.summary.overall_status === 'partially_compliant' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-red-500/20 text-red-400'}`}>
+                {report.summary.overall_status}
+              </span>
+            </div>
           </div>
 
           <div className="grid grid-cols-4 gap-3 mb-4">

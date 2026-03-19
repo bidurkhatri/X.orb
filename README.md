@@ -4,13 +4,13 @@
 
 ### The orchestration layer for AI agent trust.
 
-X.orb doesn't build trust infrastructure — it orchestrates it. One API call runs your agent's action through an 8-gate pipeline that checks identity (ERC-8004), permissions, rate limits, payments (x402), audit logging, trust scoring (AgentScore), execution, and escrow (PayCrow).
+X.orb orchestrates trust infrastructure for autonomous AI agents. One API call runs your agent's action through an 8-gate security pipeline that checks identity (ERC-8004), permissions, rate limits, payments (x402), audit logging, trust scoring (MoltGuard), execution, and escrow (Xorb Escrow).
 
-[![API](https://img.shields.io/badge/API-LIVE-22C55E?style=flat-square)](https://api.xorb.xyz/v1/health)
-[![Dashboard](https://img.shields.io/badge/Dashboard-LIVE-0066FF?style=flat-square)](https://xorb-dashboard.vercel.app)
+[![API](https://img.shields.io/badge/API-v0.5.1-22C55E?style=flat-square)](https://api.xorb.xyz/v1/health)
+[![Dashboard](https://img.shields.io/badge/Dashboard-LIVE-0066FF?style=flat-square)](https://dashboard.xorb.xyz)
 [![x402](https://img.shields.io/badge/x402-integrated-purple?style=flat-square)](https://x402.org)
 [![ERC-8004](https://img.shields.io/badge/ERC--8004-integrated-orange?style=flat-square)](https://eips.ethereum.org/EIPS/eip-8004)
-[![Base](https://img.shields.io/badge/Base-L2-0052FF?style=flat-square)](https://basescan.org)
+[![Polygon](https://img.shields.io/badge/Polygon-8%20contracts-7B3FE4?style=flat-square)](https://polygonscan.com)
 
 </div>
 
@@ -19,7 +19,7 @@ X.orb doesn't build trust infrastructure — it orchestrates it. One API call ru
 ## Architecture
 
 ```
-                              X.orb API (Hono on Vercel)
+                              X.orb API (Vercel Serverless)
                              ┌──────────────────────────────────────────────┐
                              │                8-Gate Pipeline               │
                              │                                              │
@@ -30,67 +30,67 @@ X.orb doesn't build trust infrastructure — it orchestrates it. One API call ru
                              │                                      │       │
   ┌──────────┐               │  ┌──────────┐  ┌────────────┐  ┌────v────┐  │
   │ Supabase │<──────────────│  │8.Escrow  │<─│ 7.Execute  │<─│4.Payment│  │
-  │ (persist)│               │  │(PayCrow) │  │            │  │ (x402)  │  │
+  │ (persist)│               │  │(Xorb)    │  │            │  │ (x402)  │  │
   └──────────┘               │  └──────────┘  └────────────┘  └────┬────┘  │
                              │                                      │       │
                              │  ┌──────────────────────────────────┐│       │
                              │  │  5.Audit Log ─> 6.Trust Score   ││       │
-                             │  │              (AgentScore)        │┘       │
+                             │  │            (MoltGuard)           │┘       │
                              │  └──────────────────────────────────┘        │
                              └──────────────────────────────────────────────┘
                                               │
                              ┌────────────────┼────────────────┐
                              │                │                │
                         ┌────v─────┐  ┌───────v──────┐  ┌─────v──────┐
-                        │ ERC-8004 │  │  AgentScore  │  │  PayCrow   │
+                        │ ERC-8004 │  │  MoltGuard   │  │   Xorb     │
                         │ (Base L2)│  │  (Trust API) │  │  (Escrow)  │
                         └──────────┘  └──────────────┘  └────────────┘
 ```
 
 ## What X.orb Does
 
-```
-Your Agent → X.orb API → 8 Gates → Action Approved or Blocked
-```
-
-Every AI agent action passes through 8 sequential gates. If any gate fails, the action is blocked and the agent's trust score drops.
+Every AI agent action passes through 8 sequential gates. If any gate fails, the action is blocked.
 
 | Gate | What It Checks | Powered By |
 |------|---------------|------------|
-| 1. Identity | Is this agent registered on-chain? | **ERC-8004** IdentityRegistry on Base |
-| 2. Permissions | Is this tool allowed for this agent's scope? | **X.orb** (unique) |
-| 3. Rate Limit | Has the agent exceeded its hourly quota? | **X.orb** middleware |
-| 4. Payment | Is an x402 payment attached? | **x402** protocol |
-| 5. Audit Log | Record the action attempt | **X.orb** immutable log |
-| 6. Trust Score | Does the agent's trust score allow this? | **AgentScore** API |
+| 1. Identity | Is this agent registered on-chain? | **ERC-8004** on Base |
+| 2. Permissions | Is this tool allowed for this agent's role? | **X.orb** |
+| 3. Rate Limit | Has the agent exceeded its hourly quota? | **X.orb** |
+| 4. Payment | Is an x402 USDC payment attached? | **x402** protocol |
+| 5. Audit Log | SHA-256 hash of action + gate results | **X.orb** |
+| 6. Trust Score | Does the agent's trust score allow this? | **MoltGuard** API |
 | 7. Execute | Run the action | **X.orb** |
-| 8. Escrow | Is the payment escrowed safely? | **PayCrow** |
-
-## Why X.orb Exists
-
-The agent economy has identity (ERC-8004), payments (x402), trust scoring (AgentScore), and escrow (PayCrow). But nobody orchestrates them into a single security check.
-
-**X.orb is the glue.** One API call, 8 gates, 4 integrations.
+| 8. Escrow | Is the payment held safely? | **Xorb Escrow** (Polygon) |
 
 ## Quick Start
 
-### Register an agent
+### 1. Create an API key
+
+```bash
+curl -X POST https://api.xorb.xyz/v1/auth/keys \
+  -H "Content-Type: application/json" \
+  -d '{"owner_address": "0xYOUR_WALLET", "label": "my-project"}'
+```
+
+### 2. Register an agent
 
 ```bash
 curl -X POST https://api.xorb.xyz/v1/agents \
+  -H "x-api-key: xorb_sk_YOUR_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "my-research-bot",
-    "scope": "research",
-    "sponsor_address": "0xDEMO000000000000000000000000000000000001",
+    "scope": "RESEARCHER",
+    "sponsor_address": "0xYOUR_WALLET",
     "description": "Monitors whale wallets"
   }'
 ```
 
-### Execute an action through the 8-gate pipeline
+### 3. Execute an action (requires x402 payment)
 
 ```bash
 curl -X POST https://api.xorb.xyz/v1/actions/execute \
+  -H "x-api-key: xorb_sk_YOUR_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "agent_id": "agent_xxx",
@@ -100,128 +100,86 @@ curl -X POST https://api.xorb.xyz/v1/actions/execute \
   }'
 ```
 
-### Response (approved)
+## Pricing
 
-```json
-{
-  "action_id": "act_xxx",
-  "agent_id": "agent_xxx",
-  "approved": true,
-  "gates": [
-    { "gate": "identity", "passed": true, "source": "local + erc8004" },
-    { "gate": "permissions", "passed": true, "scope": "research" },
-    { "gate": "rate_limit", "passed": true, "used": 1, "limit": 120 },
-    { "gate": "x402_payment", "passed": true, "protocol": "x402" },
-    { "gate": "audit_log", "passed": true, "logged": true },
-    { "gate": "trust_score", "passed": true, "source": "agentscore", "score": 72 },
-    { "gate": "execute", "passed": true },
-    { "gate": "escrow_check", "passed": true, "source": "paycrow" }
-  ],
-  "integrations_consulted": ["erc8004", "agentscore", "x402", "paycrow"],
-  "latency_ms": 45
-}
-```
+All action endpoints require x402 USDC payment. No free tier.
 
-### Response (blocked)
+| Endpoint | Cost (USDC) |
+|----------|-------------|
+| `POST /v1/agents` | $0.10 |
+| `POST /v1/actions/execute` | $0.005 |
+| `POST /v1/actions/batch` | $0.003/action |
+| `GET /v1/reputation` | $0.001 |
+| `POST /v1/marketplace/hire` | $0.05 |
+| `GET /v1/audit` | $0.01 |
+| `POST /v1/webhooks` | $0.10 |
+| `GET /v1/compliance` | $1.00 |
 
-```json
-{
-  "approved": false,
-  "gates": [
-    { "gate": "identity", "passed": true },
-    { "gate": "permissions", "passed": false, "reason": "Tool \"swap\" not in scope \"research\"" }
-  ]
-}
-```
+Free: health, pricing, docs, list agents, events, auth/keys, pause/resume/revoke.
 
-## API Endpoints
+High-volume discount: 15 bps (0.15%) after 50,000 monthly actions.
 
-| Method | Path | Description | Cost |
-|--------|------|-------------|------|
-| GET | `/v1/health` | API status + integration health | Free |
-| GET | `/v1/integrations` | List orchestrated services | Free |
-| GET | `/v1/pricing` | Endpoint pricing | Free |
-| GET | `/v1/docs` | Interactive API docs (Swagger UI) | Free |
-| GET | `/v1/usage` | Platform usage stats for billing | Free |
-| POST | `/v1/agents` | Register agent (ERC-8004 lookup) | $0.10 |
-| GET | `/v1/agents` | List agents | Free |
-| GET | `/v1/agents/:id` | Agent details | Free |
-| PATCH | `/v1/agents/:id` | Pause/resume/renew | Free |
-| DELETE | `/v1/agents/:id` | Revoke agent | Free |
-| POST | `/v1/actions/execute` | **8-gate pipeline** | $0.005 |
-| POST | `/v1/actions/batch` | Batch execute (up to 100) | $0.005/ea |
-| GET | `/v1/actions/:id` | Get action by ID | Free |
-| GET | `/v1/reputation/:id` | Reputation score (AgentScore + PayCrow) | $0.001 |
-| GET | `/v1/reputation/leaderboard` | Trust leaderboard | Free |
-| GET | `/v1/events` | List events | Free |
-| GET | `/v1/events/stream` | Long-polling event stream | Free |
-| GET | `/v1/audit/:id` | Audit log for agent | Free |
-| GET | `/v1/compliance/:id` | Compliance report (EU AI Act, NIST, SOC2) | Free |
-| GET | `/v1/compliance/:id/frameworks` | List compliance frameworks | Free |
-| GET | `/v1/webhooks` | List webhook subscriptions | Free |
-| POST | `/v1/webhooks` | Subscribe to events | Free |
-| DELETE | `/v1/webhooks/:id` | Remove subscription | Free |
-| GET | `/v1/marketplace/listings` | Browse agents for hire | Free |
-| POST | `/v1/marketplace/listings` | List agent for hire | Free |
-| POST | `/v1/marketplace/hire` | Hire an agent (escrow) | Free |
+## Deployed Contracts (Polygon PoS)
 
-## Agent Scopes
-
-Instead of rigid roles, X.orb uses **scopes** that define what tools an agent can access:
-
-| Scope | Tools | Rate Limit |
-|-------|-------|------------|
-| `trading` | get_balance, fetch_market_data, swap, submit_transaction_proposal | 60/hr |
-| `research` | get_balance, fetch_market_data, read_notes, search_files, query_chain | 120/hr |
-| `monitoring` | get_balance, fetch_market_data, alert_user, subscribe_events | 300/hr |
-| `coding` | read_file, write_file, search_files, run_tests, git_commit | 60/hr |
-| `governance` | read_proposals, draft_proposal, vote, delegate | 30/hr |
-| `general` | get_balance, fetch_market_data, read_notes | 60/hr |
+| Contract | Address |
+|----------|---------|
+| AgentRegistry | [`0x2a7457C2f30F9C0Bb47b62ed8554C75d13BF9ec7`](https://polygonscan.com/address/0x2a7457C2f30F9C0Bb47b62ed8554C75d13BF9ec7) |
+| ReputationScore | [`0x0350efEcDCFCbcF2Ab3d6421e20Ef867c02D79d8`](https://polygonscan.com/address/0x0350efEcDCFCbcF2Ab3d6421e20Ef867c02D79d8) |
+| SlashingEngine | [`0xA64E71Aa00F8f6e8e8acb3a81200dD270FF13625`](https://polygonscan.com/address/0xA64E71Aa00F8f6e8e8acb3a81200dD270FF13625) |
+| PaymentStreaming | [`0xb34717670889190B2A92E64B51e0ea696cE88D89`](https://polygonscan.com/address/0xb34717670889190B2A92E64B51e0ea696cE88D89) |
+| AgentMarketplace | [`0xEAbf85Bf2AE49aFdA531631E8bba219f6e62bF6c`](https://polygonscan.com/address/0xEAbf85Bf2AE49aFdA531631E8bba219f6e62bF6c) |
+| ActionVerifier | [`0x463856987bD9f3939DD52df52649e9B8Cb07B057`](https://polygonscan.com/address/0x463856987bD9f3939DD52df52649e9B8Cb07B057) |
+| XorbEscrow | [`0x4B8994De0A6f02014E71149507eFF6903367411C`](https://polygonscan.com/address/0x4B8994De0A6f02014E71149507eFF6903367411C) |
+| XorbPaymentSplitter | [`0xc038C3116CD4997fF4C8f42b2d97effb023214c9`](https://polygonscan.com/address/0xc038C3116CD4997fF4C8f42b2d97effb023214c9) |
 
 ## Integrations
 
-X.orb orchestrates — it doesn't replace.
-
-| Service | Role | Standard | Status |
-|---------|------|----------|--------|
-| [ERC-8004](https://eips.ethereum.org/EIPS/eip-8004) | On-chain agent identity | Ethereum EIP | Registry on Base |
-| [AgentScore](https://agentscore.dev) | Trust scoring (0-100) | API | Integrated |
-| [x402](https://x402.org) | Per-action micropayments | HTTP 402 | `@x402/hono` |
-| [PayCrow](https://paycrow.xyz) | Escrow + dispute resolution | USDC | Integrated |
-
-> **Fallback behavior when external APIs are unreachable:**
-> - **ERC-8004** (Base RPC): If the on-chain identity lookup times out or fails, the agent is treated as *not registered* (`registered: false`). Registration still succeeds but without on-chain identity verification.
-> - **AgentScore**: If the AgentScore API is unreachable, a local fallback score of **50** is used (source: `local_fallback`). Scores are cached for 5 minutes, so transient outages are masked by the cache.
-> - **PayCrow**: If the PayCrow trust API is unreachable, a fallback trust score of **50** is returned (source: `local_fallback`). The escrow gate still passes — it is advisory, not blocking.
-> - **x402 payments**: Payment validation is structural (checks header encoding, required fields, expiry). If no payment header is attached, the free tier (1000 actions/month) is used. The gate always passes regardless of payment validity.
+| Service | Role | Status |
+|---------|------|--------|
+| [ERC-8004](https://eips.ethereum.org/EIPS/eip-8004) | On-chain agent identity | Base L2 |
+| [MoltGuard](https://api.moltrust.ch/guard/) | Trust scoring (0-100) | Live API |
+| [x402](https://x402.org) | Per-action USDC payments | Integrated |
+| Xorb Escrow | Native escrow on Polygon | [Deployed](https://polygonscan.com/address/0x4B8994De0A6f02014E71149507eFF6903367411C) |
 
 ## Project Structure
 
 ```
 x.orb/
-├── api/index.ts              — Vercel serverless API (self-contained)
+├── api/index.ts              — Vercel serverless API (production)
 ├── apps/
-│   ├── api/                  — Full modular API (local dev)
-│   └── dashboard/            — React dashboard (Liquid Glass UI)
+│   ├── api/                  — Modular Hono API (local dev)
+│   ├── dashboard/            — React dashboard (Liquid Glass UI)
+│   └── landing/              — Landing page (xorb.xyz)
 ├── packages/
-│   ├── agent-core/           — Domain logic (8-gate pipeline)
+│   ├── agent-core/           — Domain logic (8-gate pipeline, fee engine)
 │   ├── xorb-types/           — Shared TypeScript types
 │   ├── xorb-sdk-ts/          — @xorb/sdk (TypeScript client)
 │   ├── xorb-sdk-py/          — xorb-sdk (Python client)
-│   └── xorb-mcp/             — @xorb/mcp (MCP server)
-├── xorb-contracts/           — Solidity contracts (Base)
-├── xorb-db/                  — Supabase tables
-└── xorb-docs/                — Documentation
+│   └── xorb-mcp/             — @xorb/mcp (MCP server, 10 tools)
+├── xorb-contracts/           — 8 Solidity contracts (Polygon PoS)
+├── xorb-db/                  — Supabase migrations (21 tables)
+└── docs/                     — 17 documentation files
 ```
 
 ## Live URLs
 
 | Service | URL |
 |---------|-----|
-| API | https://api.xorb.xyz |
-| Dashboard | https://xorb-dashboard.vercel.app |
-| Repo | https://github.com/bidurkhatri/X.orb |
+| API | [api.xorb.xyz](https://api.xorb.xyz/v1/health) |
+| Dashboard | [dashboard.xorb.xyz](https://dashboard.xorb.xyz) |
+| Landing | [xorb.xyz](https://xorb.xyz) |
+| Docs | [api.xorb.xyz/v1/docs](https://api.xorb.xyz/v1/docs) |
+| Pricing | [api.xorb.xyz/v1/pricing](https://api.xorb.xyz/v1/pricing) |
+
+## Development
+
+```bash
+pnpm install          # Install all workspace deps
+pnpm dev              # Start API server (Vercel dev)
+pnpm test             # Run all tests (48 agent-core + 15 API)
+cd apps/dashboard && pnpm dev  # Start dashboard
+```
 
 ## License
 
-MIT — Fintex / Bidur
+MIT — Fintex Australia Pty Ltd

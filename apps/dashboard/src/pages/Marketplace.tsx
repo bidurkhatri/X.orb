@@ -1,10 +1,14 @@
+import { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { Search } from 'lucide-react'
 import { PageHeader } from '../components/layout/PageHeader'
 import { GlassTable } from '../components/glass/GlassTable'
 import { TableSkeleton } from '../components/ui/Skeleton'
 import { api } from '../lib/api'
 
 export function Marketplace() {
+  const [searchQuery, setSearchQuery] = useState('')
+
   const { data, isLoading } = useQuery({
     queryKey: ['marketplace-listings'],
     queryFn: () => api.marketplace.listings(),
@@ -12,9 +16,32 @@ export function Marketplace() {
 
   const listings = data?.listings || []
 
+  const filteredListings = useMemo(() => {
+    if (!searchQuery.trim()) return listings
+    const q = searchQuery.toLowerCase()
+    return listings.filter((row: any) =>
+      (row.agent_name || '').toLowerCase().includes(q) ||
+      (row.description || '').toLowerCase().includes(q)
+    )
+  }, [listings, searchQuery])
+
   return (
     <div>
       <PageHeader title="Marketplace" description="Browse and hire agents" />
+
+      <div className="mb-4">
+        <div className="relative max-w-sm">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-xorb-muted" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            placeholder="Search by agent name or description..."
+            className="w-full bg-white/5 border border-white/10 rounded-lg pl-9 pr-3 py-2 text-sm placeholder:text-xorb-muted/60 focus:outline-none focus:border-xorb-blue/50 transition-colors"
+          />
+        </div>
+      </div>
+
       {isLoading ? (
         <TableSkeleton rows={4} cols={5} />
       ) : (
@@ -30,8 +57,8 @@ export function Marketplace() {
               </span>
             )},
           ]}
-          data={listings}
-          emptyMessage="No agents listed for hire yet. List an agent via POST /v1/marketplace/listings."
+          data={filteredListings}
+          emptyMessage={searchQuery ? "No listings match your search." : "No agents listed for hire yet. List an agent via POST /v1/marketplace/listings."}
         />
       )}
     </div>
