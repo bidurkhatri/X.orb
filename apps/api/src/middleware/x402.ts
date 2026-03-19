@@ -34,6 +34,7 @@ const FREE_ENDPOINTS = [
   'GET /v1/health', 'GET /v1/pricing',
   'PATCH /v1/agents', 'DELETE /v1/agents', 'GET /v1/agents', 'GET /v1/events',
   'GET /v1/revenue', 'GET /v1/payments', 'GET /v1/billing', 'GET /v1/export',
+  'PUT /v1/settings', 'GET /v1/settings',
 ]
 
 // --- Supabase for usage tracking ---
@@ -179,6 +180,41 @@ export function x402Middleware() {
       const nonceResult = await checkNonce(payment.nonce)
       if (!nonceResult.valid) {
         return c.json({ error: 'Payment nonce already used (replay detected)' }, 402 as Parameters<typeof c.json>[1])
+      }
+
+      // Enforce spending caps from sponsor_profiles
+      const sbCap = getSupabase()
+      if (sbCap && sponsorAddress) {
+        const profileResult = await sbCap.from('sponsor_profiles')
+          .select('daily_spend_cap_usdc, monthly_spend_cap_usdc')
+          .eq('sponsor_address', sponsorAddress.toLowerCase())
+          .maybeSingle()
+        const profile = profileResult.data as { daily_spend_cap_usdc: number | null, monthly_spend_cap_usdc: number | null } | null
+
+        if (profile) {
+          const today = new Date().toISOString().slice(0, 10)
+          const month = new Date().toISOString().slice(0, 7)
+          const dailyResult = await sbCap.from('payments')
+            .select('gross_amount')
+            .eq('sponsor_address', sponsorAddress.toLowerCase())
+            .gte('created_at', `${today}T00:00:00Z`)
+          const dailySpend = dailyResult.data
+          const monthlyResult = await sbCap.from('payments')
+            .select('gross_amount')
+            .eq('sponsor_address', sponsorAddress.toLowerCase())
+            .gte('created_at', `${month}-01T00:00:00Z`)
+          const monthlySpend = monthlyResult.data
+
+          const dailyTotal = (dailySpend || []).reduce((sum: number, p: { gross_amount: string }) => sum + (parseFloat(p.gross_amount) || 0), 0)
+          const monthlyTotal = (monthlySpend || []).reduce((sum: number, p: { gross_amount: string }) => sum + (parseFloat(p.gross_amount) || 0), 0)
+
+          if (profile.daily_spend_cap_usdc && dailyTotal + parseFloat(payment.amount) > profile.daily_spend_cap_usdc * 1_000_000) {
+            return c.json({ success: false, error: { code: 'daily_cap_exceeded', message: 'Daily spending cap exceeded' } }, 402 as Parameters<typeof c.json>[1])
+          }
+          if (profile.monthly_spend_cap_usdc && monthlyTotal + parseFloat(payment.amount) > profile.monthly_spend_cap_usdc * 1_000_000) {
+            return c.json({ success: false, error: { code: 'monthly_cap_exceeded', message: 'Monthly spending cap exceeded' } }, 402 as Parameters<typeof c.json>[1])
+          }
+        }
       }
 
       // Calculate fee

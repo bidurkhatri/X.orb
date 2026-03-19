@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { PageHeader } from '../components/layout/PageHeader'
 import { GlassTable } from '../components/glass/GlassTable'
 import { TableSkeleton, ButtonSpinner } from '../components/ui/Skeleton'
+import { ApiError } from '../components/ui/ApiError'
 import { api } from '../lib/api'
 
 export function Webhooks() {
@@ -13,7 +14,7 @@ export function Webhooks() {
   const [url, setUrl] = useState('')
   const [eventTypes, setEventTypes] = useState('action.approved,action.blocked,agent.slashed')
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['webhooks'],
     queryFn: () => api.webhooks.list(),
     retry: false,
@@ -103,7 +104,12 @@ export function Webhooks() {
         </div>
       </div>
 
-      {isLoading ? (
+      {error ? (
+        <ApiError
+          message={error instanceof Error ? error.message : 'Failed to load webhooks'}
+          onRetry={() => refetch()}
+        />
+      ) : isLoading ? (
         <TableSkeleton rows={3} cols={4} />
       ) : (
         <GlassTable

@@ -46,6 +46,8 @@ class AsyncXorbClient:
         self.audit = _AsyncAuditAPI(self)
         self.marketplace = _AsyncMarketplaceAPI(self)
         self.compliance = _AsyncComplianceAPI(self)
+        self.events = _AsyncEventsAPI(self)
+        self.payments = _AsyncPaymentsAPI(self)
 
     async def _request(self, method: str, path: str, json: Any = None) -> dict:
         res = await self._http.request(method, path, json=json)
@@ -206,6 +208,52 @@ class _AsyncComplianceAPI:
 
     async def frameworks(self, agent_id: str) -> dict:
         return await self._c._request("GET", f"/v1/compliance/{agent_id}/frameworks")
+
+
+class _AsyncEventsAPI:
+    def __init__(self, client: AsyncXorbClient):
+        self._c = client
+
+    async def list(self, agent_id: Optional[str] = None, limit: int = 50) -> dict:
+        params = [f"limit={limit}"]
+        if agent_id:
+            params.append(f"agent_id={agent_id}")
+        qs = "?" + "&".join(params)
+        return await self._c._request("GET", f"/v1/events{qs}")
+
+    async def stream(self, since: Optional[str] = None, agent_id: Optional[str] = None) -> dict:
+        params = []
+        if since:
+            params.append(f"since={since}")
+        if agent_id:
+            params.append(f"agent_id={agent_id}")
+        qs = "?" + "&".join(params) if params else ""
+        return await self._c._request("GET", f"/v1/events/stream{qs}")
+
+
+class _AsyncPaymentsAPI:
+    def __init__(self, client: AsyncXorbClient):
+        self._c = client
+
+    async def usage(self) -> dict:
+        return await self._c._request("GET", "/v1/billing/usage")
+
+    async def wallet_status(self) -> dict:
+        return await self._c._request("GET", "/v1/billing/wallet-status")
+
+    async def history(self, limit: int = 50) -> dict:
+        return await self._c._request("GET", f"/v1/billing/payments?limit={limit}")
+
+    async def receipt(self, action_id: str) -> dict:
+        return await self._c._request("GET", f"/v1/billing/payments/{action_id}/receipt")
+
+    async def set_spending_caps(self, daily: Optional[int] = None, monthly: Optional[int] = None) -> dict:
+        body: dict = {}
+        if daily is not None:
+            body['daily_spend_cap_usdc'] = daily
+        if monthly is not None:
+            body['monthly_spend_cap_usdc'] = monthly
+        return await self._c._request("PUT", "/v1/billing/spending-caps", json=body)
 
 
 def _parse_agent(data: dict) -> Agent:

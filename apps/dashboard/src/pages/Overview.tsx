@@ -5,18 +5,19 @@ import { Bot, Zap, Shield, TrendingUp } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { PageHeader } from '../components/layout/PageHeader'
 import { MetricCard } from '../components/glass/MetricCard'
+import { ApiError } from '../components/ui/ApiError'
 import { api, API_BASE } from '../lib/api'
 
 type SortKey = 'score' | 'actions' | 'name'
 
 export function Overview() {
-  const { data: agentsData } = useQuery({
+  const { data: agentsData, error: agentsError, refetch: refetchAgents } = useQuery({
     queryKey: ['agents'],
     queryFn: () => api.agents.list(),
     retry: false,
   })
 
-  const { data: eventsData } = useQuery({
+  const { data: eventsData, error: eventsError, refetch: refetchEvents } = useQuery({
     queryKey: ['events-recent'],
     queryFn: () => api.events.list({ limit: 20 }),
     retry: false,
@@ -55,6 +56,15 @@ export function Overview() {
   return (
     <div>
       <PageHeader title="Overview" description="X.orb Agent Trust Infrastructure" />
+
+      {(agentsError || eventsError) && (
+        <div className="mb-6">
+          <ApiError
+            message={agentsError instanceof Error ? agentsError.message : eventsError instanceof Error ? eventsError.message : 'Failed to load dashboard data'}
+            onRetry={() => { refetchAgents(); refetchEvents(); }}
+          />
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <MetricCard label="Active Agents" value={activeCount} change={`${agents.length} total`} changeType="neutral" icon={Bot} />

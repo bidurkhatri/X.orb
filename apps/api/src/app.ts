@@ -18,6 +18,7 @@ import { cronRouter } from './routes/cron'
 import { authRouter } from './routes/auth'
 import { exportRouter } from './routes/export'
 import { revenueRouter } from './routes/revenue'
+import { settingsRouter } from './routes/settings'
 import { burstRateLimitMiddleware } from './middleware/rate-limit'
 
 export type Env = {
@@ -62,6 +63,7 @@ app.get('/v1/pricing', (c) => c.json({ endpoints: getPricing(), free_tier: { lim
 // Authenticated routes: auth FIRST, then x402 payment processing
 app.use('/v1/*', authMiddleware())
 app.use('/v1/*', x402Middleware())
+app.route('/v1/settings', settingsRouter)
 app.route('/v1/agents', agentsRouter)
 app.route('/v1/actions', actionsRouter)
 app.route('/v1/reputation', reputationRouter)

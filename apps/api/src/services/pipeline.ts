@@ -26,6 +26,7 @@ import {
 } from '../adapters/supabase-services'
 import { anchorAuditHashOnChain, slashAgentOnChain } from './contracts'
 import { getPaymentService } from './payments'
+import { getEmailService } from './email'
 
 export interface PaymentContext {
   paymentId: string
@@ -77,6 +78,56 @@ export function getEventBus(): EventBus {
     const ws = getWebhookService()
     eventBus.onAll(async (event) => {
       await ws.deliver(event)
+
+      // Send email for critical events if Resend is configured
+      const resendKey = process.env.RESEND_API_KEY
+      const criticalTypes = ['agent.slashed', 'agent.revoked', 'payment.failed']
+      if (resendKey && criticalTypes.includes(event.type)) {
+        const eventData = event.data as Record<string, unknown> | undefined
+        const sponsorAddr = (eventData?.sponsorAddress || eventData?.sponsor_address) as string | undefined
+        if (sponsorAddr) {
+          try {
+            const sbUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL
+            const sbKey = process.env.SUPABASE_SERVICE_KEY || process.env.VITE_SUPABASE_ANON_KEY
+            if (sbUrl && sbKey) {
+              const { createClient } = await import('@supabase/supabase-js')
+              const sb = createClient(sbUrl, sbKey)
+              const { data: profile } = await sb.from('sponsor_profiles')
+                .select('email, notification_prefs')
+                .eq('sponsor_address', sponsorAddr.toLowerCase())
+                .single()
+
+              if (profile?.email && profile?.notification_prefs?.slashing !== false) {
+                const emailSvc = getEmailService()
+                if (event.type === 'agent.slashed') {
+                  const ed = event.data as Record<string, unknown> | undefined
+                  await emailSvc.sendSlashingAlert(
+                    profile.email as string,
+                    (event.agentId || (ed?.agent_id as string) || 'unknown'),
+                    ((ed?.severity as string) || 'unknown'),
+                    ((ed?.slash_amount as number)?.toString() || '0'),
+                  )
+                } else {
+                  // Generic critical event email via Resend directly
+                  fetch('https://api.resend.com/emails', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      from: 'alerts@xorb.xyz',
+                      to: profile.email,
+                      subject: `X.orb Alert: ${event.type}`,
+                      text: `Event: ${event.type}\nAgent: ${event.agentId || event.data?.agent_id || 'unknown'}\nTimestamp: ${event.timestamp || new Date().toISOString()}\n\nView details at https://dashboard.xorb.xyz`,
+                    }),
+                    signal: AbortSignal.timeout(5000),
+                  }).catch(() => {})
+                }
+              }
+            }
+          } catch {
+            // Email delivery is best-effort — never block pipeline
+          }
+        }
+      }
     })
   }
   return eventBus

@@ -189,40 +189,59 @@ export function Agents() {
         </div>
       )}
 
-      {/* Search / filter bar */}
-      <div className="mb-4">
-        <div className="flex items-center gap-3">
-          <div className="relative max-w-sm flex-1">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-xorb-muted" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={e => { setSearchQuery(e.target.value); setPage(1) }}
-              placeholder="Search by name, scope, or ID..."
-              className="w-full bg-white/5 border border-white/10 rounded-lg pl-9 pr-3 py-2 text-sm placeholder:text-xorb-muted/60 focus:outline-none focus:border-xorb-blue/50 transition-colors"
-            />
+      {/* Search / filter bar — only show when agents exist */}
+      {agents.length > 0 && (
+        <div className="mb-4">
+          <div className="flex items-center gap-3">
+            <div className="relative max-w-sm flex-1">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-xorb-muted" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={e => { setSearchQuery(e.target.value); setPage(1) }}
+                placeholder="Search by name, scope, or ID..."
+                className="w-full bg-white/5 border border-white/10 rounded-lg pl-9 pr-3 py-2 text-sm placeholder:text-xorb-muted/60 focus:outline-none focus:border-xorb-blue/50 transition-colors"
+              />
+            </div>
+            <select
+              value={statusFilter}
+              onChange={e => { setStatusFilter(e.target.value); setPage(1) }}
+              className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm"
+            >
+              <option value="">All statuses</option>
+              <option value="active">Active</option>
+              <option value="paused">Paused</option>
+              <option value="revoked">Revoked</option>
+            </select>
           </div>
-          <select
-            value={statusFilter}
-            onChange={e => { setStatusFilter(e.target.value); setPage(1) }}
-            className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm"
-          >
-            <option value="">All statuses</option>
-            <option value="active">Active</option>
-            <option value="paused">Paused</option>
-            <option value="revoked">Revoked</option>
-          </select>
         </div>
-      </div>
+      )}
 
       {isLoading ? (
         <TableSkeleton rows={5} cols={4} />
+      ) : agents.length === 0 ? (
+        <div className="glass-card p-12 text-center">
+          <div className="w-16 h-16 rounded-2xl bg-xorb-blue/10 flex items-center justify-center mx-auto mb-4">
+            <Plus size={28} className="text-xorb-blue" />
+          </div>
+          <h3 className="text-lg font-medium mb-2">No agents registered yet</h3>
+          <p className="text-sm text-xorb-muted mb-6 max-w-md mx-auto">
+            Register your first AI agent to start using the 8-gate trust pipeline.
+            Each agent gets its own identity, reputation score, and audit trail.
+          </p>
+          <button
+            onClick={() => setShowCreate(true)}
+            className="px-6 py-2.5 bg-xorb-blue hover:bg-xorb-blue-hover rounded-lg text-sm font-medium transition-colors"
+          >
+            <Plus size={16} className="inline mr-2" />Register Your First Agent
+          </button>
+        </div>
       ) : (
         <GlassTable
           columns={columns}
           data={paginatedAgents}
-          onRowClick={(a: any) => navigate(`/agents/${a.agentId}`)}
-          emptyMessage={searchQuery ? 'No agents match your search.' : "No agents registered yet. Click 'Register Agent' to create your first agent."}
+          onRowClick={(a: Record<string, string>) => navigate(`/agents/${a.agentId}`)}
+          emptyMessage="No agents match your search."
         />
       )}
 

@@ -1414,28 +1414,58 @@ console.log(result.approved, result.audit_hash)</code></pre>
   if (req.method === 'GET' && path.includes('/compliance/')) {
     const id = path.split('/').filter(Boolean).pop()!
     const agent = store.agents[id]
-    if (!agent) return res.status(404).json({ error: 'Agent not found' })
+    if (!agent) return res.status(404).json({ success: false, error: { code: 'not_found', message: 'Agent not found' } })
     const url = new URL(`http://x${req.url}`)
-    const format = url.searchParams.get('format') || 'eu-ai-act'
+    const format = url.searchParams.get('framework') || url.searchParams.get('format') || 'eu-ai-act'
     const actionCount = agent.totalActionsExecuted || 0
     const violationRate = actionCount > 0 ? (agent.slashEvents / actionCount) : 0
+
+    // Configurable thresholds (from platform_config or defaults)
+    const thresholds = {
+      non_compliant_rate: 0.05,    // >5% violation rate = non-compliant
+      warning_rate: 0.01,           // >1% = warning on risk management
+      max_violations_fail: 5,       // >5 violations = security fail
+    }
+    // Load from DB if available
+    if (sb) {
+      const { data: cfg } = await sb.from('platform_config').select('key, value').in('key', ['compliance_non_compliant_rate', 'compliance_warning_rate', 'compliance_max_violations']).catch(() => ({ data: null }))
+      if (cfg) {
+        for (const c of cfg) {
+          if (c.key === 'compliance_non_compliant_rate') thresholds.non_compliant_rate = parseFloat(c.value) || 0.05
+          if (c.key === 'compliance_warning_rate') thresholds.warning_rate = parseFloat(c.value) || 0.01
+          if (c.key === 'compliance_max_violations') thresholds.max_violations_fail = parseInt(c.value) || 5
+        }
+      }
+    }
+
+    const auditRecords = (store.actions || []).filter((a: Record<string, string>) => a.agent_id === id)
+    const isNonCompliant = violationRate > thresholds.non_compliant_rate
+    const sections = [
+      { id: 'risk-mgmt', title: 'Risk Management', status: violationRate < thresholds.warning_rate ? 'pass' : violationRate > thresholds.non_compliant_rate ? 'fail' : 'warning', evidence: [`${actionCount} actions processed through 8-gate pipeline`, `Violation rate: ${(violationRate * 100).toFixed(2)}%`, `Threshold: ${(thresholds.non_compliant_rate * 100).toFixed(1)}%`] },
+      { id: 'transparency', title: 'Transparency', status: 'pass', evidence: ['All actions logged with SHA-256 audit hash', `${auditRecords.length} audit records available`, 'Deterministic hash with sorted gate results'] },
+      { id: 'oversight', title: 'Human Oversight', status: 'pass', evidence: ['Sponsor can pause/resume/revoke at any time', 'All mutations require API key + sponsor wallet verification', 'WalletConnect signature required for key creation'] },
+      { id: 'security', title: 'Security', status: agent.slashEvents > thresholds.max_violations_fail ? 'fail' : agent.slashEvents > 0 ? 'warning' : 'pass', evidence: [`${agent.slashEvents} violations recorded (threshold: ${thresholds.max_violations_fail})`, `Bond status: ${agent.stakeBond === '0' ? 'slashed' : 'active'}`, `Reputation: ${agent.reputation || agent.trustScore || 'N/A'}`] },
+    ]
+    const passedControls = sections.filter(s => s.status === 'pass').length
+
     return res.json({
-      framework: format,
-      generated_at: new Date().toISOString(),
-      agent_id: id,
-      summary: {
-        overall_status: violationRate > 0.05 ? 'non_compliant' : agent.slashEvents > 0 ? 'partially_compliant' : 'compliant',
-        total_controls: 4,
-        passed_controls: violationRate > 0.05 ? 2 : 4,
-        failed_controls: violationRate > 0.05 ? 2 : 0,
-        score: Math.round(Math.max(0, 100 - (violationRate * 1000))),
+      success: true,
+      data: {
+        framework: format,
+        generated_at: new Date().toISOString(),
+        agent_id: id,
+        agent_name: agent.name,
+        summary: {
+          overall_status: isNonCompliant ? 'non_compliant' : agent.slashEvents > 0 ? 'partially_compliant' : 'compliant',
+          total_controls: sections.length,
+          passed_controls: passedControls,
+          failed_controls: sections.filter(s => s.status === 'fail').length,
+          warning_controls: sections.filter(s => s.status === 'warning').length,
+          score: Math.round((passedControls / sections.length) * 100),
+        },
+        thresholds_used: thresholds,
+        sections,
       },
-      sections: [
-        { id: 'risk-mgmt', title: 'Risk Management', status: violationRate < 0.01 ? 'pass' : 'warning', evidence: [`${actionCount} actions processed through 8-gate pipeline`, `Violation rate: ${(violationRate * 100).toFixed(2)}%`] },
-        { id: 'transparency', title: 'Transparency', status: 'pass', evidence: ['All actions logged with SHA-256 audit hash', `${(store.actions || []).filter((a: any) => a.agent_id === id).length} audit records available`] },
-        { id: 'oversight', title: 'Human Oversight', status: 'pass', evidence: ['Sponsor can pause/resume/revoke at any time', 'All mutations require API key + sponsor verification'] },
-        { id: 'security', title: 'Security', status: agent.slashEvents > 5 ? 'fail' : agent.slashEvents > 0 ? 'warning' : 'pass', evidence: [`${agent.slashEvents} violations recorded`, `Bond status: ${agent.stakeBond === '0' ? 'slashed' : 'active'}`] },
-      ],
     })
   }
 
@@ -1782,10 +1812,24 @@ console.log(result.approved, result.audit_hash)</code></pre>
     if (typeof escrow_amount_usdc !== 'number' || escrow_amount_usdc <= 0) return res.status(400).json({ error: 'escrow_amount_usdc must be a positive number' })
 
     const id = `eng_${randomBytes(8).toString('hex')}`
-    const engagement = { id, listing_id, agent_id: listing.agent_id, escrow_amount_usdc, status: 'active', started_at: new Date().toISOString() }
+    const engagement = {
+      id, listing_id, agent_id: listing.agent_id,
+      hirer_address: auth.wallet?.toLowerCase() || '',
+      escrow_amount_usdc, status: 'active',
+      started_at: new Date().toISOString(),
+      escrow_status: 'recorded',
+    }
     store.engagements[id] = engagement
-    emitEvent('engagement.started', listing.agent_id, { engagement_id: id, escrow: escrow_amount_usdc })
-    return res.status(201).json(engagement)
+    // Persist to Supabase
+    if (sb) {
+      await sb.from('marketplace_engagements').insert({
+        id, listing_id, hirer_address: engagement.hirer_address,
+        escrow_amount_usdc: Math.round(escrow_amount_usdc * 1e6),
+        status: 'active', started_at: engagement.started_at,
+      }).catch(() => {})
+    }
+    emitEvent('engagement.started', listing.agent_id, { engagement_id: id, escrow: escrow_amount_usdc, hirer: engagement.hirer_address })
+    return res.status(201).json({ success: true, data: engagement })
   }
 
   if (req.method === 'POST' && path.includes('/marketplace/complete')) {
@@ -1796,8 +1840,9 @@ console.log(result.approved, result.audit_hash)</code></pre>
     const eng = store.engagements[engagement_id]
     if (!eng) return res.status(404).json({ error: 'Engagement not found' })
     eng.status = 'completed'; eng.completed_at = new Date().toISOString()
-    emitEvent('engagement.completed', eng.agent_id, { engagement_id })
-    return res.json(eng)
+    if (sb) await sb.from('marketplace_engagements').update({ status: 'completed', ended_at: eng.completed_at }).eq('id', engagement_id).catch(() => {})
+    emitEvent('engagement.completed', eng.agent_id, { engagement_id, escrow_released: eng.escrow_amount_usdc })
+    return res.json({ success: true, data: eng })
   }
 
   if (req.method === 'POST' && path.includes('/marketplace/dispute')) {

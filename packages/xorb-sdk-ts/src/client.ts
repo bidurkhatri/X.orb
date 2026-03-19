@@ -279,3 +279,27 @@ class PaymentsAPI {
     })
   }
 }
+
+export class WalletHelpers {
+  /** Generate USDC.approve() transaction data for the facilitator address */
+  static approveUsdcData(facilitatorAddress: string, amount: bigint = BigInt('115792089237316195423570985008687907853269984665640564039457584007913129639935')): { to: string, data: string } {
+    // ERC-20 approve(address,uint256) selector = 0x095ea7b3
+    const paddedAddr = facilitatorAddress.slice(2).padStart(64, '0')
+    const paddedAmount = amount.toString(16).padStart(64, '0')
+    return {
+      to: '0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359', // USDC on Polygon
+      data: `0x095ea7b3${paddedAddr}${paddedAmount}`,
+    }
+  }
+
+  /** Generate USDC.allowance() call data to check current approval */
+  static checkAllowanceData(ownerAddress: string, facilitatorAddress: string): { to: string, data: string } {
+    // ERC-20 allowance(address,address) selector = 0xdd62ed3e
+    const paddedOwner = ownerAddress.slice(2).padStart(64, '0')
+    const paddedSpender = facilitatorAddress.slice(2).padStart(64, '0')
+    return {
+      to: '0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359',
+      data: `0xdd62ed3e${paddedOwner}${paddedSpender}`,
+    }
+  }
+}

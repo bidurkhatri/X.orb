@@ -4,14 +4,16 @@ import { Search } from 'lucide-react'
 import { PageHeader } from '../components/layout/PageHeader'
 import { GlassTable } from '../components/glass/GlassTable'
 import { TableSkeleton } from '../components/ui/Skeleton'
+import { ApiError } from '../components/ui/ApiError'
 import { api } from '../lib/api'
 
 export function Marketplace() {
   const [searchQuery, setSearchQuery] = useState('')
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['marketplace-listings'],
     queryFn: () => api.marketplace.listings(),
+    retry: false,
   })
 
   const listings = data?.listings || []
@@ -42,7 +44,12 @@ export function Marketplace() {
         </div>
       </div>
 
-      {isLoading ? (
+      {error ? (
+        <ApiError
+          message={error instanceof Error ? error.message : 'Failed to load marketplace listings'}
+          onRetry={() => refetch()}
+        />
+      ) : isLoading ? (
         <TableSkeleton rows={4} cols={5} />
       ) : (
         <GlassTable

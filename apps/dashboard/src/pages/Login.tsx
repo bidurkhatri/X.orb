@@ -16,10 +16,14 @@ export function Login() {
   const [copied, setCopied] = useState(false)
   const navigate = useNavigate()
 
-  // Wallet state
-  const { address, isConnected } = projectId ? useAccount() : { address: undefined, isConnected: false }
-  const { disconnect } = projectId ? useDisconnect() : { disconnect: () => {} }
-  const { signMessageAsync } = projectId ? useSignMessage() : { signMessageAsync: async () => '' }
+  // Wallet state — hooks always called (React rules-of-hooks), results ignored if no projectId
+  const account = useAccount()
+  const disc = useDisconnect()
+  const sig = useSignMessage()
+  const address = projectId ? account.address : undefined
+  const isConnected = projectId ? account.isConnected : false
+  const disconnect = projectId ? disc.disconnect : () => {}
+  const signMessageAsync = projectId ? sig.signMessageAsync : async () => '' as string
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()

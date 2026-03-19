@@ -1,4 +1,4 @@
-export { XorbClient, XorbAPIError } from './client'
+export { XorbClient, XorbAPIError, WalletHelpers } from './client'
 export type {
   XorbConfig,
   Agent,

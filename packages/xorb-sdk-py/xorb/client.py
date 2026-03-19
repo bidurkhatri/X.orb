@@ -55,6 +55,9 @@ class XorbClient:
         self.webhooks = _WebhooksAPI(self)
         self.audit = _AuditAPI(self)
         self.marketplace = _MarketplaceAPI(self)
+        self.compliance = _ComplianceAPI(self)
+        self.events = _EventsAPI(self)
+        self.payments = _PaymentsAPI(self)
 
     def _request(self, method: str, path: str, json: Any = None) -> dict:
         res = self._http.request(method, path, json=json)
@@ -221,6 +224,63 @@ class _MarketplaceAPI:
         return self._c._request("POST", "/v1/marketplace/hire", json={
             "listing_id": listing_id, "escrow_amount_usdc": escrow_amount_usdc,
         })
+
+
+class _ComplianceAPI:
+    def __init__(self, client: XorbClient):
+        self._c = client
+
+    def report(self, agent_id: str, framework: str = 'eu-ai-act') -> dict:
+        return self._c._request("GET", f"/v1/compliance/{agent_id}?framework={framework}")
+
+    def frameworks(self, agent_id: str) -> dict:
+        return self._c._request("GET", f"/v1/compliance/{agent_id}/frameworks")
+
+
+class _EventsAPI:
+    def __init__(self, client: XorbClient):
+        self._c = client
+
+    def list(self, agent_id: Optional[str] = None, limit: int = 50) -> dict:
+        params = [f"limit={limit}"]
+        if agent_id:
+            params.append(f"agent_id={agent_id}")
+        qs = "?" + "&".join(params)
+        return self._c._request("GET", f"/v1/events{qs}")
+
+    def stream(self, since: Optional[str] = None, agent_id: Optional[str] = None) -> dict:
+        params = []
+        if since:
+            params.append(f"since={since}")
+        if agent_id:
+            params.append(f"agent_id={agent_id}")
+        qs = "?" + "&".join(params) if params else ""
+        return self._c._request("GET", f"/v1/events/stream{qs}")
+
+
+class _PaymentsAPI:
+    def __init__(self, client: XorbClient):
+        self._c = client
+
+    def usage(self) -> dict:
+        return self._c._request("GET", "/v1/billing/usage")
+
+    def wallet_status(self) -> dict:
+        return self._c._request("GET", "/v1/billing/wallet-status")
+
+    def history(self, limit: int = 50) -> dict:
+        return self._c._request("GET", f"/v1/billing/payments?limit={limit}")
+
+    def receipt(self, action_id: str) -> dict:
+        return self._c._request("GET", f"/v1/billing/payments/{action_id}/receipt")
+
+    def set_spending_caps(self, daily: Optional[int] = None, monthly: Optional[int] = None) -> dict:
+        body: dict = {}
+        if daily is not None:
+            body['daily_spend_cap_usdc'] = daily
+        if monthly is not None:
+            body['monthly_spend_cap_usdc'] = monthly
+        return self._c._request("PUT", "/v1/billing/spending-caps", json=body)
 
 
 def _parse_agent(data: dict) -> Agent:
