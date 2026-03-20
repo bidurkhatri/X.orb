@@ -1,12 +1,14 @@
-import type {
-  XorbConfig, Agent, CreateAgentParams, ExecuteActionParams,
-  PipelineResult, ReputationInfo, WebhookSubscription, AuditLog,
-  PricingEndpoint, XorbError,
+import {
+  XORB_DEFAULT_API_URL, XORB_FALLBACK_API_URL,
+  type XorbConfig, type Agent, type CreateAgentParams, type ExecuteActionParams,
+  type PipelineResult, type ReputationInfo, type WebhookSubscription, type AuditLog,
+  type PricingEndpoint, type XorbError,
 } from './types'
 import type { PaymentSigner } from './payment'
 
 export class XorbClient {
   private baseUrl: string
+  private fallbackUrl: string | null
   private apiKey: string
   private timeout: number
   /** Optional x402 payment signer for automatic payment header generation */
@@ -23,7 +25,8 @@ export class XorbClient {
   public payments: PaymentsAPI
 
   constructor(config: XorbConfig & { signer?: PaymentSigner }) {
-    this.baseUrl = config.apiUrl.replace(/\/$/, '')
+    this.baseUrl = (config.apiUrl || XORB_DEFAULT_API_URL).replace(/\/$/, '')
+    this.fallbackUrl = config.disableFallback ? null : XORB_FALLBACK_API_URL
     this.apiKey = config.apiKey
     this.timeout = config.timeout || 30000
     this.signer = config.signer
@@ -40,7 +43,6 @@ export class XorbClient {
   }
 
   async request<T>(method: string, path: string, body?: unknown, retries = 3, _paymentHeader?: string): Promise<T> {
-    const url = `${this.baseUrl}${path}`
     const headers: Record<string, string> = {
       'x-api-key': this.apiKey,
       'Content-Type': 'application/json',
@@ -49,41 +51,51 @@ export class XorbClient {
     // Use x402 v2 payment fetch if signer is configured (handles 402 automatically)
     const fetchFn = this.signer ? await this.signer.getPaymentFetch() : fetch
 
+    // Try primary URL, then fallback if primary is unreachable (network/DNS errors only)
+    const urlsToTry = this.fallbackUrl && this.baseUrl !== this.fallbackUrl
+      ? [this.baseUrl, this.fallbackUrl]
+      : [this.baseUrl]
+
     let lastError: Error | null = null
-    for (let attempt = 0; attempt < retries; attempt++) {
-      try {
-        const res = await fetchFn(url, {
-          method,
-          headers,
-          body: body ? JSON.stringify(body) : undefined,
-          signal: AbortSignal.timeout(this.timeout),
-        })
 
-        const raw = await res.json()
+    for (const base of urlsToTry) {
+      const url = `${base}${path}`
 
-        // Unwrap standard envelope: { success, data, error }
-        const envelope = raw as { success?: boolean; data?: unknown; error?: { code: string; message: string } }
+      for (let attempt = 0; attempt < retries; attempt++) {
+        try {
+          const res = await fetchFn(url, {
+            method,
+            headers,
+            body: body ? JSON.stringify(body) : undefined,
+            signal: AbortSignal.timeout(this.timeout),
+          })
 
-        if (!res.ok) {
-          const message = envelope.error?.message || (raw as XorbError).error || 'Request failed'
-          const apiError = new XorbAPIError(message, res.status, (raw as XorbError).request_id)
-          if (res.status < 500) throw apiError
-          lastError = apiError
-        } else {
-          // Unwrap: if response has { success, data }, return data; otherwise return raw
-          const result = envelope.success !== undefined && envelope.data !== undefined
-            ? envelope.data
-            : raw
-          return result as T
+          const raw = await res.json()
+
+          // Unwrap standard envelope: { success, data, error }
+          const envelope = raw as { success?: boolean; data?: unknown; error?: { code: string; message: string } }
+
+          if (!res.ok) {
+            const message = envelope.error?.message || (raw as XorbError).error || 'Request failed'
+            const apiError = new XorbAPIError(message, res.status, (raw as XorbError).request_id)
+            if (res.status < 500) throw apiError
+            lastError = apiError
+          } else {
+            // Unwrap: if response has { success, data }, return data; otherwise return raw
+            const result = envelope.success !== undefined && envelope.data !== undefined
+              ? envelope.data
+              : raw
+            return result as T
+          }
+        } catch (err) {
+          if (err instanceof XorbAPIError && err.status < 500) throw err
+          lastError = err instanceof Error ? err : new Error(String(err))
         }
-      } catch (err) {
-        if (err instanceof XorbAPIError && err.status < 500) throw err
-        lastError = err instanceof Error ? err : new Error(String(err))
-      }
 
-      // Exponential backoff before retry
-      if (attempt < retries - 1) {
-        await new Promise(r => setTimeout(r, Math.pow(2, attempt) * 500))
+        // Exponential backoff before retry
+        if (attempt < retries - 1) {
+          await new Promise(r => setTimeout(r, Math.pow(2, attempt) * 500))
+        }
       }
     }
 

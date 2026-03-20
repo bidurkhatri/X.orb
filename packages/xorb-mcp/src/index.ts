@@ -3,7 +3,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod'
 
-const XORB_API_URL = process.env.XORB_API_URL || 'https://api.xorb.xyz'
+const XORB_API_URL = process.env.XORB_API_URL || 'https://x.orb'
 const XORB_API_KEY = process.env.XORB_API_KEY || ''
 const AGENT_ID = process.env.XORB_AGENT_ID || ''
 

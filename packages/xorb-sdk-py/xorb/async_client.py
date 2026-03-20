@@ -3,6 +3,7 @@
 import httpx
 from typing import Optional, Any
 from .types import Agent, PipelineResult, GateResult, ReputationInfo, WebhookSubscription
+from .client import XORB_DEFAULT_API_URL, XORB_FALLBACK_API_URL
 
 
 class XorbAPIError(Exception):
@@ -18,7 +19,8 @@ class AsyncXorbClient:
     """Async client for the X.orb API.
 
     Usage:
-        async with AsyncXorbClient(api_url="https://api.xorb.xyz", api_key="xorb_sk_...") as client:
+        # Web3-native: defaults to x.orb (HNS gateway), falls back to api.xorb.xyz
+        async with AsyncXorbClient(api_key="xorb_sk_...") as client:
             agent = await client.agents.register(
                 name="research-bot",
                 role="RESEARCHER",
@@ -31,9 +33,17 @@ class AsyncXorbClient:
             )
     """
 
-    def __init__(self, api_url: str, api_key: str, timeout: float = 30.0):
-        self.base_url = api_url.rstrip("/")
+    def __init__(
+        self,
+        api_key: str,
+        api_url: Optional[str] = None,
+        timeout: float = 30.0,
+        disable_fallback: bool = False,
+    ):
+        self.base_url = (api_url or XORB_DEFAULT_API_URL).rstrip("/")
+        self._fallback_url = None if disable_fallback else XORB_FALLBACK_API_URL
         self.api_key = api_key
+        self._timeout = timeout
         self._http = httpx.AsyncClient(
             base_url=self.base_url,
             headers={"x-api-key": api_key, "Content-Type": "application/json"},
@@ -50,15 +60,34 @@ class AsyncXorbClient:
         self.payments = _AsyncPaymentsAPI(self)
 
     async def _request(self, method: str, path: str, json: Any = None) -> dict:
-        res = await self._http.request(method, path, json=json)
-        data = res.json()
-        if res.status_code >= 400:
-            raise XorbAPIError(
-                data.get("error", "Request failed"),
-                res.status_code,
-                data.get("request_id"),
-            )
-        return data
+        try:
+            res = await self._http.request(method, path, json=json)
+            data = res.json()
+            if res.status_code >= 400:
+                raise XorbAPIError(
+                    data.get("error", "Request failed"),
+                    res.status_code,
+                    data.get("request_id"),
+                )
+            return data
+        except (httpx.ConnectError, httpx.TimeoutException):
+            # Primary URL unreachable — try fallback (api.xorb.xyz)
+            if self._fallback_url and self.base_url != self._fallback_url:
+                async with httpx.AsyncClient(
+                    base_url=self._fallback_url,
+                    headers={"x-api-key": self.api_key, "Content-Type": "application/json"},
+                    timeout=self._timeout,
+                ) as fallback:
+                    res = await fallback.request(method, path, json=json)
+                    data = res.json()
+                    if res.status_code >= 400:
+                        raise XorbAPIError(
+                            data.get("error", "Request failed"),
+                            res.status_code,
+                            data.get("request_id"),
+                        )
+                    return data
+            raise
 
     async def health(self) -> dict:
         return await self._request("GET", "/v1/health")

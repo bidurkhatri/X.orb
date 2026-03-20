@@ -43,7 +43,7 @@ const app = new Hono<Env>()
 // Global middleware
 app.use('*', cors({
   origin: (origin) => {
-    const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'https://dashboard.xorb.xyz,http://localhost:5173,http://localhost:3000').split(',')
+    const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'https://dashboard.xorb.xyz,https://x.orb,http://localhost:5173,http://localhost:3000').split(',')
     if (!origin) return allowedOrigins[0] // Non-browser requests
     return allowedOrigins.includes(origin) ? origin : null
   },

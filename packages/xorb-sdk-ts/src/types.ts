@@ -1,7 +1,15 @@
+/** Default API endpoint — x.orb is the primary agent-facing domain */
+export const XORB_DEFAULT_API_URL = 'https://x.orb'
+/** Fallback API endpoint — traditional DNS, always reachable */
+export const XORB_FALLBACK_API_URL = 'https://api.xorb.xyz'
+
 export interface XorbConfig {
-  apiUrl: string
+  /** API endpoint. Defaults to x.orb (HNS gateway). Falls back to api.xorb.xyz if unreachable. */
+  apiUrl?: string
   apiKey: string
   timeout?: number
+  /** Disable automatic fallback to api.xorb.xyz if x.orb is unreachable. Default: false */
+  disableFallback?: boolean
 }
 
 export type AgentRole = 'TRADER' | 'RESEARCHER' | 'MONITOR' | 'CODER' | 'GOVERNANCE_ASSISTANT' | 'FILE_INDEXER' | 'RISK_AUDITOR'

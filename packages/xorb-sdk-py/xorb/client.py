@@ -4,6 +4,11 @@ import httpx
 from typing import Optional, Any
 from .types import Agent, PipelineResult, GateResult, ReputationInfo, WebhookSubscription
 
+# Default API endpoint — x.orb is the primary agent-facing domain
+XORB_DEFAULT_API_URL = "https://x.orb"
+# Fallback API endpoint — traditional DNS, always reachable
+XORB_FALLBACK_API_URL = "https://api.xorb.xyz"
+
 
 class XorbAPIError(Exception):
     """Error from X.orb API."""
@@ -18,6 +23,10 @@ class XorbClient:
     """Client for the X.orb API.
 
     Usage:
+        # Web3-native: defaults to x.orb (HNS gateway), falls back to api.xorb.xyz
+        client = XorbClient(api_key="xorb_sk_...")
+
+        # Or explicit URL:
         client = XorbClient(api_url="https://api.xorb.xyz", api_key="xorb_sk_...")
 
         # Register an agent
@@ -41,9 +50,17 @@ class XorbClient:
             print(f"Blocked at gate: {failed.gate} — {failed.reason}")
     """
 
-    def __init__(self, api_url: str, api_key: str, timeout: float = 30.0):
-        self.base_url = api_url.rstrip("/")
+    def __init__(
+        self,
+        api_key: str,
+        api_url: Optional[str] = None,
+        timeout: float = 30.0,
+        disable_fallback: bool = False,
+    ):
+        self.base_url = (api_url or XORB_DEFAULT_API_URL).rstrip("/")
+        self._fallback_url = None if disable_fallback else XORB_FALLBACK_API_URL
         self.api_key = api_key
+        self._timeout = timeout
         self._http = httpx.Client(
             base_url=self.base_url,
             headers={"x-api-key": api_key, "Content-Type": "application/json"},
@@ -60,15 +77,37 @@ class XorbClient:
         self.payments = _PaymentsAPI(self)
 
     def _request(self, method: str, path: str, json: Any = None) -> dict:
-        res = self._http.request(method, path, json=json)
-        data = res.json()
-        if res.status_code >= 400:
-            raise XorbAPIError(
-                data.get("error", "Request failed"),
-                res.status_code,
-                data.get("request_id"),
-            )
-        return data
+        try:
+            res = self._http.request(method, path, json=json)
+            data = res.json()
+            if res.status_code >= 400:
+                raise XorbAPIError(
+                    data.get("error", "Request failed"),
+                    res.status_code,
+                    data.get("request_id"),
+                )
+            return data
+        except (httpx.ConnectError, httpx.TimeoutException):
+            # Primary URL unreachable — try fallback (api.xorb.xyz)
+            if self._fallback_url and self.base_url != self._fallback_url:
+                fallback = httpx.Client(
+                    base_url=self._fallback_url,
+                    headers={"x-api-key": self.api_key, "Content-Type": "application/json"},
+                    timeout=self._timeout,
+                )
+                try:
+                    res = fallback.request(method, path, json=json)
+                    data = res.json()
+                    if res.status_code >= 400:
+                        raise XorbAPIError(
+                            data.get("error", "Request failed"),
+                            res.status_code,
+                            data.get("request_id"),
+                        )
+                    return data
+                finally:
+                    fallback.close()
+            raise
 
     def health(self) -> dict:
         return self._request("GET", "/v1/health")
